@@ -170,6 +170,29 @@
     finally { converting = false; }
   }
 
+  // optional AI (only when enabled in Settings on the Mac)
+  let aiProposal = $state<string | null>(null);
+  let aiBusy = $state(false);
+  let asking = $state(false);
+  let question = $state('');
+  let answer = $state('');
+  async function aiTidy() {
+    if (!requireWrite() || !entry) return;
+    aiBusy = true;
+    try { aiProposal = (await api('POST', '/api/ai/tidy', { markdown: entry.raw ?? '' })).markdown; }
+    catch (e: any) { toast(e.message, 'error'); }
+    finally { aiBusy = false; }
+  }
+  async function aiAsk(e: Event) {
+    e.preventDefault();
+    if (!question.trim() || !entry) return;
+    aiBusy = true;
+    answer = '';
+    try { answer = (await api('POST', '/api/ai/ask', { markdown: entry.raw ?? '', question })).answer; }
+    catch (err: any) { toast(err.message, 'error'); }
+    finally { aiBusy = false; }
+  }
+
   function doPrint() {
     if (app.session.shell) shell('print');
     else window.print();
@@ -182,6 +205,9 @@
     ];
     if (canWrite()) items.unshift({ label: 'Rename…', run: () => rename(path) }, { label: 'Move to…', run: () => moveDialog(path) });
     if (app.session.shell) items.push({ label: 'Show in Finder', run: () => shell('reveal', { path }) });
+    if (app.session.ai && canWrite() && entry?.kind === 'note') {
+      items.push({ label: '✨ Tidy formatting with AI…', run: aiTidy }, { label: '✨ Ask AI about this recipe…', run: () => { asking = true; } });
+    }
     if (canWrite()) items.push({ label: 'Move to trash', run: () => remove(path), danger: true } as any);
     openMenu(e, items);
   }
@@ -271,6 +297,14 @@
         {#if mode !== 'edit'}
           <article class="reader">
             {#if mode === 'read'}<Properties {entry} editable={canWrite()} onchange={saveRaw} />{/if}
+            {#if asking && mode === 'read'}
+              <form class="ask card no-print" onsubmit={aiAsk}>
+                <div class="row"><input class="field grow" placeholder="Ask about this recipe — e.g. can I make it the day before?" bind:value={question} />
+                  <button class="btn primary" disabled={aiBusy || !question.trim()}>{aiBusy ? 'Thinking…' : 'Ask'}</button>
+                  <button type="button" class="btn ghost icon" aria-label="Close" onclick={() => { asking = false; answer = ''; }}><Icon name="x" /></button></div>
+                {#if answer}<div class="prose answer">{@html renderMarkdown(answer, path)}</div>{/if}
+              </form>
+            {/if}
             <div class="prose">{@html html}</div>
             {#if mode === 'read' && origPdf && !entry.recipe}
               {#if canWrite()}<p class="no-print"><button class="btn" disabled={converting} onclick={() => convertPdf(origPdf!)}>Convert to an editable recipe…</button></p>{/if}
@@ -294,6 +328,11 @@
     {/if}
   </div>
 
+  {#if aiProposal !== null}
+    <Merge theirs={entry.raw ?? ''} mine={aiProposal} leftLabel="Current recipe" rightLabel="AI suggestion (edit freely)" accept="Save suggestion"
+      onaccept={(t) => { aiProposal = null; saveRaw(t); }} oncancel={() => (aiProposal = null)} />
+  {/if}
+  {#if aiBusy && !asking}<div class="busy" role="status">Asking AI…</div>{/if}
   {#if comparing && conflict}
     <Merge theirs={conflict.theirs} mine={draft} leftLabel="Version saved elsewhere" onaccept={(t) => { draft = t; keepMine(); }} oncancel={() => (comparing = false)} />
   {/if}
@@ -325,6 +364,10 @@
   .edtools { gap: 10px; }
   .split .reader { max-height: calc(100vh - 110px); overflow-y: auto; padding-right: 8px; }
   .ftitle { margin: 6px 0 14px; }
+  .ask { padding: 10px 12px; margin-bottom: 16px; max-width: 760px; display: grid; gap: 8px; }
+  .ask .grow { flex: 1; min-width: 200px; }
+  .answer { font-size: 15px; }
+  .busy { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.25); display: grid; place-items: center; color: #fff; font-size: 18px; z-index: 70; }
   .full { max-width: 100%; border-radius: var(--radius); }
   @media (max-width: 899px) {
     .page { padding: 6px 14px 96px; }

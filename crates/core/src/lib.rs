@@ -1,3 +1,4 @@
+pub mod ai;
 pub mod auth;
 pub mod extract;
 pub mod fetch;
@@ -34,6 +35,7 @@ pub fn extra_routes() -> Router<Arc<AppState>> {
         .route("/api/setup/trust-local", post(trust_local))
         .route("/ca.crt", get(lan::ca_cert))
         .merge(import::routes())
+        .merge(ai::routes())
 }
 
 async fn trust_local(State(s): State<Arc<AppState>>, caller: Caller) -> Result<Response, Response> {
@@ -56,7 +58,7 @@ pub fn pdf_text() -> Option<vault::PdfText> {
 }
 
 pub fn ai_key_set(_: &AppState) -> bool {
-    false
+    ai::key_set()
 }
 
 /// React to settings changes: start/stop network sharing, keep-awake.
