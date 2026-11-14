@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Set up Recipes</title>
+<style>
+  :root { --bg:#fafaf8; --surface:#fff; --border:#e5e5e0; --text:#1a1a18; --muted:#6b6b66; --accent:#d97706; --soft:#ffe5cc; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141412; --surface:#1e1e1c; --border:#2e2e2a; --text:#f0f0ec; --muted:#9a9a94; --soft:#3a2c18; } }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.55 system-ui,-apple-system,sans-serif; }
+  main { max-width:640px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-family:ui-serif,"New York",Georgia,serif; font-size:28px; margin:0 0 6px; }
+  h2 { font-size:18px; margin:28px 0 8px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin:12px 0; }
+  .btn { display:inline-block; background:var(--accent); color:#fff; text-decoration:none; padding:12px 18px; border-radius:10px; font-weight:600; }
+  .ok { background:var(--soft); border-color:var(--accent); }
+  ol { padding-left:22px; } li { margin:6px 0; }
+  details { margin:8px 0; } summary { cursor:pointer; font-weight:600; padding:6px 0; }
+  .muted { color:var(--muted); font-size:14px; }
+  code { font-size:12px; overflow-wrap:anywhere; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🍳 Set up Recipes</h1>
+  <p class="muted">Do this once on each phone, tablet or computer. Afterwards the family recipes open securely at <b>https://recipes.local</b> and can be added to the home screen like an app.</p>
+
+  <div id="ready" class="card ok" hidden>
+    <b>This device is already set up.</b>
+    <p><a class="btn" id="open" href="#">Open Recipes</a></p>
+  </div>
+
+  <h2>1. Download the Recipes certificate</h2>
+  <div class="card">
+    <p><a class="btn" href="/ca.crt">Download certificate</a></p>
+    <p class="muted">It lets this device recognise the Recipes app on your Mac. It only works for recipes.local and home-network addresses, nothing else.</p>
+  </div>
+
+  <h2>2. Trust it</h2>
+  <details id="ios"><summary>iPhone or iPad</summary>
+    <ol>
+      <li>Open this page in <b>Safari</b> and tap <b>Download certificate</b>, then <b>Allow</b>.</li>
+      <li>Open the <b>Settings</b> app → tap <b>Profile Downloaded</b> near the top → <b>Install</b> → enter your passcode → <b>Install</b>.</li>
+      <li>Go to <b>Settings → General → About → Certificate Trust Settings</b> and switch on the <b>Recipes on …</b> certificate.</li>
+    </ol>
+  </details>
+  <details id="android"><summary>Android</summary>
+    <ol>
+      <li>Tap <b>Download certificate</b>.</li>
+      <li>Open <b>Settings → Security &amp; privacy → More security settings → Encryption &amp; credentials → Install a certificate → CA certificate</b> (the wording differs a little by phone; search Settings for “CA certificate”).</li>
+      <li>Tap <b>Install anyway</b> and pick <b>Recipes-CA.crt</b> from Downloads.</li>
+    </ol>
+  </details>
+  <details id="mac"><summary>Another Mac</summary>
+    <ol>
+      <li>Download the certificate and double-click it; it opens in <b>Keychain Access</b>.</li>
+      <li>Double-click <b>Recipes on …</b>, open <b>Trust</b>, set <b>When using this certificate</b> to <b>Always Trust</b>, close and enter your password.</li>
+    </ol>
+  </details>
+  <details id="windows"><summary>Windows</summary>
+    <ol>
+      <li>Download and open the certificate → <b>Install Certificate…</b> → <b>Current User</b>.</li>
+      <li>Choose <b>Place all certificates in the following store</b> → <b>Trusted Root Certification Authorities</b> → Finish → Yes.</li>
+    </ol>
+  </details>
+
+  <h2>3. Open Recipes and add it to your home screen</h2>
+  <div class="card">
+    <p><a class="btn" id="go" href="#">Open https://recipes.local</a></p>
+    <p class="muted">iPhone/iPad: Share button → <b>Add to Home Screen</b>. Android: ⋮ menu → <b>Install app</b>. It then opens full-screen and keeps working for reading while the Mac is asleep.</p>
+  </div>
+
+  <p class="muted">To check the certificate is genuine, compare its fingerprint with the one shown in the Recipes app on the Mac (Settings):<br><code>SHA-256 {{FINGERPRINT}}</code></p>
+</main>
+<script>
+  var target = 'https://' + location.hostname + '{{HTTPS_PORT}}/';
+  document.getElementById('go').href = target;
+  document.getElementById('open').href = target;
+  var ua = navigator.userAgent;
+  var id = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'ios'
+    : /Android/.test(ua) ? 'android' : /Mac/.test(ua) ? 'mac' : /Windows/.test(ua) ? 'windows' : '';
+  if (id) document.getElementById(id).open = true;
+  fetch(target + 'api/ping', { mode: 'no-cors', cache: 'no-store' })
+    .then(function () { document.getElementById('ready').hidden = false; })
+    .catch(function () {});
+</script>
+</body>
+</html>

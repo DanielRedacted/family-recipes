@@ -122,7 +122,7 @@ impl AppState {
                 host == format!("127.0.0.1:{port}") || host == format!("localhost:{port}")
             }
             Listener::Lan => {
-                let h = host.strip_suffix(":443").unwrap_or(host);
+                let h = host.rsplit_once(':').filter(|(_, p)| p.chars().all(|c| c.is_ascii_digit())).map_or(host, |(h, _)| h);
                 self.lan_hosts.read().unwrap().iter().any(|x| x == h)
             }
         }

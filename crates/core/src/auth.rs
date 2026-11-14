@@ -134,7 +134,14 @@ impl Caller {
 /// Host allow-list (blocks DNS rebinding), CSRF header + Origin check on mutations, role extension.
 pub async fn guard(State(state): State<Arc<AppState>>, mut req: Request, next: Next) -> Response {
     let listener = req.extensions().get::<Listener>().copied().unwrap_or(Listener::Lan);
-    let host = req.headers().get(header::HOST).and_then(|h| h.to_str().ok()).unwrap_or("").to_lowercase();
+    // HTTP/2 carries the host in the :authority pseudo-header (the URI), HTTP/1.1 in Host
+    let host = req
+        .uri()
+        .authority()
+        .map(|a| a.as_str().to_string())
+        .or_else(|| req.headers().get(header::HOST).and_then(|h| h.to_str().ok()).map(str::to_string))
+        .unwrap_or_default()
+        .to_lowercase();
     if !state.host_allowed(&host, listener) {
         return (StatusCode::MISDIRECTED_REQUEST, "unknown host").into_response();
     }

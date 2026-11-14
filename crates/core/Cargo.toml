@@ -33,3 +33,8 @@ base64 = "0.22"
 hmac = "0.12"
 argon2 = "0.5"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+rcgen = { version = "0.14", features = ["pem", "x509-parser"] }
+axum-server = { version = "0.8", features = ["tls-rustls"] }
+if-addrs = "0.15"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+time = "0.3"

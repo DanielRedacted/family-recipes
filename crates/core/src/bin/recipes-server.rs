@@ -8,11 +8,12 @@ async fn main() -> anyhow::Result<()> {
         tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
     ).init();
     let mut args = std::env::args().skip(1);
-    let (mut vault, mut data, mut port) = (None, None, 8640u16);
+    let (mut vault, mut data, mut port, mut lan) = (None, None, 8640u16, false);
     while let Some(a) = args.next() {
         match a.as_str() {
             "--vault" => vault = args.next().map(PathBuf::from),
             "--data" => data = args.next().map(PathBuf::from),
+            "--lan" => lan = true,
             "--port" => port = args.next().and_then(|p| p.parse().ok()).unwrap_or(port),
             _ => anyhow::bail!("unknown argument {a}"),
         }
@@ -25,5 +26,12 @@ async fn main() -> anyhow::Result<()> {
     let port = l.local_addr()?.port();
     state.loopback_port.store(port, std::sync::atomic::Ordering::Relaxed);
     println!("Recipes: http://127.0.0.1:{port}/auth?k={}", state.launch_token);
-    server::serve(server::router(state), l, Listener::Loopback).await
+    if !lan {
+        state.settings.write().unwrap().lan = false;
+    }
+    let app = recipes_core::start_network(state.clone()).await;
+    if lan {
+        println!("Network: {:?}", state.ext.lan.status.read().unwrap().url);
+    }
+    server::serve(app, l, Listener::Loopback).await
 }
