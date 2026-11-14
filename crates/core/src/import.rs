@@ -11,7 +11,7 @@ use axum::Json;
 use axum::extract::{Multipart, Path as AxPath, State};
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{delete, get, post};
+use axum::routing::{get, post};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -21,6 +21,20 @@ use std::time::{Duration, Instant};
 
 type St = State<Arc<AppState>>;
 type Res = Result<Response, Response>;
+
+#[derive(Clone, Serialize)]
+struct LogStep {
+    ms: u64,
+    step: String,
+    detail: String,
+    ok: bool,
+}
+
+enum Status {
+    Running,
+    Ready(serde_json::Value),
+    Failed(String),
+}
 
 pub struct Job {
     created: Instant,
@@ -32,6 +46,14 @@ pub struct Job {
     original: Option<(String, Vec<u8>)>,
     /// original already in the vault (PDF converted from the viewer)
     original_path: Option<String>,
+    status: Status,
+    log: Vec<LogStep>,
+}
+
+impl Job {
+    fn new(source_url: Option<String>, original_path: Option<String>) -> Self {
+        Job { created: Instant::now(), source_url, images: vec![], bytes: HashMap::new(), original: None, original_path, status: Status::Running, log: vec![] }
+    }
 }
 
 pub struct Jobs {
@@ -47,13 +69,81 @@ impl Jobs {
         let id = crate::auth::random_token()[..16].to_string();
         let mut m = self.map.lock().unwrap();
         m.retain(|_, j| j.created.elapsed() < Duration::from_secs(1800));
-        while m.len() >= 20 {
+        while m.len() >= 40 {
             let oldest = m.iter().min_by_key(|(_, j)| j.created).map(|(k, _)| k.clone()).unwrap();
             m.remove(&oldest);
         }
         m.insert(id.clone(), job);
         id
     }
+}
+
+/// Appends timed steps to a job's log (shown in the import screen, for debugging).
+#[derive(Clone)]
+struct Log {
+    s: Arc<AppState>,
+    id: String,
+    t0: Instant,
+}
+
+impl Log {
+    fn step(&self, step: &str, detail: impl Into<String>, ok: bool) {
+        if let Some(j) = self.s.ext.jobs.map.lock().unwrap().get_mut(&self.id) {
+            j.log.push(LogStep { ms: self.t0.elapsed().as_millis() as u64, step: step.into(), detail: detail.into(), ok });
+        }
+    }
+}
+
+/// What a finished import hands to the review screen.
+struct Prepared {
+    draft: extract::Draft,
+    bytes: HashMap<usize, (Vec<u8>, &'static str)>,
+    original: Option<(String, Vec<u8>)>,
+    original_name: Option<String>,
+}
+
+impl From<extract::Draft> for Prepared {
+    fn from(draft: extract::Draft) -> Self {
+        Prepared { draft, bytes: HashMap::new(), original: None, original_name: None }
+    }
+}
+
+/// Start an import in the background; the client polls `GET /api/import/{job}`.
+fn spawn<F>(s: &Arc<AppState>, job: Job, work: impl FnOnce(Log) -> F) -> String
+where
+    F: std::future::Future<Output = Result<Prepared, String>> + Send + 'static,
+{
+    let id = s.ext.jobs.insert(job);
+    let log = Log { s: s.clone(), id: id.clone(), t0: Instant::now() };
+    let fut = work(log.clone());
+    tokio::spawn(async move {
+        let result = fut.await;
+        let s = &log.s;
+        match result {
+            Ok(p) => {
+                for (step, detail, ok) in &p.draft.trace {
+                    log.step(step, detail.clone(), *ok);
+                }
+                let source = s.ext.jobs.map.lock().unwrap().get(&log.id).and_then(|j| j.source_url.clone());
+                let body = response_json(s, &log.id, &p.draft, source.as_deref(), p.original_name.as_deref());
+                let n = body["issues"].as_array().map_or(0, Vec::len);
+                log.step("check", format!("{n} thing(s) to check"), n == 0);
+                if let Some(j) = s.ext.jobs.map.lock().unwrap().get_mut(&log.id) {
+                    j.images = p.draft.images;
+                    j.bytes = p.bytes;
+                    j.original = p.original;
+                    j.status = Status::Ready(body);
+                }
+            }
+            Err(e) => {
+                log.step("failed", e.clone(), false);
+                if let Some(j) = s.ext.jobs.map.lock().unwrap().get_mut(&log.id) {
+                    j.status = Status::Failed(e);
+                }
+            }
+        }
+    });
+    id
 }
 
 pub fn routes() -> axum::Router<Arc<AppState>> {
@@ -64,7 +154,25 @@ pub fn routes() -> axum::Router<Arc<AppState>> {
         .route("/api/import/check", post(check))
         .route("/api/import/{job}/image/{i}", get(image))
         .route("/api/import/{job}/save", post(save))
-        .route("/api/import/{job}", delete(cancel))
+        .route("/api/import/{job}", get(status).delete(cancel))
+}
+
+async fn status(State(s): St, caller: Caller, AxPath(job): AxPath<String>) -> Res {
+    caller.need(Role::Writer)?;
+    let m = s.ext.jobs.map.lock().unwrap();
+    let j = m.get(&job).ok_or_else(|| err(StatusCode::NOT_FOUND, "this import expired — start it again"))?;
+    let mut body = match &j.status {
+        Status::Running => json!({ "status": "running" }),
+        Status::Failed(e) => json!({ "status": "failed", "error": e }),
+        Status::Ready(v) => {
+            let mut v = v.clone();
+            v["status"] = json!("ready");
+            v
+        }
+    };
+    body["job"] = json!(job);
+    body["log"] = json!(j.log);
+    Ok(Json(body).into_response())
 }
 
 // ---------- review checks ----------
@@ -185,19 +293,10 @@ struct UrlBody {
     url: String,
 }
 
-fn job_response(state: &AppState, id: &str, d: &extract::Draft, original_name: Option<&str>) -> Response {
-    let dup = state
-        .ext
-        .jobs
-        .map
-        .lock()
-        .unwrap()
-        .get(id)
-        .and_then(|j| j.source_url.clone())
-        .and_then(|u| duplicate_of(state, &u, &d.title))
-        .or_else(|| duplicate_of(state, "", &d.title));
+fn response_json(state: &AppState, id: &str, d: &extract::Draft, source: Option<&str>, original_name: Option<&str>) -> serde_json::Value {
+    let dup = source.and_then(|u| duplicate_of(state, u, &d.title)).or_else(|| duplicate_of(state, "", &d.title));
     let images: Vec<_> = d.images.iter().enumerate().map(|(i, c)| json!({ "i": i, "alt": c.alt, "kind": c.kind, "step": c.step, "url": c.url })).collect();
-    Json(json!({
+    json!({
         "job": id,
         "title": d.title,
         "markdown": d.markdown,
@@ -207,31 +306,63 @@ fn job_response(state: &AppState, id: &str, d: &extract::Draft, original_name: O
         "issues": issues(&d.markdown),
         "duplicate": dup,
         "original": original_name,
-    }))
-    .into_response()
+    })
+}
+
+fn started(id: String) -> Res {
+    Ok((StatusCode::ACCEPTED, Json(json!({ "job": id }))).into_response())
 }
 
 async fn import_url(State(s): St, caller: Caller, Json(b): Json<UrlBody>) -> Res {
     caller.need(Role::Writer)?;
     let u = fetch::check_url(&b.url).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    let page = fetch::get(&u, None, 5 * 1024 * 1024, "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8")
-        .await
-        .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
-    if !page.content_type.is_empty() && !page.content_type.contains("html") && !page.content_type.contains("xml") {
-        return Err(err(StatusCode::UNPROCESSABLE_ENTITY, "that address is not a web page (download the file and import it instead)"));
-    }
-    let html = String::from_utf8_lossy(&page.bytes).into_owned();
-    let final_url = page.url.clone();
-    let d = tokio::task::spawn_blocking(move || extract::from_html(&html, Some(&final_url))).await.unwrap();
-    let id = s.ext.jobs.insert(Job {
-        created: Instant::now(),
-        source_url: Some(page.url.to_string()),
-        images: d.images.clone(),
-        bytes: HashMap::new(),
-        original: None,
-        original_path: None,
+    let id = spawn(&s, Job::new(Some(u.to_string()), None), move |log| async move {
+        let page = fetch::get(&u, None, 5 * 1024 * 1024, "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8").await.map_err(|e| format!("{e:#}"))?;
+        let redirected = if page.url != u { format!(" → {}", page.url) } else { String::new() };
+        log.step("fetch", format!("{} KB, {}{redirected}", page.bytes.len() / 1024, if page.content_type.is_empty() { "no content type" } else { &page.content_type }), true);
+        if page.url != u {
+            if let Some(j) = log.s.ext.jobs.map.lock().unwrap().get_mut(&log.id) {
+                j.source_url = Some(page.url.to_string());
+            }
+        }
+        if !page.content_type.is_empty() && !page.content_type.contains("html") && !page.content_type.contains("xml") {
+            return Err("That address is not a web page (download the file and import it instead).".into());
+        }
+        let html = String::from_utf8_lossy(&page.bytes).into_owned();
+        let rest = match extract::wprm_id(&html) {
+            Some(rid) => wprm_rest(&page.url, rid, &log).await,
+            None => None,
+        };
+        let final_url = page.url.clone();
+        let d = tokio::task::spawn_blocking(move || extract::from_html(&html, Some(&final_url), rest.as_ref())).await.map_err(|e| e.to_string())?;
+        Ok(d.into())
     });
-    Ok(job_response(&s, &id, &d, None))
+    started(id)
+}
+
+/// WP Recipe Maker sites expose the full recipe (equipment, nutrition, groups) as JSON.
+async fn wprm_rest(page: &url::Url, rid: u64, log: &Log) -> Option<serde_json::Value> {
+    let api = page.join(&format!("/wp-json/wp/v2/wprm_recipe/{rid}")).ok()?;
+    match fetch::get(&api, Some(page.as_str()), 2 * 1024 * 1024, "application/json").await {
+        Ok(f) => match serde_json::from_slice::<serde_json::Value>(&f.bytes) {
+            Ok(v) if v["recipe"]["name"].as_str().is_some_and(|n| !n.trim().is_empty()) => {
+                log.step("wprm-rest", format!("recipe {rid} from {}", api.path()), true);
+                Some(v["recipe"].clone())
+            }
+            Ok(_) => {
+                log.step("wprm-rest", format!("recipe {rid}: the site's answer has no recipe data"), false);
+                None
+            }
+            Err(_) => {
+                log.step("wprm-rest", format!("recipe {rid}: the site did not answer with JSON"), false);
+                None
+            }
+        },
+        Err(e) => {
+            log.step("wprm-rest", format!("recipe {rid}: {e:#}"), false);
+            None
+        }
+    }
 }
 
 /// Thumbnail proxy: only serves images the server itself listed for this job.
@@ -511,63 +642,68 @@ async fn import_file(State(s): St, caller: Caller, mp: Multipart) -> Res {
         return Ok(Json(json!({ "path": path })).into_response());
     }
 
-    let mut embedded: Vec<(String, Vec<u8>)> = vec![];
-    let draft = match ext.as_str() {
-        "pdf" => {
-            let text = pdf_text_async(u.bytes.clone()).await.ok_or_else(|| {
-                err(StatusCode::UNPROCESSABLE_ENTITY, "No text could be read from this PDF (it may be a scan). Keep it as a view-only PDF instead.")
-            })?;
-            let md = extract::tidy_text(&text);
-            draft(md, text)
-        }
-        "docx" => {
-            let html = u.html.clone().ok_or_else(|| err(StatusCode::BAD_REQUEST, "missing converted document"))?;
-            let (md, imgs) = extract::from_document_html(&html, &stem);
-            embedded = imgs;
-            let text = extract::clean(&html);
-            draft(md, text)
-        }
-        "doc" | "rtf" | "odt" | "wordml" => {
-            let (b, e) = (u.bytes.clone(), ext.clone());
-            let html = tokio::task::spawn_blocking(move || textutil_html(&b, &e)).await.unwrap().map_err(bad)?;
-            let (md, imgs) = extract::from_document_html(&html, &stem);
-            embedded = imgs;
-            draft(md, extract::clean(&html))
-        }
-        "html" | "htm" => {
-            let html = String::from_utf8_lossy(&u.bytes).into_owned();
-            tokio::task::spawn_blocking(move || extract::from_html(&html, None)).await.unwrap()
-        }
-        "txt" | "md" | "markdown" | "text" => {
-            let t = String::from_utf8_lossy(&u.bytes).into_owned();
-            let md = if t.contains("\n## ") || t.starts_with("# ") { t.clone() } else { extract::tidy_text(&t) };
-            draft(md, t)
-        }
-        _ => return Err(err(StatusCode::UNSUPPORTED_MEDIA_TYPE, "supported files: PDF, Word (.docx/.doc), RTF, web page (.html), text and Markdown")),
-    };
-    let mut d = draft;
-    let mut bytes = HashMap::new();
-    for (mime, b) in embedded {
-        if let Some((_, ext)) = fetch::image_type(&b) {
-            bytes.insert(d.images.len(), (b, ext));
-            d.images.push(Candidate { url: String::new(), alt: mime, kind: "document".into(), step: None });
-        }
+    if !matches!(ext.as_str(), "pdf" | "docx" | "doc" | "rtf" | "odt" | "wordml" | "html" | "htm" | "txt" | "md" | "markdown" | "text") {
+        return Err(err(StatusCode::UNSUPPORTED_MEDIA_TYPE, "supported files: PDF, Word (.docx/.doc), RTF, web page (.html), text and Markdown"));
     }
-    let keep_original = !matches!(ext.as_str(), "txt" | "md" | "markdown" | "text");
-    let id = s.ext.jobs.insert(Job {
-        created: Instant::now(),
-        source_url: None,
-        images: d.images.clone(),
-        bytes,
-        original: keep_original.then(|| (u.name.clone(), u.bytes)),
-        original_path: None,
+    if ext == "docx" && u.html.is_none() {
+        return Err(err(StatusCode::BAD_REQUEST, "missing converted document"));
+    }
+    let id = spawn(&s, Job::new(None, None), move |log| async move {
+        log.step("file", format!("{} ({} KB)", u.name, u.bytes.len() / 1024), true);
+        let mut embedded: Vec<(String, Vec<u8>)> = vec![];
+        let draft = match ext.as_str() {
+            "pdf" => {
+                let text = pdf_text_async(u.bytes.clone())
+                    .await
+                    .ok_or("No text could be read from this PDF (it may be a scan). Keep it as a view-only PDF instead.")?;
+                log.step("pdf-text", format!("{} characters", text.chars().count()), true);
+                let md = extract::tidy_text(&text);
+                draft(md, text)
+            }
+            "docx" => {
+                let html = u.html.clone().unwrap_or_default();
+                let (md, imgs) = extract::from_document_html(&html, &stem);
+                log.step("docx", format!("{} characters of HTML from Word, {} embedded picture(s)", html.len(), imgs.len()), true);
+                embedded = imgs;
+                draft(md, extract::clean(&html))
+            }
+            "html" | "htm" => {
+                let html = String::from_utf8_lossy(&u.bytes).into_owned();
+                tokio::task::spawn_blocking(move || extract::from_html(&html, None, None)).await.map_err(|e| e.to_string())?
+            }
+            "txt" | "md" | "markdown" | "text" => {
+                let t = String::from_utf8_lossy(&u.bytes).into_owned();
+                let structured = t.contains("\n## ") || t.starts_with("# ");
+                log.step("text", if structured { "already Markdown with headings; kept as is" } else { "plain text; headings and bullets added" }, true);
+                let md = if structured { t.clone() } else { extract::tidy_text(&t) };
+                draft(md, t)
+            }
+            _ => {
+                let (b, e) = (u.bytes.clone(), ext.clone());
+                let html = tokio::task::spawn_blocking(move || textutil_html(&b, &e)).await.map_err(|e| e.to_string())?.map_err(|e| format!("{e:#}"))?;
+                let (md, imgs) = extract::from_document_html(&html, &stem);
+                log.step("textutil", format!("macOS converted the document ({} characters, {} picture(s))", html.len(), imgs.len()), true);
+                embedded = imgs;
+                draft(md, extract::clean(&html))
+            }
+        };
+        let mut d = draft;
+        let mut bytes = HashMap::new();
+        for (mime, b) in embedded {
+            if let Some((_, ext)) = fetch::image_type(&b) {
+                bytes.insert(d.images.len(), (b, ext));
+                d.images.push(Candidate { url: String::new(), alt: mime, kind: "document".into(), step: None });
+            }
+        }
+        let keep_original = !matches!(ext.as_str(), "txt" | "md" | "markdown" | "text");
+        Ok(Prepared { draft: d, bytes, original_name: keep_original.then(|| u.name.clone()), original: keep_original.then_some((u.name, u.bytes)) })
     });
-    Ok(job_response(&s, &id, &d, keep_original.then_some(u.name.as_str())))
+    started(id)
 }
 
 fn draft(markdown: String, source_text: String) -> extract::Draft {
     let title = crate::recipe::parse(&markdown).title.unwrap_or_default();
-    extract::Draft { title, markdown, source_text, images: vec![], method: "document".into() }
+    extract::Draft { title, markdown, source_text, images: vec![], method: "document".into(), trace: vec![] }
 }
 
 #[derive(Deserialize)]
@@ -584,17 +720,13 @@ async fn import_from_vault(State(s): St, caller: Caller, Json(b): Json<FromVault
         return Err(err(StatusCode::BAD_REQUEST, "only PDFs can be converted"));
     }
     let bytes = tokio::fs::read(&abs).await.map_err(|e| err(StatusCode::NOT_FOUND, e))?;
-    let text = pdf_text_async(bytes).await.ok_or_else(|| err(StatusCode::UNPROCESSABLE_ENTITY, "No text could be read from this PDF (it may be a scan)."))?;
-    let d = draft(extract::tidy_text(&text), text);
-    let id = s.ext.jobs.insert(Job {
-        created: Instant::now(),
-        source_url: None,
-        images: vec![],
-        bytes: HashMap::new(),
-        original: None,
-        original_path: Some(p.as_str().to_string()),
+    let name = p.name().to_string();
+    let id = spawn(&s, Job::new(None, Some(p.as_str().to_string())), move |log| async move {
+        let text = pdf_text_async(bytes).await.ok_or("No text could be read from this PDF (it may be a scan).")?;
+        log.step("pdf-text", format!("{} characters", text.chars().count()), true);
+        Ok(Prepared { original_name: Some(name), ..draft(extract::tidy_text(&text), text).into() })
     });
-    Ok(job_response(&s, &id, &d, Some(p.name())))
+    started(id)
 }
 
 #[cfg(test)]

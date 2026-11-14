@@ -12,7 +12,8 @@
   import Properties, { setProp } from './Properties.svelte';
   import CookMode from './CookMode.svelte';
   import PdfView from './PdfView.svelte';
-  import { importer } from '../lib/importer.svelte';
+  import Nutrition from './Nutrition.svelte';
+  import { enqueueStarted } from '../lib/importer.svelte';
   import { api } from '../lib/api';
   import { vaultTarget } from '../lib/markdown';
 
@@ -164,7 +165,8 @@
     if (!requireWrite()) return;
     converting = true;
     try {
-      importer.pending = await api('POST', '/api/import/from-vault', { path: pdf });
+      const r = await api('POST', '/api/import/from-vault', { path: pdf });
+      enqueueStarted(nameOf(pdf), r.job);
       go('#/import');
     } catch (e: any) { toast(e.message, 'error'); }
     finally { converting = false; }
@@ -306,6 +308,7 @@
               </form>
             {/if}
             <div class="prose">{@html html}</div>
+            {#if mode === 'read'}<Nutrition data={entry.frontmatter?.nutrition} />{/if}
             {#if mode === 'read' && origPdf && !entry.recipe}
               {#if canWrite()}<p class="no-print"><button class="btn" disabled={converting} onclick={() => convertPdf(origPdf!)}>Convert to an editable recipe…</button></p>{/if}
               <PdfView path={origPdf} />

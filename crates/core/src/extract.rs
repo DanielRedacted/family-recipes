@@ -4,11 +4,14 @@
 //! microdata → readability fallback. Parsing heuristics ported from the old WordPress
 //! importer (recipe-webapp/.../class-jsonld-parser.php, class-wprm-parser.php).
 
+use crate::schema::{self, find_recipe, schema_to_rec};
 use regex::Regex;
 use scraper::{ElementRef, Html, Selector};
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 use std::sync::LazyLock;
+
+pub use crate::schema::iso_duration;
 
 #[derive(Default, Debug, Clone)]
 pub struct Rec {
@@ -21,8 +24,47 @@ pub struct Rec {
     pub total: String,
     pub tags: Vec<String>,
     pub ingredients: Vec<(Option<String>, Vec<String>)>,
+    pub equipment: Vec<String>,
     pub steps: Vec<(Option<String>, Vec<String>)>,
     pub notes: Vec<String>,
+    /// (key, value as written), e.g. ("calories", "320 kcal"); keys listed in docs/FORMAT.md
+    pub nutrition: Vec<(String, String)>,
+}
+
+impl Rec {
+    fn count(g: &[(Option<String>, Vec<String>)]) -> usize {
+        g.iter().map(|x| x.1.len()).sum()
+    }
+    /// Fill whatever this record lacks from `other`.
+    fn fill_from(&mut self, other: &Rec) {
+        for (mine, theirs) in [
+            (&mut self.name, &other.name),
+            (&mut self.description, &other.description),
+            (&mut self.author, &other.author),
+            (&mut self.yield_, &other.yield_),
+            (&mut self.prep, &other.prep),
+            (&mut self.cook, &other.cook),
+            (&mut self.total, &other.total),
+        ] {
+            if mine.is_empty() {
+                *mine = theirs.clone();
+            }
+        }
+        for (mine, theirs) in [(&mut self.ingredients, &other.ingredients), (&mut self.steps, &other.steps)] {
+            if mine.is_empty() {
+                *mine = theirs.clone();
+            }
+        }
+        for (mine, theirs) in [(&mut self.equipment, &other.equipment), (&mut self.notes, &other.notes)] {
+            if mine.is_empty() {
+                *mine = theirs.clone();
+            }
+        }
+        if self.nutrition.is_empty() {
+            self.nutrition = other.nutrition.clone();
+        }
+        schema::add_tags(&mut self.tags, other.tags.clone());
+    }
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -40,8 +82,10 @@ pub struct Draft {
     pub markdown: String,
     pub source_text: String,
     pub images: Vec<Candidate>,
-    /// json-ld | wprm | microdata | page
+    /// wprm-rest | json-ld | wprm | microdata | page | document
     pub method: String,
+    /// what was looked for and found, for the import log: (step, detail, found)
+    pub trace: Vec<(&'static str, String, bool)>,
 }
 
 fn sel(s: &str) -> Selector {
@@ -65,187 +109,12 @@ fn el_text(e: ElementRef) -> String {
     clean(&e.text().collect::<Vec<_>>().join(" "))
 }
 
-// ---------- schema.org (JSON-LD and microdata share this) ----------
+// ---------- schema.org (JSON-LD and microdata share schema.rs) ----------
 
-fn is_recipe(v: &Value) -> bool {
-    let t = |s: &str| s.rsplit(['/', ':']).next() == Some("Recipe");
-    match v.get("@type") {
-        Some(Value::String(s)) => t(s),
-        Some(Value::Array(a)) => a.iter().any(|x| x.as_str().is_some_and(t)),
-        _ => false,
-    }
-}
-
-fn find_recipe(v: &Value, depth: usize) -> Option<&Value> {
-    if depth > 8 {
-        return None;
-    }
-    match v {
-        Value::Array(a) => a.iter().find_map(|x| find_recipe(x, depth + 1)),
-        Value::Object(o) => {
-            if is_recipe(v) {
-                return Some(v);
-            }
-            ["@graph", "mainEntity", "mainEntityOfPage", "itemListElement", "item", "hasPart"]
-                .iter()
-                .filter_map(|k| o.get(*k))
-                .find_map(|x| find_recipe(x, depth + 1))
-        }
-        _ => None,
-    }
-}
-
-fn text(v: &Value) -> String {
-    match v {
-        Value::String(s) => clean(s),
-        Value::Number(n) => n.to_string(),
-        Value::Array(a) => a.iter().map(text).find(|s| !s.is_empty()).unwrap_or_default(),
-        Value::Object(o) => o.get("name").or(o.get("text")).or(o.get("@value")).map(text).unwrap_or_default(),
-        _ => String::new(),
-    }
-}
-
-fn list(v: Option<&Value>) -> Vec<String> {
-    match v {
-        Some(Value::Array(a)) => a.iter().map(text).filter(|s| !s.is_empty()).collect(),
-        Some(Value::String(s)) => s.split(',').map(clean).filter(|s| !s.is_empty()).collect(),
-        Some(x) => vec![text(x)].into_iter().filter(|s| !s.is_empty()).collect(),
-        None => vec![],
-    }
-}
-
-/// PT1H20M / P1DT2H -> "1 day 2 hr" style human text.
-pub fn iso_duration(s: &str) -> String {
-    static RX: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?i)^P(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$").unwrap()
-    });
-    let Some(c) = RX.captures(s.trim()) else { return clean(s) };
-    let n = |i: usize| c.get(i).and_then(|m| m.as_str().parse::<f64>().ok()).unwrap_or(0.0);
-    let total_min = n(1) * 1440.0 + n(2) * 60.0 + n(3) + n(4) / 60.0;
-    let total = total_min.round() as i64;
-    if total <= 0 {
-        return String::new();
-    }
-    let (d, h, m) = (total / 1440, (total % 1440) / 60, total % 60);
-    let mut parts = vec![];
-    if d > 0 {
-        parts.push(format!("{d} day{}", if d > 1 { "s" } else { "" }));
-    }
-    if h > 0 {
-        parts.push(format!("{h} hr"));
-    }
-    if m > 0 {
-        parts.push(format!("{m} min"));
-    }
-    parts.join(" ")
-}
-
-fn instructions(v: Option<&Value>, out: &mut Vec<(Option<String>, Vec<String>)>, images: &mut Vec<Candidate>) {
-    fn walk(v: &Value, group: &Option<String>, out: &mut Vec<(Option<String>, Vec<String>)>, images: &mut Vec<Candidate>) {
-        let push = |out: &mut Vec<(Option<String>, Vec<String>)>, g: &Option<String>, s: String| {
-            if s.is_empty() {
-                return;
-            }
-            match out.last_mut() {
-                Some((lg, items)) if lg == g => items.push(s),
-                _ => out.push((g.clone(), vec![s])),
-            }
-        };
-        match v {
-            Value::String(s) => {
-                // one string: split on line breaks / list items
-                let s = s.replace("</li>", "\n").replace("</p>", "\n");
-                for line in clean_lines(&s) {
-                    push(out, group, line);
-                }
-            }
-            Value::Array(a) => a.iter().for_each(|x| walk(x, group, out, images)),
-            Value::Object(o) => {
-                let ty = o.get("@type").map(text).unwrap_or_default();
-                if ty.ends_with("HowToSection") || (o.contains_key("itemListElement") && !o.contains_key("text")) {
-                    let name = o.get("name").map(text).filter(|s| !s.is_empty());
-                    if let Some(items) = o.get("itemListElement") {
-                        walk(items, &name.or(group.clone()), out, images);
-                    }
-                } else {
-                    let t = o.get("text").map(text).filter(|s| !s.is_empty()).or_else(|| o.get("name").map(text)).unwrap_or_default();
-                    if let Some(img) = o.get("image") {
-                        for u in image_urls(img) {
-                            images.push(Candidate { url: u, alt: String::new(), kind: "step".into(), step: Some(t.chars().take(60).collect()) });
-                        }
-                    }
-                    push(out, group, t);
-                }
-            }
-            _ => {}
-        }
-    }
-    if let Some(v) = v {
-        walk(v, &None, out, images);
-    }
-}
-
-fn clean_lines(s: &str) -> Vec<String> {
-    let frag = Html::parse_fragment(s);
-    let t: String = frag.root_element().text().collect();
-    t.lines().map(|l| WS.replace_all(l.trim(), " ").into_owned()).filter(|l| !l.is_empty()).collect()
-}
-
-pub fn image_urls(v: &Value) -> Vec<String> {
-    match v {
-        Value::String(s) => vec![s.trim().to_string()],
-        Value::Array(a) => a.iter().flat_map(image_urls).collect(),
-        Value::Object(o) => o.get("url").or(o.get("contentUrl")).or(o.get("@id")).map(image_urls).unwrap_or_default(),
-        _ => vec![],
-    }
-}
-
-fn schema_to_rec(r: &Value, images: &mut Vec<Candidate>) -> Rec {
-    let mut rec = Rec {
-        name: r.get("name").map(text).unwrap_or_default(),
-        description: r.get("description").map(text).unwrap_or_default(),
-        ..Default::default()
-    };
-    rec.author = match r.get("author") {
-        Some(Value::Array(a)) => a.iter().map(text).filter(|s| !s.is_empty()).collect::<Vec<_>>().join(", "),
-        Some(x) => text(x),
-        None => String::new(),
-    };
-    rec.yield_ = match r.get("recipeYield").or(r.get("yield")) {
-        // ["48", "4 dozen cookies"] -> prefer the descriptive one
-        Some(Value::Array(a)) => {
-            let all: Vec<String> = a.iter().map(text).filter(|s| !s.is_empty()).collect();
-            all.iter().find(|s| s.chars().any(|c| c.is_alphabetic())).or(all.first()).cloned().unwrap_or_default()
-        }
-        Some(x) => text(x),
-        None => String::new(),
-    };
-    let dur = |k: &str| r.get(k).map(|v| iso_duration(&text(v))).unwrap_or_default();
-    rec.prep = dur("prepTime");
-    rec.cook = dur("cookTime");
-    rec.total = dur("totalTime");
-    if rec.prep.is_empty() {
-        rec.prep = dur("performTime");
-    }
-    let mut tags: Vec<String> = list(r.get("recipeCategory")).into_iter().chain(list(r.get("recipeCuisine"))).map(|t| t.to_lowercase()).collect();
-    tags.dedup();
-    tags.truncate(6);
-    rec.tags = tags;
-    let ings = list(r.get("recipeIngredient").or(r.get("ingredients")));
-    if !ings.is_empty() {
-        rec.ingredients.push((None, ings));
-    }
-    instructions(r.get("recipeInstructions"), &mut rec.steps, images);
-    if let Some(img) = r.get("image").or(r.get("thumbnailUrl")) {
-        for u in image_urls(img) {
-            images.insert(images.iter().filter(|c| c.kind == "recipe").count(), Candidate { url: u, alt: rec.name.clone(), kind: "recipe".into(), step: None });
-        }
-    }
-    rec
-}
-
-fn jsonld(doc: &Html, images: &mut Vec<Candidate>) -> Option<Rec> {
-    for s in doc.select(&sel(r#"script[type="application/ld+json"]"#)) {
+fn jsonld(doc: &Html, images: &mut Vec<Candidate>, trace: &mut Vec<(&'static str, String, bool)>) -> Option<Rec> {
+    let scripts: Vec<_> = doc.select(&sel(r#"script[type="application/ld+json"]"#)).collect();
+    let mut bad = 0;
+    for s in &scripts {
         let raw: String = s.text().collect();
         let raw = raw.trim().trim_start_matches("<!--").trim_end_matches("-->").trim();
         // entities are decoded per value later (decoding first would break the JSON)
@@ -253,13 +122,20 @@ fn jsonld(doc: &Html, images: &mut Vec<Candidate>) -> Option<Rec> {
             Ok(v) => v,
             Err(_) => match serde_json::from_str(&raw.replace(['\n', '\r', '\t'], " ")) {
                 Ok(v) => v,
-                Err(_) => continue,
+                Err(_) => {
+                    bad += 1;
+                    continue;
+                }
             },
         };
         if let Some(r) = find_recipe(&v, 0) {
-            return Some(schema_to_rec(r, images));
+            let rec = schema_to_rec(r, images);
+            trace.push(("json-ld", format!("Recipe found ({} ingredients, {} steps) in {} script(s)", Rec::count(&rec.ingredients), Rec::count(&rec.steps), scripts.len()), true));
+            return Some(rec);
         }
     }
+    let why = if scripts.is_empty() { "no JSON-LD on the page".to_string() } else { format!("{} JSON-LD script(s), no Recipe{}", scripts.len(), if bad > 0 { format!(", {bad} unreadable") } else { String::new() }) };
+    trace.push(("json-ld", why, false));
     None
 }
 
@@ -335,7 +211,38 @@ fn wprm(doc: &Html) -> Option<Rec> {
     }
     let notes = c.select(&sel(".wprm-recipe-notes")).next().map(|n| n.text().collect::<String>()).unwrap_or_default();
     rec.notes = notes.lines().map(|l| WS.replace_all(l.trim(), " ").into_owned()).filter(|l| !l.is_empty()).collect();
+    // times: <span class="wprm-recipe-prep_time-hours">1</span> <span class="…-minutes">20</span>
+    let num = |s: &str| first(s).chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse::<i64>().unwrap_or(0);
+    for (t, slot) in [("prep", &mut rec.prep), ("cook", &mut rec.cook), ("total", &mut rec.total)] {
+        *slot = schema::minutes_text(num(&format!(".wprm-recipe-{t}_time-hours")) * 60 + num(&format!(".wprm-recipe-{t}_time-minutes")));
+    }
+    for e in c.select(&sel(".wprm-recipe-equipment-name")) {
+        let t = el_text(e);
+        if !t.is_empty() && !rec.equipment.contains(&t) {
+            rec.equipment.push(t);
+        }
+    }
+    // nutrition label: .wprm-nutrition-label-text-nutrition-container-<key> > -value + -unit
+    for n in c.select(&sel(".wprm-nutrition-label-text-nutrition-container")) {
+        let Some(key) = n.value().classes().find_map(|k| k.strip_prefix("wprm-nutrition-label-text-nutrition-container-")) else { continue };
+        let part = |s: &str| n.select(&sel(s)).next().map(el_text).unwrap_or_default();
+        let v = part(".wprm-nutrition-label-text-nutrition-value");
+        if !v.is_empty() {
+            let unit = part(".wprm-nutrition-label-text-nutrition-unit");
+            rec.nutrition.push((key.replace('-', "_"), format!("{v} {unit}").trim().to_string()));
+        }
+    }
+    for t in ["course", "cuisine", "keyword"] {
+        schema::add_tags(&mut rec.tags, first(&format!(".wprm-recipe-{t}")).split(',').map(str::to_string));
+    }
     (!rec.ingredients.is_empty()).then_some(rec)
+}
+
+/// WP Recipe Maker recipe id on the page, for the REST lookup.
+pub fn wprm_id(html: &str) -> Option<u64> {
+    static RX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"wprm-recipe-container-(\d+)|data-recipe-id="(\d+)""#).unwrap());
+    let c = RX.captures(html)?;
+    c.get(1).or(c.get(2))?.as_str().parse().ok()
 }
 
 // ---------- images ----------
@@ -420,6 +327,12 @@ pub fn rec_to_markdown(r: &Rec, source: Option<&str>) -> String {
     if !r.tags.is_empty() {
         fm.push(format!("tags: [{}]", r.tags.iter().map(|t| yaml(t)).collect::<Vec<_>>().join(", ")));
     }
+    if !r.nutrition.is_empty() {
+        fm.push("nutrition:".into());
+        for (k, v) in &r.nutrition {
+            fm.push(format!("  {k}: {}", yaml(v)));
+        }
+    }
     let mut md = String::new();
     if !fm.is_empty() {
         md.push_str(&format!("---\n{}\n---\n\n", fm.join("\n")));
@@ -435,6 +348,13 @@ pub fn rec_to_markdown(r: &Rec, source: Option<&str>) -> String {
         }
         for i in items {
             md.push_str(&format!("- {i}\n"));
+        }
+        md.push('\n');
+    }
+    if !r.equipment.is_empty() {
+        md.push_str("## Equipment\n\n");
+        for e in &r.equipment {
+            md.push_str(&format!("- {e}\n"));
         }
         md.push('\n');
     }
@@ -549,42 +469,76 @@ pub fn html_to_markdown(html: &str) -> String {
         .unwrap_or_default()
 }
 
-/// A recipe web page (or saved .html file) -> draft.
-pub fn from_html(html: &str, url: Option<&url::Url>) -> Draft {
+/// A recipe web page (or saved .html file) -> draft. `wprm_rest` is the `recipe` object from
+/// the site's WP Recipe Maker REST endpoint when the caller could fetch it.
+pub fn from_html(html: &str, url: Option<&url::Url>, wprm_rest: Option<&Value>) -> Draft {
     let doc = Html::parse_document(html);
     let mut images = vec![];
+    let mut trace = vec![];
     let (rtitle, rcontent, rtext) = readable(html, url.map(|u| u.as_str()));
     let source = url.map(|u| u.as_str());
+    let summary = |r: &Rec| format!("{} ingredients, {} steps, {} equipment, {} nutrition values", Rec::count(&r.ingredients), Rec::count(&r.steps), r.equipment.len(), r.nutrition.len());
+    let rest = wprm_rest.and_then(|v| schema::wprm_rest(v, &mut images));
     let wp = wprm(&doc);
-    let (rec, method) = match (jsonld(&doc, &mut images), wp) {
-        (Some(mut r), Some(w)) => {
-            // JSON-LD metadata, WPRM's grouped lists
-            if w.ingredients.iter().map(|g| g.1.len()).sum::<usize>() >= r.ingredients.iter().map(|g| g.1.len()).sum::<usize>() {
-                r.ingredients = w.ingredients;
+    match &wp {
+        Some(w) => trace.push(("wprm-html", format!("WP Recipe Maker card: {}", summary(w)), true)),
+        None => trace.push(("wprm-html", "no WP Recipe Maker card".into(), false)),
+    }
+    let ld = jsonld(&doc, &mut images, &mut trace);
+    let (rec, method) = match (rest, ld, wp) {
+        // the site's own recipe data is the fullest; fill gaps from JSON-LD / the card
+        (Some(mut r), ld, wp) => {
+            for other in [ld, wp].into_iter().flatten() {
+                r.fill_from(&other);
             }
-            if !w.steps.is_empty() && w.steps.len() > 1 {
-                r.steps = w.steps;
+            (Some(r), "wprm-rest")
+        }
+        (None, Some(mut r), Some(w)) => {
+            // JSON-LD metadata, WPRM's grouped lists, equipment and nutrition
+            if Rec::count(&w.ingredients) >= Rec::count(&r.ingredients) {
+                r.ingredients = w.ingredients.clone();
             }
-            r.notes = w.notes;
+            if w.steps.len() > 1 {
+                r.steps = w.steps.clone();
+            }
+            r.notes = w.notes.clone();
+            if !w.equipment.is_empty() {
+                r.equipment = w.equipment.clone();
+            }
+            if !w.nutrition.is_empty() {
+                r.nutrition = w.nutrition.clone();
+            }
+            r.fill_from(&w);
             (Some(r), "json-ld")
         }
-        (Some(r), None) => (Some(r), "json-ld"),
-        (None, Some(w)) => (Some(w), "wprm"),
-        (None, None) => match microdata(&doc, &mut images) {
-            Some(r) => (Some(r), "microdata"),
-            None => (None, "page"),
+        (None, Some(r), None) => (Some(r), "json-ld"),
+        (None, None, Some(w)) => (Some(w), "wprm"),
+        (None, None, None) => match microdata(&doc, &mut images) {
+            Some(r) => {
+                trace.push(("microdata", format!("Recipe microdata: {}", summary(&r)), true));
+                (Some(r), "microdata")
+            }
+            None => {
+                trace.push(("microdata", "no Recipe microdata".into(), false));
+                (None, "page")
+            }
         },
     };
     page_images(&doc, &mut images);
     let images = finish_images(images, url);
+    trace.push(("images", format!("{} candidate picture(s)", images.len()), !images.is_empty()));
     match rec {
-        Some(r) => Draft { title: r.name.clone(), markdown: rec_to_markdown(&r, source), source_text: rtext, images, method: method.into() },
+        Some(r) => {
+            trace.push(("result", format!("{method}: {}", summary(&r)), true));
+            Draft { title: r.name.clone(), markdown: rec_to_markdown(&r, source), source_text: rtext, images, method: method.into(), trace }
+        }
         None => {
+            trace.push(("readability", format!("no recipe data; using the page text ({} characters)", rtext.chars().count()), !rtext.is_empty()));
             let body = if rcontent.is_empty() { html_to_markdown(html) } else { html_to_markdown(&rcontent) };
             let title = if rtitle.is_empty() { doc.select(&sel("title")).next().map(el_text).unwrap_or_default() } else { rtitle };
             let fm = source.map(|s| format!("---\nsource: {}\n---\n\n", yaml(s))).unwrap_or_default();
             let md = format!("{fm}{}", tidy_text(&format!("# {title}\n\n{body}")));
-            Draft { title, markdown: dedupe_title(&md), source_text: rtext, images, method: "page".into() }
+            Draft { title, markdown: dedupe_title(&md), source_text: rtext, images, method: "page".into(), trace }
         }
     }
 }
@@ -636,7 +590,7 @@ mod tests {
              {"@type":"HowToStep","text":"Serve."}],
            "nutrition":{"calories":320}}]}</script></head><body></body></html>"#;
         let u = url::Url::parse("https://ex.com/r/mac").unwrap();
-        let d = from_html(html, Some(&u));
+        let d = from_html(html, Some(&u), None);
         assert_eq!(d.method, "json-ld");
         assert_eq!(d.title, "Mac & Cheese");
         assert!(d.markdown.contains("author: Ann"));
@@ -646,6 +600,8 @@ mod tests {
         assert!(d.markdown.contains("- 2 cups cheddar"));
         assert!(d.markdown.contains("### Sauce\n\n1. Melt butter.\n2. Whisk flour."));
         assert!(d.markdown.contains("1. Serve."));
+        assert!(d.markdown.contains("nutrition:\n  calories: 320 kcal\n"), "{}", d.markdown);
+        assert!(d.trace.iter().any(|t| t.0 == "json-ld" && t.2));
         assert_eq!(d.images[0].url, "https://ex.com/a.jpg");
         assert!(d.images.iter().any(|c| c.kind == "step"));
         let p = crate::recipe::parse(&d.markdown);
@@ -657,12 +613,12 @@ mod tests {
         let html = r#"<div itemscope itemtype="http://schema.org/Recipe"><h1 itemprop="name">Toast</h1>
           <span itemprop="recipeIngredient">1 slice bread</span><span itemprop="recipeIngredient">butter</span>
           <div itemprop="recipeInstructions">Toast the bread.</div></div>"#;
-        let d = from_html(html, None);
+        let d = from_html(html, None, None);
         assert_eq!(d.method, "microdata");
         assert!(d.markdown.contains("- 1 slice bread"));
 
         let page = "<html><head><title>Grandma's Soup</title></head><body><article><h1>Grandma's Soup</h1><p>Ingredients</p><p>2 carrots</p><p>1 onion</p><p>Directions</p><p>Chop and simmer for an hour until tender.</p></article></body></html>";
-        let d = from_html(page, None);
+        let d = from_html(page, None, None);
         assert_eq!(d.method, "page");
         assert!(d.markdown.contains("- 2 carrots"), "{}", d.markdown);
     }
@@ -673,9 +629,32 @@ mod tests {
           <div class="wprm-recipe-ingredient-group"><h4 class="wprm-recipe-group-name">Crust</h4><ul>
             <li class="wprm-recipe-ingredient"><span class="wprm-recipe-ingredient-amount">1 ¼</span> <span class="wprm-recipe-ingredient-unit">cups</span> <span class="wprm-recipe-ingredient-name">flour</span></li></ul></div>
           <div class="wprm-recipe-instruction-group"><ul><li><div class="wprm-recipe-instruction-text">Mix.</div></li></ul></div></div>"#;
-        let d = from_html(html, None);
+        let d = from_html(html, None, None);
         assert_eq!(d.method, "wprm");
         assert!(d.markdown.contains("### Crust\n\n- 1 ¼ cups flour"));
+    }
+
+    #[test]
+    fn wprm_card_extras_and_rest_merge() {
+        let html = r#"<script type="application/ld+json">{"@type":"Recipe","name":"Pie","recipeYield":"8","recipeIngredient":["flour"]}</script>
+          <div id="wprm-recipe-container-77" class="wprm-recipe-container" data-recipe-id="77"><h2 class="wprm-recipe-name">Pie</h2>
+          <span class="wprm-recipe-prep_time-hours">1</span><span class="wprm-recipe-prep_time-minutes">20<span>minutes</span></span>
+          <div class="wprm-recipe-ingredient-group"><ul><li class="wprm-recipe-ingredient"><span class="wprm-recipe-ingredient-name">flour</span></li><li class="wprm-recipe-ingredient"><span class="wprm-recipe-ingredient-name">salt</span></li></ul></div>
+          <div class="wprm-recipe-equipment-container"><div class="wprm-recipe-equipment-name">Pie dish</div></div>
+          <span class="wprm-nutrition-label-text-nutrition-container wprm-nutrition-label-text-nutrition-container-calories"><span class="wprm-nutrition-label-text-nutrition-label">Calories: </span><span class="wprm-nutrition-label-text-nutrition-value">410</span><span class="wprm-nutrition-label-text-nutrition-unit">kcal</span></span>
+          <span class="wprm-recipe-course">Dessert, Holiday</span></div>"#;
+        assert_eq!(wprm_id(html), Some(77));
+        let d = from_html(html, None, None);
+        assert_eq!(d.method, "json-ld");
+        for want in ["prep_time: 1 hr 20 min", "yield: 8", "## Equipment\n\n- Pie dish", "calories: 410 kcal", "- salt", "tags: [dessert, holiday]"] {
+            assert!(d.markdown.contains(want), "missing {want:?} in\n{}", d.markdown);
+        }
+        let rest: Value = serde_json::from_str(include_str!("../tests/fixtures/wprm-rest.json")).unwrap();
+        let d = from_html(html, None, Some(&rest["recipe"]));
+        assert_eq!(d.method, "wprm-rest");
+        assert!(d.markdown.contains("# Classic Pancakes"));
+        assert!(d.markdown.contains("- 1 Rolling Pin (optional)"));
+        assert!(d.markdown.contains("### Cook\n\n1. Heat the pan."), "{}", d.markdown);
     }
 
     #[test]

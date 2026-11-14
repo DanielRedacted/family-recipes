@@ -1,10 +1,11 @@
 <script lang="ts" module>
   import { parseDocument } from 'yaml';
 
-  export const KNOWN = ['tags', 'yield', 'servings', 'prep_time', 'cook_time', 'total_time', 'source', 'author', 'original', 'needs_review'];
+  export const KNOWN = ['tags', 'yield', 'servings', 'prep_time', 'cook_time', 'total_time', 'source', 'author', 'original', 'needs_review', 'emoji', 'color', 'nutrition'];
   export const LABELS: Record<string, string> = {
     tags: 'Tags', yield: 'Yield', servings: 'Servings', prep_time: 'Prep', cook_time: 'Cook', total_time: 'Total',
     source: 'Source', author: 'Author', original: 'Original file', needs_review: 'Needs review', created: 'Created',
+    emoji: 'Icon', color: 'Card colour', nutrition: 'Nutrition',
   };
 
   /** Split raw text into [yaml, body]; yaml is '' when there is no frontmatter. */
@@ -37,6 +38,10 @@
 
   const fm = $derived(entry.frontmatter ?? {});
   const keys = $derived(Object.keys(fm));
+  // shown elsewhere: tags as chips, nutrition as its own table, icon/colour on the cards
+  const HIDDEN = ['tags', 'needs_review', 'original', 'nutrition', 'emoji', 'color'];
+  // maps (nutrition) are edited in the file itself
+  const editableKeys = $derived(keys.filter((k) => !(fm[k] && typeof fm[k] === 'object' && !Array.isArray(fm[k]))));
   const fmtVal = (v: unknown) => (Array.isArray(v) ? v.join(', ') : v === true ? 'yes' : v === false ? 'no' : v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
   function update(key: string, text: string) {
@@ -61,7 +66,7 @@
   <section class="props" aria-label="Properties">
     {#if !editing}
       <div class="chips">
-        {#each keys.filter((k) => k !== 'tags' && k !== 'needs_review' && k !== 'original') as k}
+        {#each keys.filter((k) => !HIDDEN.includes(k)) as k}
           <span class="chip"><span class="k">{LABELS[k] ?? k}</span>
             {#if k === 'source' && /^https?:/.test(String(fm[k]))}
               <a href={String(fm[k])} target="_blank" rel="noopener noreferrer">{new URL(String(fm[k])).hostname}</a>
@@ -76,7 +81,7 @@
     {:else}
       <table>
         <tbody>
-          {#each keys as k (k)}
+          {#each editableKeys as k (k)}
             <tr>
               <th>{LABELS[k] ?? k}</th>
               <td><input class="field" value={fmtVal(fm[k])} onchange={(e) => update(k, e.currentTarget.value)} aria-label={LABELS[k] ?? k} /></td>

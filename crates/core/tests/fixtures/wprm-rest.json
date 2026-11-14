@@ -1,0 +1,48 @@
+{
+  "id": 41,
+  "type": "wprm_recipe",
+  "title": { "rendered": "Classic Pancakes" },
+  "recipe": {
+    "id": 41,
+    "name": "Classic Pancakes",
+    "summary": "<p>Fluffy weekend pancakes.</p>",
+    "author_display": "custom",
+    "author_name": "Ann Baker",
+    "servings": 4,
+    "servings_unit": "people",
+    "prep_time": 5,
+    "cook_time": 25,
+    "custom_time": 10,
+    "custom_time_label": "Resting Time",
+    "total_time": 40,
+    "image_url": "https://ex.com/pancakes.jpg",
+    "tags": {
+      "course": [{ "term_id": 3, "name": "Breakfast", "slug": "breakfast" }],
+      "cuisine": ["American"],
+      "keyword": [{ "name": "easy" }]
+    },
+    "equipment": [
+      { "amount": 1, "name": "Rolling Pin", "notes": "(optional)" },
+      { "name": "Skillet" }
+    ],
+    "ingredients": [
+      {
+        "name": "Batter",
+        "ingredients": [
+          { "amount": 1, "unit": "cup", "name": "flour", "notes": "sifted" },
+          { "amount": "2", "unit": "", "name": "large eggs", "notes": "" },
+          { "raw": "1 cup onion, diced" }
+        ]
+      }
+    ],
+    "instructions_flat": [
+      { "type": "instruction", "text": "<p>Mix.</p>" },
+      { "type": "group", "name": "Cook" },
+      { "type": "instruction", "text": "<p>Heat the pan.</p>", "image_url": "https://ex.com/step.jpg" },
+      { "type": "instruction", "text": "Fry until golden." }
+    ],
+    "notes": "<p>Resting matters.</p>",
+    "nutrition": { "serving_size": 123, "serving_unit": "g", "calories": 231, "carbohydrates": 23, "iron": "" },
+    "rating": { "count": 9, "average": 4.8 }
+  }
+}

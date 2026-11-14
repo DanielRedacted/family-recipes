@@ -5,6 +5,7 @@ pub mod fetch;
 pub mod import;
 pub mod lan;
 pub mod recipe;
+pub mod schema;
 pub mod server;
 pub mod vault;
 
