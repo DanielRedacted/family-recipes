@@ -7,7 +7,7 @@
   import { yieldNumber, type Units } from '../lib/scale';
   import { openMenu, type MenuItem } from '../lib/menu.svelte';
   import { entryItems, requireWrite, attachImage, shell } from '../lib/ops';
-  import { choose, confirm3 } from '../lib/dialog.svelte';
+  import { confirm3 } from '../lib/dialog.svelte';
   import Editor from './Editor.svelte';
   import Merge from './Merge.svelte';
   import Properties, { setProp } from './Properties.svelte';
@@ -32,13 +32,12 @@
   let factor = $state(1);
   let units = $state<Units>((() => { try { return (localStorage.getItem('units') as Units) || 'original'; } catch { return 'original'; } })());
   let editor: Editor | undefined = $state();
-  let imgInput: HTMLInputElement | undefined = $state();
 
   // start state (the component is re-created for each note)
   $effect(() => {
     path;
     untrack(() => {
-      mode = routeMode === 'edit' && canWrite() ? (wide ? 'split' : 'edit') : 'read';
+      mode = routeMode === 'edit' && canWrite() ? 'edit' : 'read';
       const e = app.byPath[path];
       draft = e?.raw ?? '';
       base = e?.etag ?? null;
@@ -126,7 +125,7 @@
     if (m === 'read' && !(await confirmLeave())) return;
     mode = m;
   }
-  const startEditing = () => setMode(wide ? 'split' : 'edit');
+  const startEditing = () => setMode('edit');
 
   // live preview renders the draft; reading view renders the saved file with scaling applied
   const html = $derived.by(() => {
@@ -162,12 +161,6 @@
       if (md) out.push(md);
     }
     return out.join('\n') || null;
-  }
-
-  async function linkToRecipe() {
-    const titles = [...new Set(app.files.filter((f) => f.kind === 'note' && f.path !== path).map((f) => f.title))].sort((a, b) => a.localeCompare(b));
-    const t = await choose('Link to another recipe', titles, titles[0] ?? '', 'Insert link');
-    if (t) editor?.insert(`[[${t}]]`);
   }
 
   // notes whose [[links]] point here
@@ -228,7 +221,6 @@
       else {
         items.push({ label: 'Done editing', run: () => setMode('read') });
         if (wide) items.push({ label: mode === 'split' ? 'Hide preview' : 'Show preview alongside', run: () => setMode(mode === 'split' ? 'edit' : 'split') });
-        items.push({ label: 'Link to another recipe…', run: linkToRecipe }, { label: 'Insert picture…', run: () => imgInput?.click() });
       }
     }
     const rest = entryItems(path, false);
@@ -312,12 +304,7 @@
       <div class="body">
         {#if mode !== 'read'}
           <div class="editpane no-print">
-            <div class="row edtools">
-              <button class="btn small" onclick={() => imgInput?.click()}><Icon name="image" size={16} /> Insert image</button>
-              <input type="file" accept="image/*" multiple hidden bind:this={imgInput} onchange={async (e) => { const t = e.currentTarget; if (t.files?.length) { const md = await onImages(Array.from(t.files)); if (md) editor?.insert(md + '\n'); } t.value = ''; }} />
-              <span class="muted small">Markdown · ⌘S saves · type [[ to link a recipe</span>
-            </div>
-            <Editor bind:this={editor} value={draft} onchange={onEdit} onsave={() => save()} onfiles={onImages} />
+            <Editor bind:this={editor} value={draft} onchange={onEdit} onsave={() => save()} onfiles={onImages} notePath={path} />
           </div>
         {/if}
         {#if mode !== 'edit'}
@@ -390,8 +377,7 @@
   .body { display: block; }
   .split .body { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
   .editpane { display: flex; flex-direction: column; gap: 8px; height: calc(100vh - 110px); position: sticky; top: 60px; }
-  .editing:not(.split) .editpane { height: calc(100vh - 110px); }
-  .edtools { gap: 10px; }
+  .editing:not(.split) .editpane { height: calc(100vh - 110px); max-width: 880px; }
   .split .reader { max-height: calc(100vh - 110px); overflow-y: auto; padding-right: 8px; }
   .ftitle { margin: 6px 0 14px; }
   .ask { padding: 10px 12px; margin-bottom: 16px; max-width: 760px; display: grid; gap: 8px; }

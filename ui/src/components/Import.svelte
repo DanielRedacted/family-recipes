@@ -189,7 +189,7 @@
           <button role="tab" aria-selected={tab === 'preview'} class="btn" class:on={tab === 'preview'} onclick={() => (tab = 'preview')}>Preview</button>
           {#if job.source_text}<button role="tab" aria-selected={tab === 'source'} class="btn" class:on={tab === 'source'} onclick={() => (tab = 'source')}>Original text</button>{/if}
         </div>
-        <div class="pane" class:hide={tab !== 'edit'}><Editor value={rv.md} onchange={onEdit} /></div>
+        <div class="pane" class:hide={tab !== 'edit'}><Editor value={rv.md} onchange={onEdit} notePath={folder + '/x.md'} /></div>
         {#if tab === 'preview'}<div class="pane prose scroll">{@html preview}<Nutrition data={nutrition} /></div>{/if}
         {#if tab === 'source'}<pre class="pane scroll src">{job.source_text}</pre>{/if}
       </div>

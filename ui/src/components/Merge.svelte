@@ -4,7 +4,7 @@
   import { EditorView } from '@codemirror/view';
   import { EditorState } from '@codemirror/state';
   import { basicSetup } from 'codemirror';
-  import { markdown } from '@codemirror/lang-markdown';
+  import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
   import { yamlFrontmatter } from '@codemirror/lang-yaml';
 
   // Left: the version on disk (read-only). Right: the user's version (editable) — saved on accept.
@@ -16,7 +16,7 @@
   let host: HTMLDivElement;
   let mv: MergeView;
   onMount(() => {
-    const ext = [basicSetup, yamlFrontmatter({ content: markdown() }), EditorView.lineWrapping];
+    const ext = [basicSetup, yamlFrontmatter({ content: markdown({ base: markdownLanguage }) }), EditorView.lineWrapping];
     mv = new MergeView({
       parent: host,
       a: { doc: theirs, extensions: [...ext, EditorState.readOnly.of(true)] },
