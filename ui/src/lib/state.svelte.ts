@@ -1,12 +1,18 @@
 import { api } from './api';
 import type { Entry, Session } from './types';
 import { buildIndex } from './search';
+import { parse as parseYaml } from 'yaml';
+
+export interface FolderMeta { emoji?: string; color?: string }
 
 export const app = $state({
   session: { role: 'reader', pin_set: false, ai: false, shell: false, version: '' } as Session,
   files: [] as Entry[],
   byPath: {} as Record<string, Entry>,
   folders: [] as string[],
+  /** .folders.yaml as written (edited with yaml's Document API to keep comments) and parsed */
+  folderMetaRaw: '',
+  folderMeta: {} as Record<string, FolderMeta>,
   loaded: false,
   offline: false,
   route: parseRoute(),
@@ -43,14 +49,30 @@ export function parseRoute(): Route {
 
 export function go(hash: string) {
   if (location.hash !== hash) location.hash = hash;
-  else app.route = parseRoute();
+  else { currentHash = hash; app.route = parseRoute(); }
   app.sidebar = false;
 }
 
 export const noteHash = (p: string, mode?: string) => '#/n/' + p.split('/').map(encodeURIComponent).join('/') + (mode ? `?mode=${mode}` : '');
 export const folderHash = (p: string) => '#/f/' + p.split('/').map(encodeURIComponent).join('/');
 
-window.addEventListener('hashchange', () => { app.route = parseRoute(); });
+// A page with unsaved work can ask before the route changes (resolve true to leave).
+let leaveGuard: (() => Promise<boolean>) | null = null;
+export const setLeaveGuard = (g: typeof leaveGuard) => { leaveGuard = g; };
+export const clearLeaveGuard = (g: typeof leaveGuard) => { if (leaveGuard === g) leaveGuard = null; };
+let currentHash = location.hash;
+window.addEventListener('hashchange', async () => {
+  const next = location.hash;
+  if (next === currentHash) return;
+  if (leaveGuard) {
+    history.replaceState(null, '', currentHash || '#/'); // stay put while asking
+    if (!(await leaveGuard())) return;
+    leaveGuard = null;
+    history.pushState(null, '', next);
+  }
+  currentHash = next;
+  app.route = parseRoute();
+});
 
 // ---------- data ----------
 
@@ -62,10 +84,12 @@ let loading: Promise<void> | null = null;
 export function loadVault(): Promise<void> {
   loading ??= (async () => {
     try {
-      const v = await api<{ files: Entry[]; folders: string[] }>('GET', '/api/vault');
+      const v = await api<{ files: Entry[]; folders: string[]; folder_meta?: string }>('GET', '/api/vault');
       app.files = v.files;
       app.byPath = Object.fromEntries(v.files.map((f) => [f.path, f]));
       app.folders = v.folders;
+      app.folderMetaRaw = v.folder_meta ?? '';
+      try { const m = parseYaml(app.folderMetaRaw || '{}'); app.folderMeta = m && typeof m === 'object' ? m : {}; } catch { app.folderMeta = {}; }
       app.offline = false;
       buildIndex(v.files);
     } catch (e) {

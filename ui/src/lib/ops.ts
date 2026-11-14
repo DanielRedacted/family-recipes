@@ -1,7 +1,11 @@
 // File-manager actions shared by the tree, folder view and note toolbar.
-import { api, saveFile } from './api';
+import { parseDocument } from 'yaml';
+import { api, saveFile, downloadUrl } from './api';
 import { ask, choose, confirmIt } from './dialog.svelte';
-import { app, dirOf, go, loadVault, nameOf, noteHash, folderHash, toast, canWrite } from './state.svelte';
+import { app, dirOf, go, loadVault, nameOf, noteHash, folderHash, toast, canWrite, type FolderMeta } from './state.svelte';
+import { openMenu, type MenuItem } from './menu.svelte';
+import { importer, enqueueFiles } from './importer.svelte';
+import { picker } from './picker.svelte';
 
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 
@@ -52,6 +56,7 @@ export async function moveTo(from: string, to: string, isFolder = false) {
   if (from === to) return;
   try {
     const r = await api('POST', '/api/fs/move', { from, to });
+    if (isFolder) await renameFolderMeta(from, r.path);
     await loadVault();
     const cur = app.route.path;
     if (cur === from || cur.startsWith(from + '/')) {
@@ -107,4 +112,87 @@ export async function attachImage(file: File, baseName: string): Promise<string 
 
 export async function shell(action: string, body: any = {}) {
   try { return await api('POST', `/api/shell/${action}`, body); } catch (e: any) { toast(e.message, 'error'); }
+}
+
+// ---------- menus ----------
+
+const IMPORTABLE = '.pdf,.docx,.doc,.rtf,.odt,.html,.htm,.txt,.md,image/*';
+
+/** Open the system file chooser (must run inside a click). */
+export function pickFiles(accept: string, cb: (files: FileList) => void) {
+  const i = document.createElement('input');
+  i.type = 'file';
+  i.multiple = true;
+  if (accept) i.accept = accept;
+  i.onchange = () => { if (i.files?.length) cb(i.files); };
+  i.click();
+}
+
+/** The single "+" button: new recipe (blank or imported), files, folder. */
+export function plusMenu(e: MouseEvent, dir: string) {
+  if (!requireWrite()) return;
+  const toImport = (focus: 'url' | 'text') => () => { importer.folder = dir; importer.focus = focus; go('#/import'); };
+  openMenu(e, [
+    { label: 'Blank recipe', run: () => newNote(dir) },
+    { label: 'From a web address…', run: toImport('url') },
+    { label: 'From a file (PDF, Word, photo…)…', run: () => pickFiles(IMPORTABLE, (f) => { importer.folder = dir; importer.selected = null; enqueueFiles(f); go('#/import'); }) },
+    { label: 'Paste recipe text…', run: toImport('text') },
+    { label: 'Upload files here as they are…', run: () => pickFiles('', (f) => upload(dir, f)), sep: true },
+    { label: 'New folder', run: () => newFolder(dir) },
+  ]);
+}
+
+/** Actions for a file or folder (tree, cards, list rows). */
+export function entryItems(path: string, isFolder: boolean): MenuItem[] {
+  const w = canWrite();
+  const it: MenuItem[] = [];
+  if (w && isFolder) it.push({ label: 'New recipe here', run: () => newNote(path) }, { label: 'New folder here', run: () => newFolder(path) });
+  if (w && (isFolder || path.endsWith('.md'))) it.push({ label: 'Icon & colour…', run: () => openPicker(path, isFolder), sep: isFolder });
+  if (w) it.push({ label: 'Rename…', run: () => rename(path, isFolder) }, { label: 'Move to…', run: () => moveDialog(path, isFolder) });
+  if (!isFolder) it.push({ label: 'Download', run: () => (location.href = downloadUrl(path)) });
+  if (app.session.shell) it.push({ label: 'Show in Finder', run: () => shell('reveal', { path }) });
+  if (w) it.push({ label: 'Move to trash', run: () => remove(path, isFolder), danger: true, sep: true });
+  return it;
+}
+
+// ---------- icons and colours ----------
+
+export function openPicker(path: string, folder: boolean) {
+  if (!requireWrite()) return;
+  picker.path = path;
+  picker.folder = folder;
+}
+
+const META_HEADER = '# Folder icons and card colours (edited by the Recipes app; safe to edit by hand)\n';
+
+async function writeFolderMeta(edit: (doc: ReturnType<typeof parseDocument>) => void) {
+  const doc = parseDocument(app.folderMetaRaw.trim() ? app.folderMetaRaw : META_HEADER);
+  edit(doc);
+  await api('PUT', '/api/folders', String(doc));
+}
+
+export async function setFolderMeta(path: string, meta: FolderMeta) {
+  try {
+    await writeFolderMeta((doc) => {
+      for (const k of ['emoji', 'color'] as const) {
+        if (meta[k]) doc.setIn([path, k], meta[k]);
+        else if (doc.hasIn([path, k])) doc.deleteIn([path, k]);
+      }
+      if (doc.has(path) && (doc.get(path) as any)?.items?.length === 0) doc.delete(path);
+    });
+    await loadVault();
+  } catch (e: any) { toast(e.message, 'error'); }
+}
+
+/** Keep a folder's icon/colour (and its subfolders') when it is renamed or moved. */
+async function renameFolderMeta(from: string, to: string) {
+  const keys = Object.keys(app.folderMeta).filter((k) => k === from || k.startsWith(from + '/'));
+  if (!keys.length || from === to) return;
+  await writeFolderMeta((doc) => {
+    for (const k of keys) {
+      const v = doc.get(k);
+      doc.delete(k);
+      doc.set(to + k.slice(from.length), v);
+    }
+  }).catch(() => {});
 }

@@ -140,7 +140,9 @@ impl AppState {
         let prev = self.index.read().unwrap().clone();
         let idx = vault::scan(&self.root, Some(&prev), self.pdf_text);
         let files: Vec<&vault::Entry> = idx.files.values().collect();
-        let body = json!({ "files": files, "folders": idx.folders });
+        // folder icons and colours (written by the app; plain YAML, see docs/FORMAT.md)
+        let folder_meta = std::fs::read(self.root.join(FOLDER_META)).ok().filter(|b| b.len() <= 256 * 1024).map(|b| String::from_utf8_lossy(&b).into_owned()).unwrap_or_default();
+        let body = json!({ "files": files, "folders": idx.folders, "folder_meta": folder_meta });
         let bytes = serde_json::to_vec(&body).unwrap();
         let etag = vault::etag_of(&bytes);
         let changed = etag != self.payload.read().unwrap().etag;
@@ -241,7 +243,7 @@ fn spawn_watcher(state: Arc<AppState>) -> Result<()> {
     let mut deb = new_debouncer(std::time::Duration::from_millis(300), None, move |res: DebounceEventResult| {
         if let Ok(events) = res {
             let relevant = events.iter().flat_map(|e| e.paths.iter()).any(|p| {
-                p.strip_prefix(&root).is_ok_and(|r| !r.components().any(|c| c.as_os_str().to_string_lossy().starts_with('.')))
+                p.strip_prefix(&root).is_ok_and(|r| r == Path::new(FOLDER_META) || !r.components().any(|c| c.as_os_str().to_string_lossy().starts_with('.')))
             });
             if relevant {
                 let _ = tx.send(());
@@ -270,6 +272,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/files/{*path}", get(get_file).put(put_file).delete(delete_file))
         .route("/api/fs/move", post(move_path))
         .route("/api/fs/mkdir", post(mkdir))
+        .route("/api/folders", put(folder_meta_put))
         .route("/api/trash", get(trash_list).delete(trash_empty))
         .route("/api/trash/restore", post(trash_restore))
         .route("/api/download", get(download))
@@ -535,6 +538,19 @@ async fn mkdir(State(s): St, caller: Caller, Json(b): Json<PathBody>) -> Res {
     std::fs::create_dir(&abs).map_err(bad)?;
     blocking_rescan(&s).await;
     Ok(Json(json!({ "path": p })).into_response())
+}
+
+pub const FOLDER_META: &str = ".folders.yaml";
+
+/// Folder icons/colours: the client sends the whole file; it is stored as written.
+async fn folder_meta_put(State(s): St, caller: Caller, body: String) -> Res {
+    caller.need(Role::Writer)?;
+    if body.len() > 256 * 1024 {
+        return Err(err(StatusCode::PAYLOAD_TOO_LARGE, "too large"));
+    }
+    vault::atomic_write(&s.root.join(FOLDER_META), body.as_bytes()).map_err(bad)?;
+    blocking_rescan(&s).await;
+    Ok(StatusCode::NO_CONTENT.into_response())
 }
 
 async fn trash_list(State(s): St, caller: Caller) -> Res {

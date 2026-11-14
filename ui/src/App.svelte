@@ -2,7 +2,7 @@
   import Icon from './components/Icon.svelte';
   import { onMount } from 'svelte';
   import { app, loadSession, loadVault, listenForChanges, go, canWrite } from './lib/state.svelte';
-  import { newNote } from './lib/ops';
+  import { newNote, newFolder, plusMenu } from './lib/ops';
   import Sidebar from './components/Sidebar.svelte';
   import Folder from './components/Folder.svelte';
   import Note from './components/Note.svelte';
@@ -23,7 +23,7 @@
   function key(e: KeyboardEvent) {
     const mod = e.metaKey || e.ctrlKey;
     if (mod && (e.key === 'k' || e.key === 'o' || e.key === 'p')) { e.preventDefault(); app.switcher = !app.switcher; }
-    else if (mod && e.key === 'n' && !e.shiftKey) { e.preventDefault(); newNote(dir); }
+    else if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); if (e.shiftKey) newFolder(dir); else newNote(dir); }
     else if (mod && e.key === ',') { e.preventDefault(); go('#/settings'); }
   }
 </script>
@@ -52,7 +52,7 @@
       <button onclick={() => go('#/')} class:on={app.route.view === 'folder' && !app.route.path}><Icon name="home" size={22} />Home</button>
       <button onclick={() => (app.sidebar = true)}><Icon name="folder" size={22} />Folders</button>
       <button onclick={() => (app.switcher = true)}><Icon name="search" size={22} />Search</button>
-      {#if canWrite()}<button onclick={() => go('#/import')} class:on={app.route.view === 'import'}><Icon name="download" size={22} />Import</button>{/if}
+      {#if canWrite()}<button onclick={(e) => plusMenu(e, dir)} class:on={app.route.view === 'import'}><Icon name="plus" size={22} />Add</button>{/if}
       <button onclick={() => go('#/settings')} class:on={app.route.view === 'settings'}><Icon name="settings" size={22} />Settings</button>
     </nav>
   </div>

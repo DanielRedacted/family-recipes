@@ -1,23 +1,16 @@
-<script lang="ts" module>
-  const PASTELS = ['--p-orange', '--p-yellow', '--p-green', '--p-blue', '--p-purple', '--p-red', '--p-brown', '--p-grey'];
-  export function pastel(name: string): string {
-    let h = 0;
-    for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-    return `var(${PASTELS[h % PASTELS.length]})`;
-  }
-</script>
-
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { app, go, noteHash, folderHash, canWrite, nameOf } from '../lib/state.svelte';
-  import { fileUrl, downloadUrl } from '../lib/api';
+  import CardIcon from './CardIcon.svelte';
+  import { fileUrl } from '../lib/api';
   import { vaultTarget } from '../lib/markdown';
-  import { newNote, newFolder, upload, rename, remove } from '../lib/ops';
+  import { plusMenu, entryItems } from '../lib/ops';
+  import { openMenu } from '../lib/menu.svelte';
   import { tagsOf } from '../lib/search';
+  import { iconOf, cardColor } from '../lib/icons';
   import type { Entry } from '../lib/types';
 
   let { path }: { path: string } = $props();
-  let fileInput: HTMLInputElement | undefined = $state();
   let view = $state<'cards' | 'list'>((() => { try { return (localStorage.getItem('folderView') as any) || 'cards'; } catch { return 'cards'; } })());
   $effect(() => { try { localStorage.setItem('folderView', view); } catch {} });
 
@@ -25,8 +18,9 @@
   const subfolders = $derived(app.folders.filter((f) => (path ? f.startsWith(path + '/') && !f.slice(path.length + 1).includes('/') : !f.includes('/'))));
   const files = $derived(app.files.filter((f) => (f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : '') === path)
     .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })));
-  const oldest = $derived(Math.min(...app.files.map((f) => f.mtime)));
-  const recent = $derived(path ? [] : app.files.filter((f) => f.kind === 'note' && f.mtime > oldest + 60).sort((a, b) => b.mtime - a.mtime).slice(0, 8));
+  const folderIcon = (dir: string) => iconOf(nameOf(dir), app.folderMeta[dir]?.emoji);
+  const noteIcon = (f: Entry) => (f.kind === 'note' ? iconOf(f.title, f.frontmatter?.emoji, folderIcon(path)) : null);
+  const menuFor = (p: string, folder: boolean) => (e: MouseEvent) => openMenu(e, entryItems(p, folder));
   const countIn = (dir: string) => app.files.filter((f) => f.path.startsWith(dir + '/')).length;
   const crumbs = $derived(path ? path.split('/').map((seg, i, a) => ({ name: seg, path: a.slice(0, i + 1).join('/') })) : []);
 
@@ -50,10 +44,7 @@
     </nav>
     <span class="spacer"></span>
     {#if canWrite()}
-      <button class="btn" onclick={() => newNote(path)}><Icon name="plus" /><span class="lbl">Recipe</span></button>
-      <button class="btn" onclick={() => newFolder(path)}><Icon name="folder-plus" /><span class="lbl">Folder</span></button>
-      <button class="btn" onclick={() => fileInput?.click()}><Icon name="upload" /><span class="lbl">Add files</span></button>
-      <input type="file" multiple hidden bind:this={fileInput} onchange={(e) => { const t = e.currentTarget; if (t.files) upload(path, t.files); t.value = ''; }} />
+      <button class="btn primary add" aria-label="Add" title="Add a recipe, files or a folder" onclick={(e) => plusMenu(e, path)}><Icon name="plus" /></button>
     {:else if app.session.pin_set}
       <button class="btn" onclick={() => (app.pinPrompt = true)}><Icon name="lock" /> Unlock editing</button>
     {/if}
@@ -76,21 +67,16 @@
     {#if subfolders.length}
       <div class="folders">
         {#each subfolders as f}
-          <a class="folder card" href={folderHash(f)} style="background:{pastel(nameOf(f))}">
-            <span class="fname">{nameOf(f)}</span>
-            <span class="muted small">{countIn(f)} item{countIn(f) === 1 ? '' : 's'}</span>
-          </a>
+          <div class="wrap">
+            <a class="folder card" href={folderHash(f)} style="background:{cardColor(nameOf(f), app.folderMeta[f]?.color)}" oncontextmenu={menuFor(f, true)}>
+              <CardIcon icon={folderIcon(f)} size={26} />
+              <span class="fname">{nameOf(f)}</span>
+              <span class="muted small">{countIn(f)} item{countIn(f) === 1 ? '' : 's'}</span>
+            </a>
+            <button class="more" aria-label="Actions for {nameOf(f)}" onclick={menuFor(f, true)}>⋯</button>
+          </div>
         {/each}
       </div>
-    {/if}
-
-    {#if recent.length}
-      <h2 class="sub">Recently changed</h2>
-      <ul class="list">
-        {#each recent as f}
-          <li><a href={noteHash(f.path)}>{f.title}</a> <span class="muted small">{f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : ''}</span></li>
-        {/each}
-      </ul>
     {/if}
 
     {#if files.length}
@@ -99,14 +85,16 @@
         <div class="grid">
           {#each files as f (f.path)}
             {@const img = cover(f)}
-            <a class="recipe card" href={noteHash(f.path)}>
+            {@const ic = noteIcon(f)}
+            <div class="wrap">
+            <a class="recipe card" href={noteHash(f.path)} oncontextmenu={menuFor(f.path, false)}>
               {#if img}
                 <img src={img} alt="" loading="lazy" />
               {:else}
-                <div class="ph" style="background:{pastel(f.title)}">{f.title.slice(0, 1)}</div>
+                <div class="ph" style="background:{cardColor(f.title, f.frontmatter?.color)}"><CardIcon icon={ic} size={44} /></div>
               {/if}
               <div class="info">
-                <span class="rtitle">{f.title}</span>
+                <span class="rtitle">{#if img && ic}<CardIcon icon={ic} size={16} /> {/if}{f.title}</span>
                 <span class="muted small">{meta(f)}</span>
                 <span class="tags">
                   {#if badge(f)}<span class="tag badge">{badge(f)}</span>{/if}
@@ -115,6 +103,8 @@
                 </span>
               </div>
             </a>
+            <button class="more" aria-label="Actions for {f.title}" onclick={menuFor(f.path, false)}>⋯</button>
+            </div>
           {/each}
         </div>
       {:else}
@@ -122,17 +112,12 @@
           <thead><tr><th>Name</th><th>Yield</th><th>Time</th><th>Tags</th><th class="no-print"></th></tr></thead>
           <tbody>
             {#each files as f (f.path)}
-              <tr>
-                <td><a href={noteHash(f.path)}>{f.title}</a> {#if badge(f)}<span class="tag badge">{badge(f)}</span>{/if}</td>
+              <tr oncontextmenu={menuFor(f.path, false)}>
+                <td><CardIcon icon={noteIcon(f)} size={16} /> <a href={noteHash(f.path)}>{f.title}</a> {#if badge(f)}<span class="tag badge">{badge(f)}</span>{/if}</td>
                 <td>{f.frontmatter?.yield ?? f.frontmatter?.servings ?? ''}</td>
                 <td>{f.frontmatter?.total_time ?? f.frontmatter?.cook_time ?? ''}</td>
                 <td>{tagsOf(f).join(', ')}</td>
-                <td class="acts no-print">
-                  {#if canWrite()}
-                    <button class="btn ghost small" onclick={() => rename(f.path)}>Rename</button>
-                    <button class="btn ghost small" onclick={() => remove(f.path)}>Delete</button>
-                  {/if}
-                </td>
+                <td class="acts no-print"><button class="btn ghost icon" aria-label="Actions for {f.title}" onclick={menuFor(f.path, false)}><Icon name="more" size={16} /></button></td>
               </tr>
             {/each}
           </tbody>
@@ -141,7 +126,6 @@
     {:else if path && !subfolders.length}
       <p class="muted">This folder is empty.</p>
     {/if}
-    {#if path}<p class="small"><a href={downloadUrl(path)}>Download this folder as a zip</a></p>{/if}
   {/if}
 </div>
 
@@ -159,17 +143,18 @@
   .title { font-size: 2rem; margin: 8px 0 16px; }
   .sub { font-size: 1.05rem; margin: 24px 0 10px; color: var(--muted); font-family: var(--sans); font-weight: 600; }
   .folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
-  .folder { display: grid; gap: 2px; padding: 14px 16px; text-decoration: none; color: var(--text); border: 0; }
+  .wrap { position: relative; display: grid; }
+  .more { position: absolute; top: 6px; right: 6px; border: 0; border-radius: 6px; background: var(--surface); color: var(--muted); padding: 0 7px; font-size: 16px; line-height: 24px; cursor: pointer; opacity: 0; box-shadow: var(--shadow); }
+  .wrap:hover .more, .more:focus-visible { opacity: 1; }
+  @media (hover: none) { .more { opacity: 0.85; } }
+  .folder { display: grid; gap: 2px; padding: 14px 16px; text-decoration: none; color: var(--text); border: 0; justify-items: start; }
   .folder:hover { box-shadow: var(--shadow-md); }
   .fname { font-family: var(--serif); font-size: 17px; font-weight: 600; }
-  .list { margin: 0; padding-left: 18px; columns: 2 260px; }
-  .list li { margin: 3px 0; break-inside: avoid; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
   .recipe { display: flex; flex-direction: column; text-decoration: none; color: var(--text); overflow: hidden; }
   .recipe:hover { box-shadow: var(--shadow-md); border-color: var(--accent); }
   .recipe img, .ph { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
-  .ph { display: grid; place-items: center; font: 600 40px var(--serif); color: rgba(0, 0, 0, 0.35); }
-  :global(:root[data-theme="dark"]) .ph { color: rgba(255, 255, 255, 0.35); }
+  .ph { display: grid; place-items: center; }
   .info { padding: 10px 12px 12px; display: grid; gap: 4px; }
   .rtitle { font-family: var(--serif); font-weight: 600; font-size: 16px; }
   .tags { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -184,7 +169,7 @@
     .page { padding: 8px 14px 96px; }
     .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
     .toolbar .btn { min-height: 40px; }
-    .lbl { display: none; }
+    .toolbar .add { display: none; } /* the bottom bar has "Add" */
     .crumbs { display: none; }
     .tbl th:nth-child(3), .tbl td:nth-child(3), .tbl th:nth-child(4), .tbl td:nth-child(4) { display: none; }
   }

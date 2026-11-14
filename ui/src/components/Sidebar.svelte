@@ -2,7 +2,7 @@
   import Icon from './Icon.svelte';
   import Tree, { buildTree } from './Tree.svelte';
   import { app, go, canWrite } from '../lib/state.svelte';
-  import { newNote, newFolder, upload, moveTo } from '../lib/ops';
+  import { upload, moveTo, plusMenu } from '../lib/ops';
 
   const tree = $derived(buildTree(app.folders, app.files));
   const currentDir = $derived(app.route.view === 'folder' ? app.route.path : app.route.path.includes('/') ? app.route.path.slice(0, app.route.path.lastIndexOf('/')) : '');
@@ -13,8 +13,7 @@
   <div class="brand row">
     <a href="#/" class="logo" onclick={() => (app.sidebar = false)}><img src="/icon.svg" alt="" width="24" height="24" /> Recipes</a>
     <span class="spacer"></span>
-    <button class="btn ghost icon" title="New recipe (⌘N)" aria-label="New recipe" onclick={() => newNote(currentDir)}><Icon name="plus" /></button>
-    <button class="btn ghost icon" title="New folder" aria-label="New folder" onclick={() => newFolder(currentDir)}><Icon name="folder-plus" /></button>
+    {#if canWrite()}<button class="btn ghost icon" title="Add a recipe, files or a folder (⌘N new recipe)" aria-label="Add" onclick={(e) => plusMenu(e, currentDir)}><Icon name="plus" /></button>{/if}
   </div>
   <button class="search btn" onclick={() => (app.switcher = true)}>
     <Icon name="search" size={16} /><span>Search recipes</span><span class="spacer"></span><kbd>⌘K</kbd>
@@ -37,10 +36,7 @@
     <Tree node={tree} />
   </div>
   <div class="foot">
-    {#if canWrite()}
-      <button class="btn ghost" onclick={() => go('#/import')}><Icon name="download" size={16} /> Import</button>
-      <button class="btn ghost" onclick={() => go('#/trash')}><Icon name="trash" size={16} /> Trash</button>
-    {:else if app.session.pin_set}
+    {#if !canWrite() && app.session.pin_set}
       <button class="btn ghost" onclick={() => (app.pinPrompt = true)}><Icon name="lock" size={16} /> Unlock editing</button>
     {/if}
     <span class="spacer"></span>

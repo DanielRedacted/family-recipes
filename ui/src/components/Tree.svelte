@@ -39,8 +39,9 @@
   import Tree from './Tree.svelte';
   import { app, go, noteHash, folderHash, canWrite } from '../lib/state.svelte';
   import { openMenu } from '../lib/menu.svelte';
-  import { newNote, newFolder, rename, moveDialog, remove, moveTo, upload, shell } from '../lib/ops';
-  import { downloadUrl } from '../lib/api';
+  import { moveTo, upload, entryItems } from '../lib/ops';
+  import { iconOf } from '../lib/icons';
+  import CardIcon from './CardIcon.svelte';
 
   let { node, depth = 0 }: { node: TreeNode; depth?: number } = $props();
   let dropOver = $state('');
@@ -60,20 +61,7 @@
     } else go(noteHash(n.path));
   }
 
-  function items(n: TreeNode) {
-    const it = [];
-    if (n.folder) {
-      it.push({ label: 'New recipe here', run: () => newNote(n.path) }, { label: 'New folder here', run: () => newFolder(n.path) });
-    }
-    it.push(
-      { label: 'Rename…', run: () => rename(n.path, n.folder) },
-      { label: 'Move to…', run: () => moveDialog(n.path, n.folder) },
-      { label: n.folder ? 'Download as zip' : 'Download', run: () => (location.href = downloadUrl(n.path)) },
-    );
-    if (app.session.shell) it.push({ label: 'Show in Finder', run: () => shell('reveal', { path: n.path }) });
-    it.push({ label: 'Move to trash', run: () => remove(n.path, n.folder), danger: true });
-    return it;
-  }
+  const items = (n: TreeNode) => entryItems(n.path, n.folder);
 
   function onDrop(e: DragEvent, target: TreeNode) {
     e.preventDefault();
@@ -121,6 +109,7 @@
     {:else}
       <span class="chev-space">{icon(n)}</span>
     {/if}
+    {#if n.folder}{@const ic = iconOf(n.name, app.folderMeta[n.path]?.emoji)}{#if ic}<CardIcon icon={ic} size={15} />{/if}{/if}
     <span class="name">{label(n)}</span>
     {#if n.folder}<span class="count">{n.children.filter((c) => !c.folder).length || ''}</span>{/if}
     <button class="more" aria-label="More actions" tabindex="-1" onclick={(e) => openMenu(e, items(n))}>⋯</button>

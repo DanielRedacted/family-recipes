@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { app, toast, loadSession, loadVault } from '../lib/state.svelte';
+  import { app, toast, loadSession, loadVault, canWrite, noteHash, dirOf } from '../lib/state.svelte';
   import { api } from '../lib/api';
   import { shell } from '../lib/ops';
   import { confirmIt } from '../lib/dialog.svelte';
@@ -51,6 +51,20 @@
     try { await api('PUT', '/api/settings/ai-key', { key: aiKey }); aiKey = ''; toast('API key saved in the macOS Keychain', 'ok'); await refresh(); }
     catch (e: any) { toast(e.message, 'error'); }
   }
+
+  // recently changed notes, leaving out files that arrived in a bulk copy (e.g. the first-run seed)
+  const recent = $derived.by(() => {
+    const bucket = (t: number) => Math.floor(t / 5);
+    const counts = new Map<number, number>();
+    for (const f of app.files) counts.set(bucket(f.mtime), (counts.get(bucket(f.mtime)) ?? 0) + 1);
+    return app.files.filter((f) => f.kind === 'note' && (counts.get(bucket(f.mtime)) ?? 0) <= 20).sort((a, b) => b.mtime - a.mtime).slice(0, 10);
+  });
+  let trashCount = $state<number | null>(null);
+  $effect(() => { if (canWrite() && trashCount === null) api('GET', '/api/trash').then((t: any[]) => (trashCount = t.length)).catch(() => (trashCount = 0)); });
+  const ago = (t: number) => {
+    const m = Math.round((Date.now() / 1000 - t) / 60);
+    return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : new Date(t * 1000).toLocaleDateString();
+  };
 
   async function lockDevice() { await api('DELETE', '/api/session'); await loadSession(); toast('This device is read-only again'); }
 </script>
@@ -147,6 +161,23 @@
     <p class="muted">Loading…</p>
   {/if}
 
+  <section class="card">
+    <h2>Recent changes</h2>
+    {#if recent.length}
+      <ul class="recent">
+        {#each recent as f (f.path)}<li><a href={noteHash(f.path)}>{f.title}</a> <span class="muted small">{dirOf(f.path)} · {ago(f.mtime)}</span></li>{/each}
+      </ul>
+    {:else}<p class="muted small">Nothing has been changed since the recipes were added.</p>{/if}
+  </section>
+
+  {#if canWrite()}
+    <section class="card">
+      <h2>Trash</h2>
+      <p class="muted small">Deleted recipes and earlier versions of edited ones are kept here until the trash is emptied.</p>
+      <div><a class="btn" href="#/trash">Open trash{trashCount ? ` (${trashCount})` : ''}</a></div>
+    </section>
+  {/if}
+
   <p class="muted small">Recipes {app.session.version} · {app.files.filter((f) => f.kind === 'note').length} notes</p>
 </div>
 
@@ -164,5 +195,6 @@
   .grid2 label { display: grid; gap: 4px; font-size: 14px; }
   .keyrow { display: flex; gap: 8px; align-items: end; }
   .keyrow label { flex: 1; }
+  .recent { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
   @media (max-width: 899px) { .page { padding: 8px 14px 96px; } }
 </style>

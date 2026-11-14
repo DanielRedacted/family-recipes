@@ -1,12 +1,13 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import { untrack } from 'svelte';
-  import { app, canWrite, go, folderHash, noteHash, dirOf, nameOf, toast, loadVault } from '../lib/state.svelte';
-  import { fileUrl, saveFile, ApiError, downloadUrl } from '../lib/api';
-  import { renderMarkdown, scaledRaw, bodyOf } from '../lib/markdown';
+  import { onMount, untrack } from 'svelte';
+  import { app, canWrite, go, folderHash, noteHash, dirOf, nameOf, toast, loadVault, setLeaveGuard, clearLeaveGuard, resolveLink } from '../lib/state.svelte';
+  import { fileUrl, saveFile, ApiError, downloadUrl, api } from '../lib/api';
+  import { renderMarkdown, scaledRaw, bodyOf, vaultTarget } from '../lib/markdown';
   import { yieldNumber, type Units } from '../lib/scale';
-  import { openMenu } from '../lib/menu.svelte';
-  import { rename, moveDialog, remove, requireWrite, attachImage, shell } from '../lib/ops';
+  import { openMenu, type MenuItem } from '../lib/menu.svelte';
+  import { entryItems, requireWrite, attachImage, shell } from '../lib/ops';
+  import { choose, confirm3 } from '../lib/dialog.svelte';
   import Editor from './Editor.svelte';
   import Merge from './Merge.svelte';
   import Properties, { setProp } from './Properties.svelte';
@@ -14,13 +15,12 @@
   import PdfView from './PdfView.svelte';
   import Nutrition from './Nutrition.svelte';
   import { enqueueStarted } from '../lib/importer.svelte';
-  import { api } from '../lib/api';
-  import { vaultTarget } from '../lib/markdown';
 
   let { path, mode: routeMode }: { path: string; mode?: string } = $props();
 
   const entry = $derived(app.byPath[path]);
-  const wide = typeof matchMedia !== 'undefined' && matchMedia('(min-width: 1100px)').matches;
+  const mq = typeof matchMedia !== 'undefined' ? matchMedia('(min-width: 1100px)') : null;
+  let wide = $state(mq?.matches ?? false);
   let mode = $state<'read' | 'edit' | 'split'>('read');
   let draft = $state('');
   let base = $state<string | null>(null); // etag of the text the draft started from
@@ -31,16 +31,14 @@
   let cooking = $state(false);
   let factor = $state(1);
   let units = $state<Units>((() => { try { return (localStorage.getItem('units') as Units) || 'original'; } catch { return 'original'; } })());
-  let timer: ReturnType<typeof setTimeout> | undefined;
   let editor: Editor | undefined = $state();
   let imgInput: HTMLInputElement | undefined = $state();
 
-  // reset when switching notes
+  // start state (the component is re-created for each note)
   $effect(() => {
     path;
     untrack(() => {
-      flushSave();
-      mode = routeMode === 'edit' ? (wide ? 'split' : 'edit') : 'read';
+      mode = routeMode === 'edit' && canWrite() ? (wide ? 'split' : 'edit') : 'read';
       const e = app.byPath[path];
       draft = e?.raw ?? '';
       base = e?.etag ?? null;
@@ -67,20 +65,13 @@
 
   $effect(() => { try { localStorage.setItem('units', units); } catch {} });
 
+  // Nothing is written until Save (or ⌘S). Leaving with unsaved changes asks first.
   function onEdit(v: string) {
     draft = v;
     dirty = v !== (entry?.raw ?? '') || base !== entry?.etag;
-    clearTimeout(timer);
-    if (dirty && !conflict) timer = setTimeout(save, 900);
-  }
-
-  function flushSave() {
-    if (timer) { clearTimeout(timer); timer = undefined; if (dirty && !conflict) save(); }
   }
 
   async function save(text = draft, etag = base) {
-    clearTimeout(timer);
-    timer = undefined;
     if (!entry || saving) return;
     saving = true;
     try {
@@ -101,6 +92,25 @@
     }
   }
 
+  /** true when it is fine to leave the editor (saved, discarded, or nothing to save). */
+  async function confirmLeave(): Promise<boolean> {
+    if (!dirty) return true;
+    const r = await confirm3('Save your changes?', `“${entry?.title ?? nameOf(path)}” has changes that are not saved yet.`, 'Save', 'Don’t save');
+    if (r === 'ok') { await save(); return !dirty && !conflict; }
+    if (r === 'alt') { draft = entry?.raw ?? ''; base = entry?.etag ?? null; dirty = false; conflict = null; return true; }
+    return false;
+  }
+
+  onMount(() => {
+    setLeaveGuard(confirmLeave);
+    const unload = (e: BeforeUnloadEvent) => { if (dirty) e.preventDefault(); };
+    const media = () => { wide = mq?.matches ?? false; if (!wide && mode === 'split') mode = 'edit'; };
+    window.addEventListener('beforeunload', unload);
+    mq?.addEventListener('change', media);
+    return () => { clearLeaveGuard(confirmLeave); window.removeEventListener('beforeunload', unload); mq?.removeEventListener('change', media); };
+  });
+
+  /** Properties panel, "Mark as reviewed", AI tidy: one immediate, deliberate save. */
   async function saveRaw(raw: string) {
     if (!requireWrite()) return;
     draft = raw;
@@ -111,11 +121,12 @@
   function keepMine() { save(draft, conflict!.etag); comparing = false; }
   function useTheirs() { draft = conflict!.theirs; base = conflict!.etag; dirty = false; conflict = null; comparing = false; }
 
-  function setMode(m: typeof mode) {
+  async function setMode(m: typeof mode) {
     if (m !== 'read' && !requireWrite()) return;
-    if (m === 'read') flushSave();
+    if (m === 'read' && !(await confirmLeave())) return;
     mode = m;
   }
+  const startEditing = () => setMode(wide ? 'split' : 'edit');
 
   // live preview renders the draft; reading view renders the saved file with scaling applied
   const html = $derived.by(() => {
@@ -152,6 +163,15 @@
     }
     return out.join('\n') || null;
   }
+
+  async function linkToRecipe() {
+    const titles = [...new Set(app.files.filter((f) => f.kind === 'note' && f.path !== path).map((f) => f.title))].sort((a, b) => a.localeCompare(b));
+    const t = await choose('Link to another recipe', titles, titles[0] ?? '', 'Insert link');
+    if (t) editor?.insert(`[[${t}]]`);
+  }
+
+  // notes whose [[links]] point here
+  const mentionedIn = $derived(entry ? app.files.filter((f) => f.path !== path && f.links?.some((l) => resolveLink(l)?.path === path)) : []);
 
   // a view-only PDF recipe: the note points at the original PDF
   const origPdf = $derived.by(() => {
@@ -201,27 +221,34 @@
   }
 
   function moreMenu(e: MouseEvent) {
-    const items = [
-      { label: 'Download', run: () => (location.href = downloadUrl(path)) },
-      { label: 'Print', run: doPrint },
-    ];
-    if (canWrite()) items.unshift({ label: 'Rename…', run: () => rename(path) }, { label: 'Move to…', run: () => moveDialog(path) });
-    if (app.session.shell) items.push({ label: 'Show in Finder', run: () => shell('reveal', { path }) });
-    if (app.session.ai && canWrite() && entry?.kind === 'note') {
-      items.push({ label: '✨ Tidy formatting with AI…', run: aiTidy }, { label: '✨ Ask AI about this recipe…', run: () => { asking = true; } });
+    const isNote = entry?.kind === 'note';
+    const items: MenuItem[] = [];
+    if (isNote && canWrite()) {
+      if (mode === 'read') items.push({ label: 'Edit', run: startEditing });
+      else {
+        items.push({ label: 'Done editing', run: () => setMode('read') });
+        if (wide) items.push({ label: mode === 'split' ? 'Hide preview' : 'Show preview alongside', run: () => setMode(mode === 'split' ? 'edit' : 'split') });
+        items.push({ label: 'Link to another recipe…', run: linkToRecipe }, { label: 'Insert picture…', run: () => imgInput?.click() });
+      }
     }
-    if (canWrite()) items.push({ label: 'Move to trash', run: () => remove(path), danger: true } as any);
+    const rest = entryItems(path, false);
+    if (rest.length) rest[0] = { ...rest[0], sep: items.length > 0 };
+    items.push(...rest.filter((i) => i.label !== 'Move to trash'));
+    items.push({ label: 'Print', run: doPrint });
+    if (app.session.ai && canWrite() && isNote) {
+      items.push({ label: '✨ Tidy formatting with AI…', run: aiTidy, sep: true }, { label: '✨ Ask AI about this recipe…', run: () => { asking = true; } });
+    }
+    const trash = rest.find((i) => i.label === 'Move to trash');
+    if (trash) items.push(trash);
     openMenu(e, items);
   }
 
   function onKey(e: KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e' && entry?.kind === 'note') {
       e.preventDefault();
-      setMode(mode === 'read' ? (wide ? 'split' : 'edit') : 'read');
+      if (mode === 'read') startEditing(); else setMode('read');
     }
   }
-
-  window.addEventListener('beforeunload', (e) => { if (dirty) { flushSave(); e.preventDefault(); } });
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -238,13 +265,10 @@
         <a href={folderHash(dirOf(path))}>{dirOf(path) || 'All recipes'}</a><span class="sep">›</span><span>{nameOf(path)}</span>
       </nav>
       <span class="spacer"></span>
-      {#if entry.kind === 'note'}
-        <span class="save small muted" aria-live="polite">{saving ? 'Saving…' : dirty ? 'Unsaved' : mode !== 'read' ? 'Saved' : ''}</span>
-        <div class="seg" role="group" aria-label="View mode">
-          <button class="btn" class:on={mode === 'read'} onclick={() => setMode('read')}>Read</button>
-          <button class="btn" class:on={mode === 'edit'} onclick={() => setMode('edit')}>Edit</button>
-          {#if wide}<button class="btn" class:on={mode === 'split'} onclick={() => setMode('split')}>Split</button>{/if}
-        </div>
+      {#if entry.kind === 'note' && mode !== 'read'}
+        <span class="save small muted" aria-live="polite">{saving ? 'Saving…' : dirty ? 'Unsaved changes' : 'Saved'}</span>
+        <button class="btn" onclick={() => setMode('read')}>Done</button>
+        <button class="btn primary" disabled={!dirty || saving || !!conflict} onclick={() => save()} title="Save (⌘S)"><Icon name="check" size={16} /> Save</button>
       {/if}
       <button class="btn icon" aria-label="More" onclick={moreMenu}><Icon name="more" /></button>
     </header>
@@ -291,7 +315,7 @@
             <div class="row edtools">
               <button class="btn small" onclick={() => imgInput?.click()}><Icon name="image" size={16} /> Insert image</button>
               <input type="file" accept="image/*" multiple hidden bind:this={imgInput} onchange={async (e) => { const t = e.currentTarget; if (t.files?.length) { const md = await onImages(Array.from(t.files)); if (md) editor?.insert(md + '\n'); } t.value = ''; }} />
-              <span class="muted small">Markdown · saves automatically · ⌘E to read</span>
+              <span class="muted small">Markdown · ⌘S saves · type [[ to link a recipe</span>
             </div>
             <Editor bind:this={editor} value={draft} onchange={onEdit} onsave={() => save()} onfiles={onImages} />
           </div>
@@ -313,7 +337,12 @@
               {#if canWrite()}<p class="no-print"><button class="btn" disabled={converting} onclick={() => convertPdf(origPdf!)}>Convert to an editable recipe…</button></p>{/if}
               <PdfView path={origPdf} />
             {/if}
-            {#if entry.links?.length && mode === 'read'}<p class="muted small no-print">Links to {entry.links.length} other note{entry.links.length > 1 ? 's' : ''}.</p>{/if}
+            {#if mentionedIn.length && mode === 'read'}
+              <aside class="mentions no-print">
+                <h2>Mentioned in</h2>
+                <ul>{#each mentionedIn as m (m.path)}<li><a href={noteHash(m.path)}>{m.title}</a> <span class="muted small">{dirOf(m.path)}</span></li>{/each}</ul>
+              </aside>
+            {/if}
           </article>
         {/if}
       </div>
@@ -350,11 +379,9 @@
   .crumbs { display: flex; gap: 6px; min-width: 0; color: var(--muted); }
   .crumbs a { color: var(--muted); text-decoration: none; }
   .crumbs > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
-  .seg { display: flex; }
-  .seg .btn { border-radius: 0; }
-  .seg .btn:first-child { border-radius: 8px 0 0 8px; }
-  .seg .btn:last-child { border-radius: 0 8px 8px 0; }
-  .seg .btn + .btn { border-left: 0; }
+  .mentions { margin: 28px 0 0; padding-top: 12px; border-top: 1px solid var(--border); max-width: 760px; }
+  .mentions h2 { font: 600 14px var(--sans); color: var(--muted); margin: 0 0 6px; }
+  .mentions ul { margin: 0; padding-left: 18px; }
   .banner { background: var(--p-yellow); border-radius: var(--radius); padding: 10px 14px; margin: 4px 0 14px; font-size: 14px; max-width: 760px; }
   .banner.warn { background: var(--p-red); max-width: none; }
   .recipebar { margin: 0 0 16px; max-width: 760px; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }

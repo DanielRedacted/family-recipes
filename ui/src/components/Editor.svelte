@@ -6,6 +6,7 @@
   import { yamlFrontmatter } from '@codemirror/lang-yaml';
   import { EditorState } from '@codemirror/state';
   import { indentWithTab } from '@codemirror/commands';
+  import { wikiLinks } from '../lib/complete';
 
   let { value, onchange, onsave, onfiles, readonly = false }: {
     value: string;
@@ -47,6 +48,7 @@
           EditorView.lineWrapping,
           theme,
           EditorState.readOnly.of(readonly),
+          EditorState.languageData.of(() => [{ autocomplete: wikiLinks }]),
           keymap.of([indentWithTab, { key: 'Mod-s', preventDefault: true, run: () => { onsave?.(); return true; } }]),
           EditorView.updateListener.of((u) => { if (u.docChanged) onchange(u.state.doc.toString()); }),
           EditorView.domEventHandlers({
