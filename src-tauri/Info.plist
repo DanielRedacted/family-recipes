@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Recipes shares your recipes with phones, tablets and computers on this Wi-Fi.</string>
+  <key>NSBonjourServices</key>
+  <array><string>_https._tcp</string></array>
+</dict>
+</plist>

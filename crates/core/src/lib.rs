@@ -40,6 +40,11 @@ pub fn lan_status(s: &AppState) -> serde_json::Value {
     serde_json::to_value(&*s.ext.lan.status.read().unwrap()).unwrap_or_default()
 }
 
+/// PDF text extraction for search (None = disabled).
+pub fn pdf_text() -> Option<vault::PdfText> {
+    None
+}
+
 pub fn ai_key_set(_: &AppState) -> bool {
     false
 }

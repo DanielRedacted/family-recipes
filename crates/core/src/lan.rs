@@ -53,12 +53,20 @@ pub struct Lan {
 
 impl Drop for Lan {
     fn drop(&mut self) {
-        for c in [&self.dnssd, &self.caffeinate] {
-            if let Some(mut ch) = c.lock().unwrap().take() {
-                let _ = ch.kill();
-            }
+        kill_dnssd(&self.dnssd);
+        if let Some(mut ch) = self.caffeinate.lock().unwrap().take() {
+            let _ = ch.kill();
         }
     }
+}
+
+/// Stop the watchdog wrapper and the dns-sd registration it started.
+fn kill_dnssd(slot: &Mutex<Option<Child>>) {
+    if let Some(mut c) = slot.lock().unwrap().take() {
+        let _ = c.kill();
+        let _ = c.wait();
+    }
+    let _ = Command::new("/usr/bin/pkill").args(["-f", "^/usr/bin/dns-sd -P Recipes _https._tcp"]).status();
 }
 
 // ---------- certificates ----------
@@ -199,10 +207,7 @@ pub fn stop(state: &AppState) {
     for h in lan.handles.lock().unwrap().drain(..) {
         h.graceful_shutdown(Some(Duration::from_secs(2)));
     }
-    if let Some(mut c) = lan.dnssd.lock().unwrap().take() {
-        let _ = c.kill();
-        let _ = c.wait();
-    }
+    kill_dnssd(&lan.dnssd);
     set_keep_awake(state, false);
     lan.status.write().unwrap().running = false;
 }
@@ -285,14 +290,18 @@ fn set_hosts(state: &AppState, ips: &[Ipv4Addr]) {
 /// Register recipes.local -> IP with the system mDNSResponder (`dns-sd -P` proxy registration).
 fn advertise(state: &AppState, ips: &[Ipv4Addr], port: u16) -> String {
     let lan = &state.ext.lan;
-    if let Some(mut c) = lan.dnssd.lock().unwrap().take() {
-        let _ = c.kill();
-        let _ = c.wait();
-    }
+    kill_dnssd(&lan.dnssd);
     let Some(ip) = ips.first() else { return "waiting for a network".into() };
     reap_stale(&state.data_dir);
-    match Command::new("/usr/bin/dns-sd")
-        .args(["-P", "Recipes", "_https._tcp", "local", &port.to_string(), HOST, &ip.to_string()])
+    // Watchdog wrapper: if Recipes dies without cleaning up (crash, force quit), the
+    // registration goes away within seconds instead of advertising a dead address.
+    let script = format!(
+        "/usr/bin/dns-sd -P Recipes _https._tcp local {port} {HOST} {ip} >/dev/null 2>&1 & D=$!; \
+         while kill -0 {me} 2>/dev/null && kill -0 $D 2>/dev/null; do sleep 2; done; kill $D 2>/dev/null",
+        me = std::process::id()
+    );
+    match Command::new("/bin/sh")
+        .args(["-c", &script])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn()
@@ -314,6 +323,7 @@ fn reap_stale(dir: &Path) {
     if cmd.is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains("dns-sd -P Recipes")) {
         let _ = Command::new("/bin/kill").arg(pid).status();
     }
+    let _ = Command::new("/usr/bin/pkill").args(["-f", "^/usr/bin/dns-sd -P Recipes _https._tcp"]).status();
     let _ = std::fs::remove_file(dir.join("dns-sd.pid"));
 }
 

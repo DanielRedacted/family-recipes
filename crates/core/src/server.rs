@@ -86,8 +86,9 @@ pub trait Shell: Send + Sync {
     fn reveal(&self, abs: &Path);
     fn choose_folder(&self) -> Option<PathBuf>;
     fn print(&self);
-    fn keychain_get(&self, _key: &str) -> Option<String> {
-        None
+    /// Query (None) or set "open at login"; returns the current state.
+    fn autostart(&self, _set: Option<bool>) -> bool {
+        false
     }
 }
 
@@ -628,6 +629,7 @@ async fn settings_get(State(s): St, caller: Caller) -> Res {
         "lan": st.lan,
         "keep_awake": st.keep_awake,
         "network": lan,
+        "autostart": s.shell.as_ref().map(|sh| sh.autostart(None)),
     }))
     .into_response())
 }
@@ -701,6 +703,11 @@ async fn shell_action(State(s): St, caller: Caller, AxPath(action): AxPath<Strin
         "print" => {
             shell.print();
             Ok(StatusCode::NO_CONTENT.into_response())
+        }
+        "autostart" => {
+            let set = serde_json::from_slice::<serde_json::Value>(&body).ok().and_then(|v| v["enabled"].as_bool());
+            let on = tokio::task::spawn_blocking(move || shell.autostart(set)).await.unwrap();
+            Ok(Json(json!({ "enabled": on })).into_response())
         }
         _ => Err(err(StatusCode::NOT_FOUND, "unknown action")),
     }

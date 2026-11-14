@@ -94,6 +94,14 @@
       </div>
     </section>
 
+    {#if app.session.shell}
+      <section class="card">
+        <h2>Desktop app</h2>
+        <label class="row toggle"><input type="checkbox" checked={!!s.autostart} onchange={async (e) => { const r = await shell('autostart', { enabled: e.currentTarget.checked }); if (r) s.autostart = r.enabled; }} /> Open Recipes at login</label>
+        <p class="muted small">Closing the window keeps Recipes running in the menu bar, so phones and tablets can still reach it. Quit from the menu-bar icon.</p>
+      </section>
+    {/if}
+
     <section class="card">
       <h2>Phones, tablets and other computers</h2>
       <Network status={s.network} lan={s.lan} keepAwake={s.keep_awake} onchange={put} />
