@@ -1,4 +1,7 @@
 pub mod auth;
+pub mod extract;
+pub mod fetch;
+pub mod import;
 pub mod lan;
 pub mod recipe;
 pub mod server;
@@ -13,17 +16,24 @@ use axum::routing::{get, post};
 use server::AppState;
 use std::sync::{Arc, OnceLock};
 
-/// State owned by later subsystems.
-#[derive(Default)]
+/// State owned by subsystems.
 pub struct Extensions {
     pub lan: lan::Lan,
     pub app: OnceLock<Router>,
+    pub jobs: import::Jobs,
+}
+
+impl Default for Extensions {
+    fn default() -> Self {
+        Self { lan: Default::default(), app: OnceLock::new(), jobs: import::Jobs::new() }
+    }
 }
 
 pub fn extra_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/api/setup/trust-local", post(trust_local))
         .route("/ca.crt", get(lan::ca_cert))
+        .merge(import::routes())
 }
 
 async fn trust_local(State(s): State<Arc<AppState>>, caller: Caller) -> Result<Response, Response> {
@@ -42,7 +52,7 @@ pub fn lan_status(s: &AppState) -> serde_json::Value {
 
 /// PDF text extraction for search (None = disabled).
 pub fn pdf_text() -> Option<vault::PdfText> {
-    None
+    Some(import::pdf_text)
 }
 
 pub fn ai_key_set(_: &AppState) -> bool {

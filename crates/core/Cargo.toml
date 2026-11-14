@@ -9,7 +9,7 @@ path = "src/bin/recipes-server.rs"
 
 [dependencies]
 anyhow = "1"
-axum = "0.8"
+axum = { version = "0.8", features = ["multipart"] }
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.6", features = ["compression-gzip", "compression-br", "trace"] }
 rust-embed = "8"
@@ -38,3 +38,9 @@ axum-server = { version = "0.8", features = ["tls-rustls"] }
 if-addrs = "0.15"
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 time = "0.3"
+scraper = "0.24"
+dom_smoothie = "0.19"
+htmd = "0.5"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "gzip", "brotli", "stream"] }
+url = "2"
+pdf-extract = "0.10"

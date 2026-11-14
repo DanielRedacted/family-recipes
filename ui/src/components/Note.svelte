@@ -12,6 +12,9 @@
   import Properties, { setProp } from './Properties.svelte';
   import CookMode from './CookMode.svelte';
   import PdfView from './PdfView.svelte';
+  import { importer } from '../lib/importer.svelte';
+  import { api } from '../lib/api';
+  import { vaultTarget } from '../lib/markdown';
 
   let { path, mode: routeMode }: { path: string; mode?: string } = $props();
 
@@ -149,6 +152,24 @@
     return out.join('\n') || null;
   }
 
+  // a view-only PDF recipe: the note points at the original PDF
+  const origPdf = $derived.by(() => {
+    const o = entry?.frontmatter?.original;
+    const p = typeof o === 'string' ? vaultTarget(o, '') : null;
+    return p && /\.pdf$/i.test(p) && app.byPath[p] ? p : null;
+  });
+
+  let converting = $state(false);
+  async function convertPdf(pdf: string) {
+    if (!requireWrite()) return;
+    converting = true;
+    try {
+      importer.pending = await api('POST', '/api/import/from-vault', { path: pdf });
+      go('#/import');
+    } catch (e: any) { toast(e.message, 'error'); }
+    finally { converting = false; }
+  }
+
   function doPrint() {
     if (app.session.shell) shell('print');
     else window.print();
@@ -251,12 +272,17 @@
           <article class="reader">
             {#if mode === 'read'}<Properties {entry} editable={canWrite()} onchange={saveRaw} />{/if}
             <div class="prose">{@html html}</div>
+            {#if mode === 'read' && origPdf && !entry.recipe}
+              {#if canWrite()}<p class="no-print"><button class="btn" disabled={converting} onclick={() => convertPdf(origPdf!)}>Convert to an editable recipe…</button></p>{/if}
+              <PdfView path={origPdf} />
+            {/if}
             {#if entry.links?.length && mode === 'read'}<p class="muted small no-print">Links to {entry.links.length} other note{entry.links.length > 1 ? 's' : ''}.</p>{/if}
           </article>
         {/if}
       </div>
     {:else if entry.kind === 'pdf'}
       <h1 class="ftitle">{entry.title}</h1>
+      {#if canWrite()}<p class="no-print"><button class="btn" disabled={converting} onclick={() => convertPdf(path)}>Convert to an editable recipe…</button></p>{/if}
       <PdfView {path} />
     {:else if entry.kind === 'image'}
       <h1 class="ftitle">{nameOf(path)}</h1>

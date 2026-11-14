@@ -21,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
     let home = PathBuf::from(std::env::var("HOME")?);
     let vault = vault.unwrap_or_else(|| home.join("Recipes"));
     let data = data.unwrap_or_else(|| home.join("Library/Application Support/Recipes"));
-    let state = server::init(Config { vault, data_dir: data, shell: None, pdf_text: None })?;
+    let state = server::init(Config { vault, data_dir: data, shell: None, pdf_text: recipes_core::pdf_text() })?;
     let l = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
     let port = l.local_addr()?.port();
     state.loopback_port.store(port, std::sync::atomic::Ordering::Relaxed);
