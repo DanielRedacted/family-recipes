@@ -43,7 +43,7 @@ export function parseRoute(): Route {
     return { view: 'note', path: p, mode: new URLSearchParams(mode || '').get('mode') || undefined };
   }
   if (view === 'f') return { view: 'folder', path };
-  if (['settings', 'trash', 'import', 'search'].includes(view)) return { view, path };
+  if (['settings', 'trash', 'import', 'search', 'ingredients'].includes(view)) return { view, path };
   return { view: 'folder', path: '' };
 }
 

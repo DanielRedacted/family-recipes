@@ -39,6 +39,7 @@
     {#if !canWrite() && app.session.pin_set}
       <button class="btn ghost" onclick={() => (app.pinPrompt = true)}><Icon name="lock" size={16} /> Unlock editing</button>
     {/if}
+    <button class="btn ghost" class:on={app.route.view === 'ingredients'} onclick={() => go('#/ingredients')}><Icon name="carrot" size={16} /> Ingredients</button>
     <span class="spacer"></span>
     <button class="btn ghost icon" title="Settings" aria-label="Settings" onclick={() => go('#/settings')}><Icon name="settings" /></button>
   </div>

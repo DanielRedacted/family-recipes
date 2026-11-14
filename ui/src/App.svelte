@@ -9,6 +9,7 @@
   import Settings from './components/Settings.svelte';
   import Trash from './components/Trash.svelte';
   import Import from './components/Import.svelte';
+  import Ingredients from './components/Ingredients.svelte';
   import Switcher from './components/Switcher.svelte';
   import Overlays from './components/Overlays.svelte';
 
@@ -45,6 +46,7 @@
       {:else if app.route.view === 'settings'}<Settings />
       {:else if app.route.view === 'trash'}<Trash />
       {:else if app.route.view === 'import'}<Import />
+      {:else if app.route.view === 'ingredients'}<Ingredients query={app.route.path} />
       {:else}{#key app.route.path}<Folder path={app.route.path} />{/key}
       {/if}
     </main>

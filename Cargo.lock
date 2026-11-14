@@ -4310,6 +4310,7 @@ dependencies = [
  "serde-saphyr",
  "serde_json",
  "sha2 0.10.9",
+ "strsim",
  "time",
  "tokio",
  "tokio-stream",

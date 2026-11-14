@@ -3,6 +3,7 @@ pub mod auth;
 pub mod extract;
 pub mod fetch;
 pub mod import;
+pub mod ingredient;
 pub mod lan;
 pub mod recipe;
 pub mod schema;
@@ -23,11 +24,12 @@ pub struct Extensions {
     pub lan: lan::Lan,
     pub app: OnceLock<Router>,
     pub jobs: import::Jobs,
+    pub ingredients: ingredient::Cache,
 }
 
 impl Default for Extensions {
     fn default() -> Self {
-        Self { lan: Default::default(), app: OnceLock::new(), jobs: import::Jobs::new() }
+        Self { lan: Default::default(), app: OnceLock::new(), jobs: import::Jobs::new(), ingredients: Default::default() }
     }
 }
 
@@ -35,6 +37,7 @@ pub fn extra_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/api/setup/trust-local", post(trust_local))
         .route("/ca.crt", get(lan::ca_cert))
+        .route("/api/ingredients", get(ingredient::route))
         .merge(import::routes())
         .merge(ai::routes())
 }

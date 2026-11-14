@@ -57,6 +57,8 @@ enum Kind {
 static QTY: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)^(\d|[½¼¾⅓⅔⅛⅜⅝⅞]|(a|an|one|two|three|four|six|half|pinch|dash|few)\b)").unwrap()
 });
+/// table cells: only digits and fraction characters count as a quantity
+static NUM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\d|[½¼¾⅓⅔⅛⅜⅝⅞])").unwrap());
 static WIKI: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"!?\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]").unwrap());
 static MARKER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*(?:[-*+]|\d+[.)])\s+").unwrap());
 
@@ -123,6 +125,21 @@ enum BlockKind {
     Para,
     BoldPara,
     Item { ordered: bool, list: usize },
+    /// a table body row (or a header row holding data, e.g. `| ¾ cup | Warm milk |`)
+    Row { table: usize },
+    /// a table header of labels, e.g. `| Single | Ingredients | Double |`
+    TableHead { table: usize },
+}
+
+/// One table row as an ingredient line: `qty | name` reads "qty name"; other layouts keep
+/// every cell, in order, separated by " · " (multi-batch tables are shown, not scaled).
+fn row_text(cells: &[String]) -> String {
+    let cells: Vec<&str> = cells.iter().map(|c| c.trim()).filter(|c| !c.is_empty() && *c != "-" && *c != "–").collect();
+    if cells.len() == 2 && NUM.is_match(cells[0]) && !NUM.is_match(cells[1]) {
+        format!("{} {}", cells[0], cells[1])
+    } else {
+        cells.join(" · ")
+    }
 }
 
 pub fn parse(text: &str) -> Parsed {
@@ -153,6 +170,9 @@ pub fn parse(text: &str) -> Parsed {
     let mut in_strong = 0;
     let mut seen_h2 = false;
     let mut para_depth = 0;
+    // tables: (first line, cells, header?)
+    let mut row: Option<(usize, Vec<String>, bool)> = None;
+    let mut table_id = 0usize;
     for (ev, range) in Parser::new_ext(body, Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH)
         .into_offset_iter()
     {
@@ -204,11 +224,36 @@ pub fn parse(text: &str) -> Parsed {
                     cur = Some((line_of(&line_starts, abs), String::new(), BlockKind::Para, true));
                 }
             }
+            Event::Start(Tag::Table(_)) => table_id += 1,
+            Event::Start(Tag::TableHead) | Event::Start(Tag::TableRow) if list_depth == 0 => {
+                let header = matches!(ev, Event::Start(Tag::TableHead));
+                row = Some((line_of(&line_starts, abs), vec![], header));
+            }
+            Event::Start(Tag::TableCell) => {
+                if let Some((_, cells, _)) = row.as_mut() {
+                    cells.push(String::new());
+                }
+            }
+            Event::End(TagEnd::TableHead) | Event::End(TagEnd::TableRow) => {
+                if let Some((line, cells, header)) = row.take() {
+                    let label = header && !cells.iter().any(|c| NUM.is_match(c.trim()));
+                    let kind = if label { BlockKind::TableHead { table: table_id } } else { BlockKind::Row { table: table_id } };
+                    let text = if label { cells.iter().map(|c| c.trim()).collect::<Vec<_>>().join(" | ") } else { row_text(&cells) };
+                    if !text.is_empty() {
+                        blocks.push(Block { line, text, kind });
+                    }
+                }
+            }
             Event::Start(Tag::Strong) => in_strong += 1,
             Event::End(TagEnd::Strong) => in_strong -= 1,
             Event::Start(Tag::Image { dest_url, .. }) => {
                 if !seen_h2 && out.cover.is_none() {
                     out.cover = Some(dest_url.to_string());
+                }
+            }
+            Event::Text(t) | Event::Code(t) if row.is_some() => {
+                if let Some(c) = row.as_mut().and_then(|r| r.1.last_mut()) {
+                    c.push_str(&t);
                 }
             }
             Event::Text(t) | Event::Code(t) => {
@@ -274,7 +319,7 @@ fn is_group_label(b: &Block, next: Option<&Block>) -> bool {
         BlockKind::Para => {
             b.text.split_whitespace().count() <= 4
                 && !b.text.ends_with(['.', ',', ';', '!', '?'])
-                && matches!(next, Some(Block { kind: BlockKind::Item { .. }, .. }))
+                && matches!(next, Some(Block { kind: BlockKind::Item { .. } | BlockKind::Row { .. }, .. }))
         }
         _ => false,
     }
@@ -316,10 +361,11 @@ fn detect(blocks: &[Block]) -> Option<Recipe> {
             .iter()
             .position(|x| matches!(x.kind, BlockKind::Heading(l) if l <= 2))
             .map_or(blocks.len(), |p| i + p);
-        let has_items = blocks[i..end].iter().any(|x| matches!(x.kind, BlockKind::Item { .. }));
+        let has_items = blocks[i..end].iter().any(|x| matches!(x.kind, BlockKind::Item { .. } | BlockKind::Row { .. }) && (kind == Kind::Ing || matches!(x.kind, BlockKind::Item { .. })));
         let target = if kind == Kind::Ing { &mut r.ingredients } else { &mut r.steps };
         let take = match b.kind {
             BlockKind::Item { .. } => true,
+            BlockKind::Row { .. } => kind == Kind::Ing,
             BlockKind::Para => !has_items,
             _ => false,
         };
@@ -329,20 +375,38 @@ fn detect(blocks: &[Block]) -> Option<Recipe> {
         i += 1;
     }
     if !saw_heading_section || r.ingredients.is_empty() {
-        // Fallback: first list where at least half the items start with a quantity.
-        let mut lists: Vec<(usize, Vec<&Block>)> = Vec::new();
+        // Fallback: the first list where at least half the items start with a quantity, or the
+        // first table that is clearly an ingredient table: an "Ingredients" column header, or a
+        // plain two-column `qty | name` table (charts and conversion tables are neither).
+        enum Src {
+            List(usize),
+            Table(usize),
+        }
+        let mut cands: Vec<(Src, Vec<&Block>)> = Vec::new();
         for b in blocks {
-            if let BlockKind::Item { list, .. } = b.kind {
-                match lists.last_mut() {
-                    Some((id, items)) if *id == list => items.push(b),
-                    _ => lists.push((list, vec![b])),
-                }
+            let src = match b.kind {
+                BlockKind::Item { list, .. } => Src::List(list),
+                BlockKind::Row { table } => Src::Table(table),
+                _ => continue,
+            };
+            let same = |s: &Src| matches!((s, &src), (Src::List(a), Src::List(b)) | (Src::Table(a), Src::Table(b)) if a == b);
+            match cands.last_mut() {
+                Some((s, items)) if same(s) => items.push(b),
+                _ => cands.push((src, vec![b])),
             }
         }
-        if let Some((id, items)) = lists.iter().find(|(_, items)| {
-            let q = items.iter().filter(|b| QTY.is_match(&b.text)).count();
-            items.len() >= 2 && q * 2 >= items.len()
-        }) {
+        let head_says_ingredients = |t: usize| blocks.iter().any(|b| b.kind == BlockKind::TableHead { table: t } && b.text.to_lowercase().contains("ingredient"));
+        let found = cands.iter().find(|(src, items)| match src {
+            Src::List(_) => {
+                let q = items.iter().filter(|b| QTY.is_match(&b.text)).count();
+                items.len() >= 2 && q * 2 >= items.len()
+            }
+            Src::Table(t) => {
+                let qty_name = items.iter().filter(|b| NUM.is_match(&b.text) && !b.text.contains(" · ")).count();
+                !items.is_empty() && (head_says_ingredients(*t) || (qty_name >= 2 && qty_name * 2 >= items.len()))
+            }
+        });
+        if let Some((src, items)) = found {
             r.ingredients = vec![Group {
                 name: None,
                 items: items.iter().map(|b| Line { line: b.line, text: b.text.clone() }).collect(),
@@ -353,9 +417,10 @@ fn detect(blocks: &[Block]) -> Option<Recipe> {
                     .iter()
                     .filter(|b| b.line > last)
                     .take_while(|b| !matches!(b.kind, BlockKind::Heading(l) if l <= 2))
-                    .filter(|b| match b.kind {
-                        BlockKind::Item { list, .. } => list != *id,
-                        BlockKind::Para => true,
+                    .filter(|b| match (b.kind, src) {
+                        (BlockKind::Item { list, .. }, Src::List(id)) => list != *id,
+                        (BlockKind::Item { .. }, _) => true,
+                        (BlockKind::Para, _) => true,
                         _ => false,
                     })
                     .collect();
@@ -410,6 +475,22 @@ mod tests {
         assert_eq!(r.steps[0].items[0].text, "Shake.");
 
         assert!(parse("# Chart\n\n| a | b |\n| - | - |\n| 1 | 2 |\n").recipe.is_none());
+    }
+
+    #[test]
+    fn ingredient_tables() {
+        // a qty | name table under a heading; the header row holds data
+        let md = "# Bread\n\n## Ingredients\n\n| ¾ cup | Warm milk |\n| --- | --- |\n| 2 tsp | Yeast |\n| | Salt |\n\n## Directions\n\nMix.\n";
+        let r = parse(md).recipe.unwrap();
+        let items: Vec<&str> = r.ingredients[0].items.iter().map(|l| l.text.as_str()).collect();
+        assert_eq!(items, ["¾ cup Warm milk", "2 tsp Yeast", "Salt"]);
+        assert_eq!(md.lines().nth(r.ingredients[0].items[1].line), Some("| 2 tsp | Yeast |"));
+        assert_eq!(r.steps[0].items[0].text, "Mix.");
+        // a multi-batch table with no headings: found by its "Ingredients" column
+        let md = "# 9” Pie Crust\n\n| Single | Ingredients | Double |\n| --- | --- | --- |\n| 1 ½ cups | AP flour | 3 cups |\n| 1 tsp | Salt | 1 1/2 tsp |\n\nMix flour and salt.\n";
+        let r = parse(md).recipe.unwrap();
+        assert_eq!(r.ingredients[0].items[0].text, "1 ½ cups · AP flour · 3 cups");
+        assert_eq!(r.steps[0].items[0].text, "Mix flour and salt.");
     }
 
     #[test]

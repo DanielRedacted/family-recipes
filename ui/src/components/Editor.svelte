@@ -8,6 +8,7 @@
   import { indentWithTab } from '@codemirror/commands';
   import Icon from './Icon.svelte';
   import { wikiLinks } from '../lib/complete';
+  import { ingredientSuggest, loadIngredients } from '../lib/ingredients.svelte';
   import { livePreview } from '../lib/livePreview';
   import { toggleLines, toggleWrap, type LineKind } from '../lib/mdCommands';
   import { vaultTarget } from '../lib/markdown';
@@ -69,6 +70,7 @@
   }
 
   onMount(() => {
+    loadIngredients();
     view = new EditorView({
       parent: host,
       state: EditorState.create({
@@ -80,7 +82,7 @@
           theme,
           look.of(lookExt(formatted)),
           EditorState.readOnly.of(readonly),
-          EditorState.languageData.of(() => [{ autocomplete: wikiLinks }]),
+          EditorState.languageData.of(() => [{ autocomplete: wikiLinks }, { autocomplete: ingredientSuggest }]),
           keymap.of([
             indentWithTab,
             { key: 'Mod-s', preventDefault: true, run: () => { onsave?.(); return true; } },

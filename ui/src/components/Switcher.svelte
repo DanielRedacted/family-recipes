@@ -1,17 +1,25 @@
 <script lang="ts">
   import { app, go, noteHash, folderHash } from '../lib/state.svelte';
   import { search } from '../lib/search';
+  import { catalog, loadIngredients } from '../lib/ingredients.svelte';
 
+  const dir = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
   let q = $state('');
   let sel = $state(0);
   let input: HTMLInputElement | undefined = $state();
 
   const folderHits = $derived(q.trim() ? app.folders.filter((f) => f.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 5) : []);
   const hits = $derived(q.trim() ? search(q, 40) : [...app.files].filter((f) => f.kind === 'note').sort((a, b) => b.mtime - a.mtime).slice(0, 10).map((f) => ({ path: f.path, title: f.title })));
-  const all = $derived([...folderHits.map((f) => ({ path: f, title: f, folder: true })), ...hits.map((h) => ({ ...h, folder: false }))]);
+  const ingHits = $derived(q.trim().length >= 2 ? catalog.items.filter((i) => i.name.toLowerCase().includes(q.trim().toLowerCase())).sort((a, b) => b.count - a.count).slice(0, 3) : []);
+  const all = $derived([
+    ...folderHits.map((f) => ({ path: f, title: f, folder: true, ing: false, sub: '' })),
+    ...hits.map((h) => ({ ...h, folder: false, ing: false, sub: dir(h.path) })),
+    ...ingHits.map((i) => ({ path: i.name, title: i.name, folder: false, ing: true, sub: `ingredient · ${i.count} recipe${i.count === 1 ? '' : 's'}` })),
+  ]);
 
   $effect(() => {
     if (app.switcher) {
+      loadIngredients();
       q = '';
       sel = 0;
       setTimeout(() => input?.focus(), 0);
@@ -23,7 +31,7 @@
     const h = all[i];
     if (!h) return;
     app.switcher = false;
-    go(h.folder ? folderHash(h.path) : noteHash(h.path));
+    go(h.ing ? '#/ingredients/' + encodeURIComponent(h.path) : h.folder ? folderHash(h.path) : noteHash(h.path));
   }
 
   function key(e: KeyboardEvent) {
@@ -32,7 +40,6 @@
     else if (e.key === 'Enter') { pick(sel); e.preventDefault(); }
     else if (e.key === 'Escape') app.switcher = false;
   }
-  const dir = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
 </script>
 
 {#if app.switcher}
@@ -40,11 +47,11 @@
     <div class="box card" role="dialog" aria-modal="true" aria-label="Search" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={key}>
       <input class="field q" placeholder="Search titles, ingredients, notes…" bind:value={q} bind:this={input} aria-label="Search" />
       <ul role="listbox">
-        {#each all as h, i (h.path + h.folder)}
+        {#each all as h, i (h.path + h.folder + h.ing)}
           <li role="option" aria-selected={i === sel}>
             <button class:sel={i === sel} onmouseenter={() => (sel = i)} onclick={() => pick(i)}>
-              <span>{h.folder ? '🗀 ' : ''}{h.title}</span>
-              {#if !h.folder}<span class="muted small">{dir(h.path)}</span>{/if}
+              <span>{h.folder ? '🗀 ' : h.ing ? '🥕 ' : ''}{h.title}</span>
+              {#if !h.folder}<span class="muted small">{h.sub}</span>{/if}
             </button>
           </li>
         {:else}
