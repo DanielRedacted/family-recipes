@@ -12,8 +12,18 @@ from, edit, import and manage them.
 - **AI:** optional, off by default, your own Anthropic or OpenAI-compatible API key (stored in the
   macOS Keychain). Only ever proposes changes you accept.
 
+What it does: a folder tree and cards (with emoji and colours you can change), ⌘K search
+(recipes, folders, ingredients), a reader with serving scaler, unit conversion and cook mode, a
+formatted Markdown editor (Obsidian-style: markup shows only on the line you edit; saves when you
+press Save), `[[links]]` between recipes with backlinks, an ingredient catalogue that also feeds
+suggestions while typing, and an importer for web pages (schema.org, WP Recipe Maker incl. its
+REST data, nutrition and equipment), PDFs, Word files, photos and pasted text — several at once,
+each with a step log.
+
 The 259 family recipes from `home-recipes/` ship with the app (`vault-seed/`) and are copied into
-the recipes folder on first launch.
+the recipes folder on first launch. When a later version corrects a bundled recipe, the app
+updates it in your folder only if you have not changed that file (the old copy goes to
+`.trash/versions`); edited, moved or deleted files are left alone.
 
 ## Build and run
 
@@ -40,7 +50,9 @@ crates/core/        server library: vault, recipe parser, HTTP API, LAN/TLS, imp
 src-tauri/          desktop shell (window, menu-bar item, Finder/dialog/print hooks)
 ui/                 Svelte 5 + Vite frontend (embedded into the binary), PWA
 vault-seed/         the converted family recipes
-tools/              convert.py + verify.py (conversion from home-recipes/, word-for-word check)
+tools/              convert.py + verify.py (conversion from home-recipes/, word-for-word check),
+                    overrides.json (structure-only fixes), techniques.txt, seed-etags.py
+deploy/linux/       Linux / Raspberry Pi notes and the old projects' deploy files (not used on macOS)
 docs/FORMAT.md      the recipe file format
 ```
 
@@ -51,8 +63,10 @@ python3 -I tools/verify.py --self-test && python3 -I tools/verify.py   # 259/259
 cargo test -p recipes-core                                             # parser, vault, auth, importer
 cd ui && npx vitest run                                                # scaling / unit conversion
 # end-to-end (needs a running recipes-server; see the scripts for arguments)
-node e2e/flows.mjs <admin-url> <vault> <outdir>
-node e2e/import.mjs <admin-url> <vault> <outdir>
+node e2e/flows.mjs <admin-url> <vault> <outdir>        # navigation, save, menus, icons, links
+node e2e/editor.mjs <admin-url> <vault> <outdir>       # formatted editor
+node e2e/ingredients.mjs <admin-url> <vault> <outdir>  # catalogue and suggestions
+node e2e/import.mjs <admin-url> <vault> <outdir>       # importer (needs internet)
 ```
 
 ## Network sharing, in short
@@ -61,3 +75,5 @@ The app makes its own certificate authority (limited to `recipes.local` and home
 addresses), serves HTTPS on port 443 and a device setup page on port 80, and advertises
 `recipes.local` through macOS Bonjour. Each device trusts the certificate once: Settings → *Phones,
 tablets and other computers* shows a QR code that opens the setup page with per-device steps.
+No Docker or Caddy is involved; see `deploy/linux/README.md` for what a Raspberry Pi version
+would need.

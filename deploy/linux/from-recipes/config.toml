@@ -1,0 +1,20 @@
+[server]
+port = 3000
+host = "0.0.0.0"
+
+[database]
+path = "./recipes.db"
+
+[ollama]
+base_url = "http://ollama:11434"
+model = "llama3.2:latest"
+timeout_secs = 300
+max_retries = 3
+max_input_chars = 12000
+
+[ingest]
+max_file_size_mb = 50
+
+[files]
+upload_dir = "./uploads"
+

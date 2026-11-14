@@ -221,15 +221,7 @@ pub fn init(cfg: Config) -> Result<Arc<AppState>> {
         rescan_lock: Mutex::new(()),
         ext: Default::default(),
     });
-    if !state.settings.read().unwrap().seeded {
-        let n = vault::seed(
-            &state.root,
-            Seed::iter().filter_map(|f| Seed::get(&f).map(|d| (f.to_string(), d.data.into_owned()))),
-        )?;
-        tracing::info!("seeded {n} recipes into {}", state.root.display());
-        state.settings.write().unwrap().seeded = true;
-        state.save_settings()?;
-    }
+    install_seed(&state)?;
     state.rescan();
     spawn_watcher(state.clone())?;
     Ok(state)
@@ -541,6 +533,45 @@ async fn mkdir(State(s): St, caller: Caller, Json(b): Json<PathBody>) -> Res {
 }
 
 pub const FOLDER_META: &str = ".folders.yaml";
+
+/// Which bundled recipe versions this recipes folder has (data_dir/seed.json).
+#[derive(Serialize, Deserialize, Default)]
+struct SeedRecord {
+    root: PathBuf,
+    files: std::collections::BTreeMap<String, String>,
+}
+
+/// Fingerprints of the first bundled version (installed before seed.json existed).
+const SEED_V1: &str = include_str!("../seed-v1.tsv");
+
+/// First run: copy the bundled family recipes in. Later runs: bring corrected versions of
+/// bundled recipes in, but only for files the user has not touched (see `vault::seed`).
+fn install_seed(state: &AppState) -> Result<()> {
+    let path = state.data_dir.join("seed.json");
+    let seeded = state.settings.read().unwrap().seeded;
+    let mut rec: SeedRecord = match std::fs::read(&path).ok().and_then(|b| serde_json::from_slice(&b).ok()) {
+        Some(r) => r,
+        None if seeded => SeedRecord {
+            root: state.root.clone(),
+            files: SEED_V1.lines().filter(|l| !l.starts_with('#')).filter_map(|l| l.split_once('\t')).map(|(p, e)| (p.to_string(), e.to_string())).collect(),
+        },
+        None => SeedRecord { root: state.root.clone(), files: Default::default() },
+    };
+    if rec.root != state.root {
+        return Ok(()); // a different recipes folder was chosen: leave it as it is
+    }
+    let files = Seed::iter().filter_map(|f| Seed::get(&f).map(|d| (f.to_string(), d.data.into_owned())));
+    let (added, updated) = vault::seed(&state.root, files, &mut rec.files)?;
+    if added + updated > 0 {
+        tracing::info!("bundled recipes: {added} added, {updated} updated in {}", state.root.display());
+    }
+    write_private(&path, &serde_json::to_vec_pretty(&rec)?)?;
+    if !seeded {
+        state.settings.write().unwrap().seeded = true;
+        state.save_settings()?;
+    }
+    Ok(())
+}
 
 /// Folder icons/colours: the client sends the whole file; it is stored as written.
 async fn folder_meta_put(State(s): St, caller: Caller, body: String) -> Res {

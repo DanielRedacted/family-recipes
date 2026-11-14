@@ -330,25 +330,62 @@ pub fn unique(root: &Path, p: &VaultPath) -> VaultPath {
     unreachable!()
 }
 
-/// Copy `seed` into `root` without overwriting anything that exists.
-pub fn seed(root: &Path, files: impl Iterator<Item = (String, Vec<u8>)>) -> Result<usize> {
-    let mut n = 0;
+/// Install or update the bundled recipes. `installed` maps each path to the fingerprint of the
+/// version the app last put there. A file is written only when it is new to this folder, or
+/// when it is still exactly what the app installed (the old copy goes to .trash/versions).
+/// Anything edited, moved or deleted by the user is left alone. Returns (added, updated).
+pub fn seed(root: &Path, files: impl Iterator<Item = (String, Vec<u8>)>, installed: &mut BTreeMap<String, String>) -> Result<(usize, usize)> {
+    let (mut added, mut updated) = (0, 0);
     for (rel, bytes) in files {
         let Ok(p) = VaultPath::parse(&rel) else { continue };
         let abs = root.join(p.as_str());
-        if abs.exists() {
-            continue;
+        let new = etag_of(&bytes);
+        match installed.get(p.as_str()) {
+            None if !abs.exists() => {
+                std::fs::create_dir_all(abs.parent().unwrap())?;
+                atomic_write(&abs, &bytes)?;
+                added += 1;
+            }
+            None => continue, // the folder already has its own file with this name
+            Some(old) if *old == new => continue,
+            Some(old) => match std::fs::read(&abs) {
+                Ok(cur) if etag_of(&cur) == *old => {
+                    backup_before_overwrite(root, &p, &abs)?;
+                    atomic_write(&abs, &bytes)?;
+                    updated += 1;
+                }
+                _ => continue, // changed or removed by the user
+            },
         }
-        std::fs::create_dir_all(abs.parent().unwrap())?;
-        std::fs::write(&abs, bytes)?;
-        n += 1;
+        installed.insert(p.as_str().to_string(), new);
     }
-    Ok(n)
+    Ok((added, updated))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn seed_updates_only_untouched_files() {
+        let root = std::env::temp_dir().join(format!("seed-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let v1 = |n: &str| (format!("A/{n}.md"), format!("{n} v1").into_bytes());
+        let mut installed = BTreeMap::new();
+        assert_eq!(seed(&root, ["x", "y", "z"].map(v1).into_iter(), &mut installed).unwrap(), (3, 0));
+        std::fs::write(root.join("A/y.md"), "my edit").unwrap(); // user edited y
+        std::fs::remove_file(root.join("A/z.md")).unwrap(); // user deleted z
+        let v2 = |n: &str| (format!("A/{n}.md"), format!("{n} v2").into_bytes());
+        assert_eq!(seed(&root, ["x", "y", "z", "w"].map(v2).into_iter(), &mut installed).unwrap(), (1, 1));
+        assert_eq!(std::fs::read_to_string(root.join("A/x.md")).unwrap(), "x v2");
+        assert_eq!(std::fs::read_to_string(root.join("A/y.md")).unwrap(), "my edit");
+        assert!(!root.join("A/z.md").exists());
+        assert!(root.join(".trash/versions/A/x.md").is_dir(), "old x kept");
+        // running again changes nothing
+        assert_eq!(seed(&root, ["x", "y", "z", "w"].map(v2).into_iter(), &mut installed).unwrap(), (0, 0));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
 
     #[test]
     fn vault_path_rejects_escapes() {
