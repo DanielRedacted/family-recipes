@@ -13,9 +13,11 @@ from, edit, import and manage them.
   macOS Keychain). Only ever proposes changes you accept.
 
 What it does: a folder column that follows the open recipe and cards (with emoji and colours you
-can change), favorites, ⌘K search (recipes, folders, ingredients), a reader with serving scaler,
-unit conversion and cook mode, a formatted editor in the style of Apple Notes (Markdown marks are
-never shown; text types, lists, checklists and tables from the toolbar; the file stays plain
+can change), favorites, ⌘K search (recipes, folders, ingredients), a reader with serving scaler (every set of
+ingredients scales; yields such as "2 dozen" count as 24), unit conversion and cook mode, ingredient
+tables with alternative portions (Single / Double…: one portion at a time, with its multiplier), a
+formatted editor in the style of Apple Notes (Markdown marks are never shown; text types, lists,
+checklists and real tables with an editor in each cell; the file stays plain
 Markdown and is saved only when you press Save), `[[links]]` between recipes with backlinks, an
 ingredient catalogue with pictures that also feeds suggestions while typing, and an importer for web pages (schema.org, WP Recipe Maker incl. its
 REST data, nutrition and equipment), PDFs, Word files, photos and pasted text — several at once,
@@ -26,7 +28,9 @@ exact duplicates) and are copied into the recipes folder on first launch. When a
 corrects or renames a bundled recipe, the app updates it in your folder only if you have not
 changed that file (the old copy goes to `.trash/versions`); edited, moved or deleted files are left
 alone. File names and titles were tidied (typos, ALL CAPS, "Recipe" suffixes) by
-`tools/names.tsv`; old names stay searchable as `aliases`.
+`tools/names.tsv`; old names stay searchable as `aliases`. The text is in standard Markdown without
+a word added or dropped: ingredient tables in one layout (amounts first, name last; see
+`docs/FORMAT.md`), yields and times in properties, flattened Word tables rebuilt.
 
 ## Build and run
 
@@ -55,6 +59,7 @@ ui/                 Svelte 5 + Vite frontend (embedded into the binary), PWA
 vault-seed/         the converted family recipes
 tools/              convert.py + verify.py (conversion from home-recipes/, word-for-word check),
                     overrides.json (structure-only fixes), names.tsv (renames and titles),
+                    ingredient_tables.txt (tables rewritten in the standard layout),
                     techniques.txt, seed-etags.py
 deploy/linux/       Linux / Raspberry Pi notes and the old projects' deploy files (not used on macOS)
 docs/FORMAT.md      the recipe file format
