@@ -15,7 +15,7 @@ const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { encoding: 'utf8'
 const git = (...a) => run('git', a).trim();
 const key = `${homedir()}/.tauri/family-recipes.key`;
 if (!existsSync(key)) die(`No signing key at ${key}. Restore it from your backup; without it installed apps reject updates.`);
-if (git('status', '--porcelain')) die('Commit or stash your changes first.');
+if (git('status', '--porcelain', '--untracked-files=no')) die('Commit or stash your changes first.'); // untracked files never go into the release commit
 if (git('tag', '-l', `v${v}`)) die(`v${v} already exists.`);
 
 const conf = JSON.parse(readFileSync('src-tauri/tauri.conf.json', 'utf8'));
