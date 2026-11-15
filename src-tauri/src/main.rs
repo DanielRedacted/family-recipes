@@ -65,13 +65,16 @@ impl Shell for TauriShell {
             let update = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?.ok_or("Recipes is already up to date.")?;
             update.download_and_install(|_, _| {}, || {}).await.map_err(|e| format!("the update could not be installed: {e}"))
         })?;
+        self.restart();
+        Ok(())
+    }
+    fn restart(&self) {
         let app = self.0.clone();
-        // answer the request first, then restart into the new version
+        // answer the request first, then restart
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_millis(500));
             app.restart();
         });
-        Ok(())
     }
 }
 

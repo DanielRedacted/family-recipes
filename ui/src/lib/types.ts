@@ -27,4 +27,6 @@ export interface Session {
   ai: boolean;
   shell: boolean;
   version: string;
+  /** first start: show the setup page */
+  setup?: boolean;
 }

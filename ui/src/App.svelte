@@ -14,6 +14,7 @@
   import Ingredients from './components/Ingredients.svelte';
   import Switcher from './components/Switcher.svelte';
   import Overlays from './components/Overlays.svelte';
+  import Setup from './components/Setup.svelte';
   import { update, checkForUpdate, installUpdate } from './lib/update.svelte';
 
   onMount(async () => {
@@ -95,6 +96,7 @@
 </div>
 
 <Switcher />
+{#if app.session.setup}<Setup />{/if}
 <Overlays />
 
 <style>

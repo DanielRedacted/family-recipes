@@ -65,6 +65,9 @@ pub struct Settings {
     pub lan: bool,
     #[serde(default)]
     pub keep_awake: bool,
+    /// The first-start setup was finished (a settings file from before it existed counts as finished).
+    #[serde(default = "yes")]
+    pub setup_done: bool,
 }
 fn yes() -> bool {
     true
@@ -86,6 +89,8 @@ pub trait Shell: Send + Sync {
     fn autostart(&self, _set: Option<bool>) -> bool {
         false
     }
+    /// Quit and start again (after the recipes folder was changed).
+    fn restart(&self) {}
     /// Look for a newer release: Some((version, release notes)), or None when up to date.
     fn update_check(&self) -> Result<Option<(String, String)>, String> {
         Err("updates come with the desktop app".into())
@@ -191,10 +196,10 @@ pub struct Config {
 /// Build state: load settings, scan the recipes folder, start the watcher.
 pub fn init(cfg: Config) -> Result<Arc<AppState>> {
     std::fs::create_dir_all(&cfg.data_dir)?;
-    let settings: Settings = std::fs::read(cfg.data_dir.join("settings.json"))
-        .ok()
-        .and_then(|b| serde_json::from_slice(&b).ok())
-        .unwrap_or_default();
+    let settings: Settings = match std::fs::read(cfg.data_dir.join("settings.json")) {
+        Ok(b) => serde_json::from_slice(&b).unwrap_or_default(),
+        Err(_) => Settings { setup_done: false, ..Default::default() }, // first start: show the setup
+    };
     let key_path = cfg.data_dir.join("cookie.key");
     let cookie_key = match std::fs::read(&key_path) {
         Ok(k) if k.len() >= 32 => k,
@@ -299,6 +304,7 @@ async fn session(State(s): St, Caller(role): Caller) -> Response {
         "ai": st.ai.enabled,
         "shell": s.shell.is_some() && role == Role::Admin,
         "version": env!("CARGO_PKG_VERSION"),
+        "setup": role == Role::Admin && !st.setup_done,
     }))
     .into_response()
 }
@@ -598,6 +604,7 @@ struct SettingsPut {
     lan: Option<bool>,
     keep_awake: Option<bool>,
     vault: Option<PathBuf>,
+    setup_done: Option<bool>,
 }
 
 async fn settings_put(State(s): St, caller: Caller, Json(b): Json<SettingsPut>) -> Res {
@@ -612,6 +619,9 @@ async fn settings_put(State(s): St, caller: Caller, Json(b): Json<SettingsPut>) 
         }
         if let Some(k) = b.keep_awake {
             st.keep_awake = k;
+        }
+        if let Some(d) = b.setup_done {
+            st.setup_done = d;
         }
         if let Some(v) = b.vault {
             if !v.is_dir() {
@@ -669,6 +679,10 @@ async fn shell_action(State(s): St, caller: Caller, AxPath(action): AxPath<Strin
                 return Err(err(StatusCode::BAD_REQUEST, "only web addresses can be opened"));
             }
             shell.open_url(&url);
+            Ok(StatusCode::NO_CONTENT.into_response())
+        }
+        "restart" => {
+            shell.restart();
             Ok(StatusCode::NO_CONTENT.into_response())
         }
         "autostart" => {

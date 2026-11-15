@@ -50,6 +50,8 @@ image or the Downloads folder.
 
 The app isn't notarized by Apple, so the first launch needs one extra step: right-click Recipes in
 Applications → **Open** → **Open**. (Or, in Terminal: `xattr -cr /Applications/Recipes.app`.)
+The first start opens a short setup: recipes folder, open at login, sharing with phones and
+tablets, and an optional editing PIN. All of it can be changed later in Settings.
 
 When a new version is out, the app says so a few seconds after it opens: **Update and restart**
 downloads it, asks about any unsaved edit, and restarts into the new version. Settings → App →
