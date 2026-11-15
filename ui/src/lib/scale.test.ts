@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatNum, groupLines, parseNum, parseYield, portionMultipliers, resolvePortion, scaleLine, yieldLabel } from './scale';
+import { boldQty, formatNum, groupLines, parseNum, parseYield, portionMultipliers, resolvePortion, scaleLine, yieldLabel } from './scale';
 
 // Ingredient tables with one column per portion, as the parser hands them over (row = the line's alternatives).
 const table = (portions: string[], ...rows: string[][]) =>
@@ -61,7 +61,7 @@ describe('scale', () => {
     expect(scaleLine('½ onion, diced', 1.5)).toBe('¾ onion, diced');
     expect(scaleLine('1 stick butter', 1.5)).toBe('1½ stick butter');
     expect(scaleLine('1 eggplant', 1.5)).toBe('1½ eggplant');
-    expect(scaleLine('2 Tbsp canola oil', 0.5)).toBe('1 Tbsp canola oil');
+    expect(scaleLine('2 Tbsp canola oil', 0.5)).toBe('1 tbsp canola oil');
   });
   it('scales lines as written', () => {
     expect(scaleLine('1 1/4 cups sugar', 2)).toBe('2½ cups sugar');
@@ -80,10 +80,10 @@ describe('scale', () => {
   });
   it('US: the recipe\'s own units, tidied when scaling makes them awkward', () => {
     expect(scaleLine('3 tsp salt', 1, 'us')).toBe('3 tsp salt');
-    expect(scaleLine('1 Tablespoon honey', 1, 'us')).toBe('1 Tbsp honey');
-    expect(scaleLine('16 Tbsp butter', 1, 'us')).toBe('16 Tbsp butter');
+    expect(scaleLine('1 Tablespoon honey', 1, 'us')).toBe('1 tbsp honey');
+    expect(scaleLine('16 Tbsp butter', 1, 'us')).toBe('16 tbsp butter');
     expect(scaleLine('16 Tbsp butter', 0.5, 'us')).toBe('½ cup butter');
-    expect(scaleLine('1 ½ tsp salt', 2, 'us')).toBe('1 Tbsp salt');
+    expect(scaleLine('1 ½ tsp salt', 2, 'us')).toBe('1 tbsp salt');
     expect(scaleLine('1 Tbsp sugar', 0.5, 'us')).toBe('1½ tsp sugar');
     expect(scaleLine('1 cup flour', 2, 'us')).toBe('2 cups flour');
     expect(scaleLine('2 cups flour', 0.5, 'us')).toBe('1 cup flour');
@@ -144,5 +144,16 @@ describe('alternative portions', () => {
     const ice = (portion: number) => groupLines(fx.icecream, portion, 1, 'us').map((l) => l.text);
     expect(ice(1)).toContain('2 oz Unsweetened baking chocolate');
     expect(ice(0).some((t) => t.includes('chocolate'))).toBe(false);
+  });
+});
+
+describe('boldQty', () => {
+  it('bolds the leading amount and its unit, nothing else', () => {
+    expect(boldQty('1 ½ cups flour')).toBe('**1 ½ cups** flour');
+    expect(boldQty('2 tbsp. butter, softened')).toBe('**2 tbsp.** butter, softened');
+    expect(boldQty('¼–½ cup water')).toBe('**¼–½ cup** water');
+    expect(boldQty('3 large eggs')).toBe('**3** large eggs');
+    expect(boldQty('**1 ½** tbsp sugar')).toBe('**1 ½** tbsp sugar');
+    expect(boldQty('Salt to taste')).toBe('Salt to taste');
   });
 });

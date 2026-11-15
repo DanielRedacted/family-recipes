@@ -30,8 +30,5 @@ async fn main() -> anyhow::Result<()> {
         state.settings.write().unwrap().lan = false;
     }
     let app = recipes_core::start_network(state.clone()).await;
-    if lan {
-        println!("Network: {:?}", state.ext.lan.status.read().unwrap().url);
-    }
     server::serve(app, l, Listener::Loopback).await
 }

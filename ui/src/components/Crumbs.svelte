@@ -20,5 +20,6 @@
   .crumbs a:hover { color: var(--text); }
   .crumbs > :last-child { color: var(--text); }
   .leaf { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-  @media (max-width: 899px) { .crumbs { display: none; } }
+  /* phones: only Back, in the toolbar row beside the page's buttons */
+  @media (max-width: 899px) { .crumbs > :global(:not(.back)), .crumbs > :global(.back:disabled) { display: none; } }
 </style>

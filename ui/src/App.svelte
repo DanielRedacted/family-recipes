@@ -1,10 +1,9 @@
 <script lang="ts">
   import Icon from './components/Icon.svelte';
   import { onMount } from 'svelte';
-  import { app, loadSession, loadVault, listenForChanges, go, canWrite } from './lib/state.svelte';
-  import { newNote, newFolder, openExternal, plusMenu } from './lib/ops';
+  import { app, loadSession, loadVault, listenForChanges, go } from './lib/state.svelte';
+  import { newNote, newFolder, openExternal } from './lib/ops';
   import { back } from './lib/state.svelte';
-  import Back from './components/Back.svelte';
   import Sidebar from './components/Sidebar.svelte';
   import Folder from './components/Folder.svelte';
   import Note from './components/Note.svelte';
@@ -25,6 +24,10 @@
   });
 
   const dir = $derived(app.route.view === 'folder' ? app.route.path : app.route.path.includes('/') ? app.route.path.slice(0, app.route.path.lastIndexOf('/')) : '');
+
+  // every page opens at its top (the scrolling <main> is shared by all pages)
+  let mainEl: HTMLElement;
+  $effect(() => { app.route; if (mainEl) mainEl.scrollTop = 0; });
 
   function key(e: KeyboardEvent) {
     const mod = e.metaKey || e.ctrlKey;
@@ -60,12 +63,6 @@
   </aside>
   <div class="scrim no-print" role="presentation" onclick={() => (app.sidebar = false)}></div>
   <div class="main-col">
-    <header class="mobilebar no-print">
-      <button class="btn ghost icon" aria-label="Open folders" onclick={() => (app.sidebar = true)}><Icon name="menu" size={22} /></button>
-      {#if app.canBack}<Back />{/if}
-      <a href="#/" class="mtitle">Recipes</a>
-      <button class="btn ghost icon" aria-label="Search" onclick={() => (app.switcher = true)}><Icon name="search" size={22} /></button>
-    </header>
     {#if update.version && !update.hidden}
       <div class="update no-print" role="status">
         <div class="utext">
@@ -76,7 +73,7 @@
         <button class="btn primary" onclick={installUpdate} disabled={update.busy}>{update.busy ? 'Updating…' : 'Update and restart'}</button>
       </div>
     {/if}
-    <main>
+    <main bind:this={mainEl}>
       {#if app.route.view === 'note'}
         {#key app.route.path}<Note path={app.route.path} mode={app.route.mode} />{/key}
       {:else if app.route.view === 'settings'}<Settings />
@@ -89,8 +86,6 @@
       <button onclick={() => go('#/')} class:on={app.route.view === 'folder' && !app.route.path}><Icon name="home" size={22} />Home</button>
       <button onclick={() => (app.sidebar = true)}><Icon name="folder" size={22} />Folders</button>
       <button onclick={() => (app.switcher = true)}><Icon name="search" size={22} />Search</button>
-      {#if canWrite()}<button onclick={(e) => plusMenu(e, dir)} class:on={app.route.view === 'import'}><Icon name="plus" size={22} />Add</button>{/if}
-      <button onclick={() => go('#/settings')} class:on={app.route.view === 'settings'}><Icon name="settings" size={22} />Settings</button>
     </nav>
   </div>
 </div>
@@ -112,7 +107,7 @@
   .utext { flex: 1 1 240px; }
   .update summary { cursor: pointer; color: var(--accent-ink); font-size: 14px; }
   .update details p { margin: 8px 0 0; white-space: pre-line; font-size: 14px; }
-  .mobilebar, .bottombar, .scrim { display: none; }
+  .bottombar, .scrim { display: none; }
   @media (max-width: 899px) {
     .app { grid-template-columns: 1fr; }
     .sidebar {
@@ -121,11 +116,7 @@
     }
     .open .sidebar { transform: none; }
     .open .scrim { display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); z-index: 49; }
-    .mobilebar {
-      display: flex; align-items: center; gap: 4px; padding: calc(4px + env(safe-area-inset-top)) 8px 4px;
-      border-bottom: 1px solid var(--border); background: var(--bg);
-    }
-    .mtitle { flex: 1; text-align: center; font-family: var(--serif); font-weight: 600; font-size: 18px; color: var(--text); text-decoration: none; }
+    .main-col { padding-top: env(safe-area-inset-top); }
     .bottombar {
       display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 40; background: var(--surface);
       border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom);

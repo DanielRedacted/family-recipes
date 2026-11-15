@@ -1,8 +1,9 @@
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import { fileUrl } from './api';
-import { noteHash, resolveLink, dirOf } from './state.svelte';
-import { groupLines, scaleLine, type Units } from './scale';
+import { app, noteHash, resolveLink, dirOf, stemOf } from './state.svelte';
+import { groupLines, scaleLine, boldQty, type Units } from './scale';
+import { aliasesOf } from './search';
 import type { Entry } from './types';
 
 const md = new MarkdownIt({ html: true, linkify: true, typographer: false });
@@ -86,7 +87,7 @@ export function scaledRaw(e: Entry, factor: number, units: Units, portion = 0): 
   for (const g of e.recipe.ingredients) {
     if (g.table) {
       const [a, b] = g.table;
-      const list = groupLines(g, portion, factor, units).map((it) => '- ' + it.text);
+      const list = groupLines(g, portion, factor, units).map((it) => '- ' + boldQty(autoLink(it.text, e.path)));
       for (let k = a; k <= b; k++) lines[k] = '';
       lines[a] = (a > 0 && lines[a - 1].trim() ? '\n' : '') + list.join('\n');
       continue;
@@ -94,10 +95,54 @@ export function scaledRaw(e: Entry, factor: number, units: Units, portion = 0): 
     for (const it of g.items) {
       const l = lines[it.line];
       if (l === undefined) continue;
-      lines[it.line] = l.replace(/^(\s*(?:(?:[-*+]|\d+[.)])\s+)*)(.*)$/, (_, mk: string, rest: string) => mk + scaleLine(rest, factor, units));
+      lines[it.line] = l.replace(/^(\s*(?:(?:[-*+]|\d+[.)])\s+)*)(.*)$/, (_, mk: string, rest: string) => mk + boldQty(autoLink(scaleLine(rest, factor, units), e.path)));
     }
   }
   return lines.join('\n');
+}
+
+// ---------- ingredients that are recipes of their own ----------
+
+// ponytail: names are matched as written, so only multi-word names and Condiments recipes take part
+// (a lone "Soda" or "Turkey" would link "baking soda" and "ground turkey"); links written in the file win.
+let names: { files: unknown; list: { rx: RegExp; path: string }[] } = { files: null, list: [] };
+function recipeNames() {
+  if (names.files === app.files) return names.list;
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const list = app.files
+    .filter((f) => f.kind === 'note' && f.recipe)
+    .flatMap((f) => [stemOf(f.path), ...aliasesOf(f)].map((n) => ({ n: n.trim(), path: f.path, cond: dirOf(f.path).split('/')[0] === 'Condiments' })))
+    .filter((x) => x.n.length >= 4 && (x.cond || /\s/.test(x.n)))
+    .sort((a, b) => b.n.length - a.n.length)
+    .map((x) => ({ rx: new RegExp(`(?<![\\w\\[])${esc(x.n)}(?![\\w\\]])`, 'i'), path: x.path }));
+  names = { files: app.files, list };
+  return list;
+}
+
+/** The recipe an ingredient line names (not `self`), and where; null when the line has a link already. */
+export function autoMatch(text: string, self: string): { path: string; index: number; len: number } | null {
+  if (/\]\(|\[\[/.test(text)) return null;
+  for (const { rx, path } of recipeNames()) {
+    if (path === self) continue;
+    const m = text.match(rx);
+    if (m) return { path, index: m.index!, len: m[0].length };
+  }
+  return null;
+}
+
+/** "½ cup mayonnaise" → "½ cup [mayonnaise](#/n/Condiments/Mayonnaise.md)" when another recipe has that name. */
+export function autoLink(text: string, self: string): string {
+  const m = autoMatch(text, self);
+  if (!m) return text;
+  const end = m.index + m.len;
+  return `${text.slice(0, m.index)}[${text.slice(m.index, end)}](${noteHash(m.path)})${text.slice(end)}`;
+}
+
+/** `f` links to `path`: a [[wiki link]], a Markdown link to the file, or an ingredient named after it. */
+export function linksTo(f: Entry, path: string): boolean {
+  if (f.links?.some((l) => resolveLink(l)?.path === path)) return true;
+  for (const m of (f.raw ?? '').matchAll(/\]\(<?([^)>\s]+)>?\)/g)) if (vaultTarget(m[1], dirOf(f.path)) === path) return true;
+  return !!f.recipe?.ingredients.some((g) => g.items.some((i) => autoMatch(i.text, f.path)?.path === path));
 }
 
 export function bodyOf(raw: string, bodyLine: number): string {

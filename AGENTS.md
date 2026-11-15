@@ -51,7 +51,8 @@ conversion and checking tools in `~/Recipes/.tools/` (`verify.py`, `convert.py`,
 - The app never re-serialises a note body. Frontmatter is edited only through `setProp`
   (`ui/src/components/Properties.svelte`), which uses yaml's `Document` API to keep comments, order
   and block style.
-- Units are written one way (`tsp`, `Tbsp`, `cup`/`cups`, `oz`, `lb`, `350°F`, see `docs/FORMAT.md`).
+- Units are written one way, lower case (`tsp`, `tbsp`, `cup`/`cups`, `oz`, `lb`, `l`, `350°F`, see
+  `docs/FORMAT.md`).
   `ui/src/lib/units.ts` is the single normalizer for the reader, the importer and
   `scripts/normalize-units.ts`; keep it free of imports so Node can run it directly.
 

@@ -101,7 +101,7 @@
         {/each}
         {#each tagsOf(entry) as t}<span class="chip tag">#{t}</span>{/each}
         {#if orig}<a class="chip" href={noteHash(orig)}><Icon name="paperclip" size={14} /> Original file</a>{/if}
-        {#if editable}<button class="btn ghost small" onclick={() => (editing = true)}>{#if !keys.length}<Icon name="plus" size={14} />{/if}{keys.length ? 'Edit properties' : 'Add properties'}</button>{/if}
+        {#if editable && keys.length}<button class="btn ghost small" onclick={() => (editing = true)}>Edit properties</button>{/if}
       </div>
       {#if entry.frontmatter_error}<p class="warn small">Properties block could not be read: {entry.frontmatter_error}</p>{/if}
     {:else}

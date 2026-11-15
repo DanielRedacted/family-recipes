@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Entry } from '../lib/types';
-  import { groupLines, type Units } from '../lib/scale';
-  import { renderInline } from '../lib/markdown';
+  import { groupLines, boldQty, type Units } from '../lib/scale';
+  import { renderInline, autoLink } from '../lib/markdown';
 
   let { entry, factor, units, portion = 0, onclose }: { entry: Entry; factor: number; units: Units; portion?: number; onclose: () => void } = $props();
   const r = $derived(entry.recipe!);
@@ -45,7 +45,7 @@
           {#each groupLines(g, portion, factor, units) as it (it.line)}
             {@const id = 'i' + it.line}
             <li class:done={done[id]}>
-              <label><input type="checkbox" bind:checked={done[id]} /> <span>{@html renderInline(it.text)}</span></label>
+              <label><input type="checkbox" bind:checked={done[id]} /> <span>{@html renderInline(boldQty(autoLink(it.text, entry.path)))}</span></label>
             </li>
           {/each}
         </ul>

@@ -19,13 +19,15 @@ from, edit, import and manage them.
   key). Only ever proposes changes you accept.
 
 What it does: a folder column that follows the open recipe and cards (with emoji and colours you
-can change), favorites, ⌘K search (recipes, folders, ingredients), a reader with serving scaler (every set of
+can change), favorites, a suggested recipe for the time of day on the home page (from the Breakfast /
+Lunch / Dinner tags) with a Random button and filters, ⌘K search (recipes, folders, ingredients), a reader with serving scaler (every set of
 ingredients scales; yields such as "2 dozen" count as 24), US or metric units (units are written one
-way: `docs/FORMAT.md`) and cook mode, ingredient
+way, in lower case, with amounts in bold: `docs/FORMAT.md`) and cook mode, ingredient
 tables with alternative portions (Single / Double…: one portion at a time, with its multiplier), a
 formatted editor in the style of Apple Notes (Markdown marks are never shown; text types, lists,
 checklists and real tables with an editor in each cell; the file stays plain
-Markdown and is saved only when you press Save), `[[links]]` between recipes with backlinks, an
+Markdown and is saved only when you press Save), `[[links]]` and Markdown links between recipes with backlinks (an ingredient named like another
+recipe links to it), an
 ingredient catalogue with pictures that also feeds suggestions while typing, a Back button (⌘[),
 links to web pages marked ↗ and opened in the browser, and an importer for web pages (schema.org, WP Recipe Maker incl. its
 REST data, nutrition and equipment), PDFs, Word files, photos and pasted text — several at once,
@@ -143,6 +145,8 @@ unencrypted, as with a home file share). It also makes its own certificate autho
 `recipes.local` through macOS Bonjour. The HTTPS address is only needed for the installable offline
 app. A device trusts the certificate once through the setup page at `http://recipes.local/setup`
 (Settings → This device → *Install as an app*), and after that `http://` moves it to `https://` by
-itself. Settings → *Phones & tablets* on the Mac shows a QR code that opens the app.
+itself. Settings → *Phones & tablets* on the Mac shows a QR code that opens the app. Only one Mac
+shares: a Mac that starts while another already serves `recipes.local` leaves the network to it
+(its own window still shows its own recipes folder) and takes over within a minute if that Mac stops.
 No Docker or Caddy is involved; see `deploy/linux/README.md` for what a Raspberry Pi version
 would need.

@@ -1,7 +1,7 @@
-// One spelling for every measurement unit: "1 Tablespoon", "1 TB", "1 T", "1 Tbsp." all read
-// "1 Tbsp". Only a unit right after an amount changes ("a tablespoon of" in a sentence stays), and
-// only its spelling: amounts, words and order are kept. Also: temperatures with a scale read
-// "350°F", and fraction suffixes go ("1/8th" -> "1/8"). Plain TypeScript with no imports, so the
+// One spelling for every measurement unit, lower case and abbreviated: "1 Tablespoon", "1 TB",
+// "1 T", "1 Tbsp." all read "1 tbsp" (cup / cups stay words). Only a unit right after an amount
+// changes ("a tablespoon of" in a sentence stays), and only its spelling: amounts, words and order
+// are kept. Also: temperatures with a scale read "350°F", and fraction suffixes go ("1/8th" -> "1/8"). Plain TypeScript with no imports, so the
 // one-off script that normalizes a recipes folder (scripts/normalize-units.ts) can run it in Node.
 
 const G = '½¼¾⅓⅔⅛⅜⅝⅞';
@@ -15,7 +15,7 @@ const ADJ = '(?:heaping|scant|level|rounded|slight|generous)';
 /** written unit (lower case) -> the one spelling */
 const UNITS: Record<string, string> = {
   ts: 'tsp', tsp: 'tsp', tsps: 'tsp', teaspoon: 'tsp', teaspoons: 'tsp',
-  tb: 'Tbsp', tbs: 'Tbsp', tbsp: 'Tbsp', tbsps: 'Tbsp', tbl: 'Tbsp', tbps: 'Tbsp', tablespoon: 'Tbsp', tablespoons: 'Tbsp',
+  tb: 'tbsp', tbs: 'tbsp', tbsp: 'tbsp', tbsps: 'tbsp', tbl: 'tbsp', tbps: 'tbsp', tablespoon: 'tbsp', tablespoons: 'tbsp',
   cup: 'cup', cups: 'cup',
   oz: 'oz', ounce: 'oz', ounces: 'oz',
   lb: 'lb', lbs: 'lb', pound: 'lb', pounds: 'lb',
@@ -23,17 +23,17 @@ const UNITS: Record<string, string> = {
   gal: 'gal', gallon: 'gal', gallons: 'gal',
   g: 'g', gm: 'g', gram: 'g', grams: 'g', kg: 'kg', kilogram: 'kg', kilograms: 'kg',
   ml: 'ml', milliliter: 'ml', milliliters: 'ml', millilitre: 'ml', millilitres: 'ml',
-  liter: 'L', liters: 'L', litre: 'L', litres: 'L',
+  liter: 'l', liters: 'l', litre: 'l', litres: 'l',
 };
 
 /** The one spelling for a written unit, or null when it is not a measurement unit. */
 export function unitOf(word: string): string | null {
   const w = word.replace(/\.$/, '');
-  // single letters: t = teaspoon, T = tablespoon, c = cup, L = litre; C is Celsius (not here)
+  // single letters: t = teaspoon, T = tablespoon, c = cup, L / l = litre; C is Celsius (not here)
   if (w === 't') return 'tsp';
-  if (w === 'T') return 'Tbsp';
+  if (w === 'T') return 'tbsp';
   if (w === 'c') return 'cup';
-  if (w === 'L') return 'L';
+  if (w === 'L' || w === 'l') return 'l';
   if (w.length === 1 && w !== 'g') return null;
   if (/^(fl\.?\s?oz|fluid\s+ounces?)$/i.test(w)) return 'fl oz';
   return UNITS[w.toLowerCase()] ?? null;
@@ -75,7 +75,7 @@ function normalizePart(t: string): string {
     const name = unit === 'cup' && last > 1 ? 'cups' : unit;
     // "½ c cup": the same unit written twice counts once
     const again = word2 && unitOf(word2) === unit ? '' : twice;
-    // "Tbsp." loses its period, unless it also ends the sentence ("Add 1 tsp." / "… 1 tsp. Mix")
+    // "tbsp." loses its period, unless it also ends the sentence ("Add 1 tsp." / "… 1 tsp. Mix")
     const after = t.slice(offset + all.length);
     // an ingredient line ("- 1 tsp. Salt", "| 2 lb. | Chicken") starts with an amount: a capital after it is a name
     const line = t.slice(t.lastIndexOf('\n', offset) + 1);

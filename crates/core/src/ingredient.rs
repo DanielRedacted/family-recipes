@@ -23,12 +23,12 @@ pub struct IngredientLine {
 /// Units as written → the one spelling the app writes (ui/src/lib/units.ts), shown in suggestions.
 const UNITS: &[(&str, &str)] = &[
     ("cups", "cup"), ("cup", "cup"), ("c", "cup"),
-    ("tablespoons", "Tbsp"), ("tablespoon", "Tbsp"), ("tbsps", "Tbsp"), ("tbsp", "Tbsp"), ("tbs", "Tbsp"), ("tbl", "Tbsp"), ("tbps", "Tbsp"), ("tb", "Tbsp"), ("t", "Tbsp"),
+    ("tablespoons", "tbsp"), ("tablespoon", "tbsp"), ("tbsps", "tbsp"), ("tbsp", "tbsp"), ("tbs", "tbsp"), ("tbl", "tbsp"), ("tbps", "tbsp"), ("tb", "tbsp"), ("t", "tbsp"),
     ("teaspoons", "tsp"), ("teaspoon", "tsp"), ("tsps", "tsp"), ("tsp", "tsp"), ("ts", "tsp"),
     ("ounces", "oz"), ("ounce", "oz"), ("oz", "oz"), ("fl oz", "fl oz"),
     ("pounds", "lb"), ("pound", "lb"), ("lbs", "lb"), ("lb", "lb"),
     ("grams", "g"), ("gram", "g"), ("g", "g"), ("kilograms", "kg"), ("kg", "kg"),
-    ("milliliters", "ml"), ("millilitres", "ml"), ("ml", "ml"), ("liters", "L"), ("litres", "L"), ("liter", "L"), ("litre", "L"), ("l", "L"),
+    ("milliliters", "ml"), ("millilitres", "ml"), ("ml", "ml"), ("liters", "l"), ("litres", "l"), ("liter", "l"), ("litre", "l"), ("l", "l"),
     ("quarts", "qt"), ("quart", "qt"), ("qt", "qt"), ("pints", "pt"), ("pint", "pt"), ("pt", "pt"), ("gallons", "gal"), ("gallon", "gal"), ("gal", "gal"),
     ("pinches", "pinch"), ("pinch", "pinch"), ("dashes", "dash"), ("dash", "dash"), ("drops", "drop"), ("drop", "drop"),
     ("cloves", "clove"), ("clove", "clove"), ("cans", "can"), ("can", "can"), ("jars", "jar"), ("jar", "jar"),
@@ -320,14 +320,14 @@ mod tests {
         assert_eq!(p("1 (15 oz) can pumpkin"), (Some("1"), Some("can"), "pumpkin".into(), Some("15 oz".into())));
         assert_eq!(p("3-4 cloves garlic, minced"), (Some("3-4"), Some("clove"), "garlic".into(), Some("minced".into())));
         assert_eq!(p("Salt to taste"), (None, None, "Salt".into(), Some("to taste".into())));
-        assert_eq!(p("1 Tbsp sugar for dusting"), (Some("1"), Some("Tbsp"), "sugar".into(), Some("for dusting".into())));
+        assert_eq!(p("1 Tbsp sugar for dusting"), (Some("1"), Some("tbsp"), "sugar".into(), Some("for dusting".into())));
         assert_eq!(p("1/2 tsp. **baking soda**"), (Some("1/2"), Some("tsp"), "baking soda".into(), None));
-        assert_eq!(p("2 Tbsp unsalted butter - softened"), (Some("2"), Some("Tbsp"), "unsalted butter".into(), Some("softened".into())));
+        assert_eq!(p("2 Tbsp unsalted butter - softened"), (Some("2"), Some("tbsp"), "unsalted butter".into(), Some("softened".into())));
         assert_eq!(p("1 cup of sugar"), (Some("1"), Some("cup"), "sugar".into(), None));
         assert_eq!(p("Pinch of salt"), (None, Some("pinch"), "salt".into(), None));
-        assert_eq!(p("2 TB garlic cloves"), (Some("2"), Some("Tbsp"), "garlic cloves".into(), None));
+        assert_eq!(p("2 TB garlic cloves"), (Some("2"), Some("tbsp"), "garlic cloves".into(), None));
         assert_eq!(p("Tea bags"), (None, None, "Tea bags".into(), None));
-        assert_eq!(p("1 1⁄2 tablespoons [cinnamon](http://x)"), (Some("1 1/2"), Some("Tbsp"), "cinnamon".into(), None));
+        assert_eq!(p("1 1⁄2 tablespoons [cinnamon](http://x)"), (Some("1 1/2"), Some("tbsp"), "cinnamon".into(), None));
         assert_eq!(p("1 14-oz can of coconut cream"), (Some("1"), None, "coconut cream".into(), Some("14-oz".into())));
         assert_eq!(p("1 ¼ tsp teaspoon salt").2, "salt");
         assert_eq!(p("15 oz 14 oz milk"), (Some("15"), Some("oz"), "milk".into(), Some("14 oz".into())));

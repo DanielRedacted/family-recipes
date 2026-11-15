@@ -24,15 +24,6 @@
   --sidebar: 290px;
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #141412; --surface: #1e1e1c; --sunken: #191917; --border: #2e2e2a; --text: #f0f0ec; --muted: #9a9a94;
-    --accent: #f0a640; --accent-ink: #f5b860; --accent-soft: #3a2c18; --on-accent: #141412;
-    --p-red: #3b2626; --p-orange: #3b2e22; --p-yellow: #37341f; --p-green: #22362a;
-    --p-blue: #213040; --p-purple: #302640; --p-brown: #362d25; --p-grey: #2a2a28;
-    color-scheme: dark;
-  }
-}
 :root[data-theme="dark"] {
   --bg: #141412; --surface: #1e1e1c; --sunken: #191917; --border: #2e2e2a; --text: #f0f0ec; --muted: #9a9a94;
   --accent: #f0a640; --accent-ink: #f5b860; --accent-soft: #3a2c18; --on-accent: #141412;
@@ -43,6 +34,7 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
+html { touch-action: manipulation; } /* no double-tap zoom */
 body { background: var(--bg); color: var(--text); font: 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
 a { color: var(--accent-ink); }
 button, input, select, textarea { font: inherit; color: inherit; }

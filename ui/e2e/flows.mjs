@@ -272,9 +272,9 @@ assert.ok(fileX > folderX + 8, `file icon ${fileX} indented from folder icon ${f
 await page.goto(new URL('/#/n/Candy/Caramel%20and%20Sauce.md', url).href);
 await page.waitForSelector('select[aria-label="Units"]');
 assert.deepEqual(await page.locator('select[aria-label="Units"] option').allTextContents(), ['US', 'Metric']);
-assert.ok((await ingText()).includes('16 Tbsp Butter'), 'as written at ×1');
+assert.ok((await ingText()).includes('16 tbsp Butter'), 'as written at ×1');
 await page.click('button[aria-label="Fewer"]');
-assert.ok((await ingText()).includes('½ cup Butter'), '16 Tbsp × ½ reads ½ cup: ' + (await ingText()).slice(0, 3));
+assert.ok((await ingText()).includes('½ cup Butter'), '16 tbsp × ½ reads ½ cup: ' + (await ingText()).slice(0, 3));
 await page.selectOption('select[aria-label="Units"]', 'metric');
 assert.ok((await ingText()).some((t) => /^\d+ ml Butter$/.test(t)), 'metric converts');
 await page.selectOption('select[aria-label="Units"]', 'us');

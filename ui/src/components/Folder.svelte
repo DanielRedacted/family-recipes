@@ -1,6 +1,11 @@
+<script lang="ts" module>
+  /** the home page's pick, kept while the app is open so coming back home doesn't reshuffle it */
+  let kept: { path: string; meal: string; random: boolean } | null = null;
+</script>
+
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import { app, noteHash, folderHash, canWrite, nameOf, dirOf } from '../lib/state.svelte';
+  import { app, noteHash, folderHash, canWrite, nameOf, dirOf, toast } from '../lib/state.svelte';
   import Crumbs from './Crumbs.svelte';
   import CardIcon from './CardIcon.svelte';
   import { fileUrl } from '../lib/api';
@@ -35,6 +40,31 @@
   }
   const meta = (f: Entry) => [f.frontmatter?.yield ?? f.frontmatter?.servings, f.frontmatter?.total_time ?? f.frontmatter?.cook_time]
     .filter(Boolean).map(String).join(' · ');
+  // ---------- home: a recipe for this time of day, or a random one ----------
+  const MEALS = ['Breakfast', 'Lunch', 'Dinner'];
+  const hour = new Date().getHours();
+  const meal = hour >= 4 && hour < 11 ? 'Breakfast' : hour >= 11 && hour < 16 ? 'Lunch' : 'Dinner';
+  const recipes = $derived(app.files.filter((f) => f.kind === 'note' && f.recipe));
+  const hasTag = (f: Entry, t: string) => tagsOf(f).some((x) => x.toLowerCase() === t.toLowerCase());
+  let pickMeal = $state(''); // the Random button's filters ('' = any)
+  let pickFolder = $state('');
+  let pickFav = $state(false);
+  let pick = $state(kept?.meal === meal || kept?.random ? kept : null);
+  const anyOf = (list: Entry[]) => (list.length ? list[Math.floor(Math.random() * list.length)].path : null);
+  $effect(() => {
+    if (path || pick || !app.loaded) return;
+    const p = anyOf(recipes.filter((f) => hasTag(f, meal)));
+    if (p) pick = kept = { path: p, meal, random: false };
+  });
+  function randomize() {
+    const pool = recipes.filter((f) => (!pickMeal || hasTag(f, pickMeal)) && (!pickFolder || f.path.startsWith(pickFolder + '/'))
+      && (!pickFav || f.frontmatter?.favorite === true));
+    const p = anyOf(pool.length > 1 ? pool.filter((f) => f.path !== pick?.path) : pool);
+    if (p) pick = kept = { path: p, meal, random: true };
+    else toast('No recipe matches those filters');
+  }
+  const picked = $derived(pick ? app.byPath[pick.path] : undefined);
+
   const badge = (f: Entry) => (f.kind === 'pdf' ? 'PDF' : f.kind === 'image' ? 'Image' : f.kind === 'other' ? nameOf(f.path).split('.').pop()?.toUpperCase() : f.recipe ? '' : 'Note');
 </script>
 
@@ -81,14 +111,35 @@
     <p class="muted">This folder no longer exists. <a href="#/">Back to all recipes</a></p>
   {:else}
     {#if !path}
-      <h1 class="title">Family Recipes</h1>
       {#if app.offline}<p class="muted">Offline — showing the last saved copy.</p>{/if}
     {:else}
       <h1 class="title">{nameOf(path)}</h1>
     {/if}
 
+    {#if !path && recipes.length}
+      <section class="suggest" aria-label="Suggested recipe">
+        <div class="row">
+          <h2 class="sub first">{pick?.random ? 'Random pick' : `Suggested for ${meal.toLowerCase()}`}</h2>
+          <span class="spacer"></span>
+          <button class="btn" onclick={randomize}><Icon name="shuffle" size={16} /> Random</button>
+        </div>
+        <div class="row filters" role="group" aria-label="Random recipe filters">
+          <select class="field" bind:value={pickMeal} aria-label="Meal">
+            <option value="">Any meal</option>
+            {#each MEALS as m}<option value={m}>{m}</option>{/each}
+          </select>
+          <select class="field" bind:value={pickFolder} aria-label="Folder">
+            <option value="">Any folder</option>
+            {#each app.folders.filter((f) => !f.includes('/')) as f}<option value={f}>{f}</option>{/each}
+          </select>
+          <label class="row fav"><input type="checkbox" bind:checked={pickFav} /> Favorites only</label>
+        </div>
+        {#if picked}<div class="grid">{@render card(picked)}</div>{/if}
+      </section>
+    {/if}
+
     {#if favorites.length}
-      <h2 class="sub first">Favorites</h2>
+      <h2 class="sub" class:first={!recipes.length}>Favorites</h2>
       <div class="grid">
         {#each favorites as f (f.path)}{@render card(f)}{/each}
       </div>
@@ -162,6 +213,11 @@
   @media (hover: none) { .folder .count { right: 42px; } .wrap:hover .folder .count { opacity: 1; } }
   .star { color: var(--accent); margin-left: 4px; }
   .sub.first { margin-top: 0; }
+  .suggest { margin-bottom: 8px; }
+  .suggest .sub { margin-bottom: 0; }
+  .filters { margin: 8px 0 12px; }
+  .filters .field { width: auto; }
+  .fav { gap: 4px; font-size: 14px; color: var(--muted); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
   .recipe { display: flex; flex-direction: column; text-decoration: none; color: var(--text); overflow: hidden; }
   .recipe:hover { box-shadow: var(--shadow-md); border-color: var(--accent); }
@@ -182,7 +238,6 @@
     .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
     .folders { gap: 12px; }
     .toolbar .btn { min-height: 40px; }
-    .toolbar .add { display: none; } /* the bottom bar has "Add" */
     .tbl th:nth-child(3), .tbl td:nth-child(3), .tbl th:nth-child(4), .tbl td:nth-child(4) { display: none; }
   }
 </style>

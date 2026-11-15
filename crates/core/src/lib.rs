@@ -91,7 +91,8 @@ pub fn settings_changed(s: &Arc<AppState>) {
 pub async fn start_network(state: Arc<AppState>) -> Router {
     let app = server::router(state.clone());
     let _ = state.ext.app.set(app.clone());
-    lan::start(state.clone(), app.clone()).await;
+    // not awaited: looking for another Mac on the network takes up to 2 s and the window shouldn't wait
+    tokio::spawn(lan::start(state.clone(), app.clone()));
     lan::spawn_ip_watch(state.clone());
     git::spawn(state);
     app

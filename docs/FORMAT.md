@@ -55,8 +55,12 @@ Freezes well. See [[Pie Crust]].
 - The folder is the category (`Pies/Pumpkin Pie.md`). Move a file to recategorise it.
 - `attachments/` holds pictures; `attachments/originals/` holds imported PDFs and Word files.
 - `.trash/` holds deleted files and earlier versions of edited files until the trash is emptied.
-- `[[Name]]` links to another note by file name (or by title). The note it points to lists
-  “Mentioned in” links back. In the editor, typing `[[` suggests recipe names.
+- `[[Name]]` links to another note by file name (or by title); a Markdown link to the file
+  (`[mayonnaise](../Condiments/Mayonnaise.md)`) works too, also outside the app. The note it points
+  to lists “Mentioned in” links back. In the editor, typing `[[` suggests recipe names.
+- An ingredient named like another recipe links to it in the reader even without a link in the file
+  ("pie crust" → Pie Crust). Only multi-word recipe names and Condiments recipes count, so "baking
+  soda" doesn't link to Soda.
 - `.folders.yaml` (at the top of the folder) holds folder icons and card colours:
 
   ```yaml
@@ -69,7 +73,7 @@ Freezes well. See [[Pie Crust]].
 
 | Key | Meaning |
 |---|---|
-| `tags` | list, e.g. `[pie, holiday]` |
+| `tags` | list, e.g. `[pie, holiday]`; `Breakfast`, `Lunch`, `Dinner` feed the home page's suggestion |
 | `yield`, `servings` | e.g. `8 servings`, `2 loaves`, `2 dozen`; the leading number (a dozen counts as 12) drives the serving scaler. A yield with a second number (`3 small, 2 large or 1 jumbo pizza`) is shown as written and the scaler shows ×N |
 | `prep_time`, `cook_time`, `total_time`, `additional_time` | human text, e.g. `1 hr 20 min` |
 | `source`, `author` | where the recipe came from |
@@ -117,17 +121,19 @@ Unknown keys are kept as they are.
 
 ## Units
 
-Every measurement unit after an amount is written one way: `tsp`, `Tbsp`, `cup` / `cups` (cups when
-the amount is more than 1), `oz`, `fl oz`, `lb` (one or many), `pt`, `qt`, `gal`, `g`, `kg`, `ml`, `L`.
+Every measurement unit after an amount is written one way, in lower case: `tsp`, `tbsp`, `cup` / `cups`
+(cups when the amount is more than 1), `oz`, `fl oz`, `lb` (one or many), `pt`, `qt`, `gal`, `g`, `kg`,
+`ml`, `l`. The reader shows the leading amount and unit of each ingredient in bold (the file is not
+changed).
 Counts stay words (`2 cloves`, `1 can`, `pinch`, `1 stick`). Temperatures with a scale are written
 `350°F` / `175°C`; fractions have no suffix (`1/8`, not `1/8th`). The reader shows any other spelling
 this way too, and the importer writes it this way; `scripts/normalize-units.ts <folder>` rewrites a
 whole folder (each changed line is printed).
 
 Scaling, **US** (the default): the recipe's own unit while the scaled amount reads well in it (⅛ up
-to 3 tsp, 1 up to 4 Tbsp, ¼ up to 16 cups, under 16 oz, ½ lb and up), otherwise the unit it does
-read well in ("16 Tbsp" × ½ → "½ cup"); qt, pt, fl oz and metric units keep their unit. **Metric**
-converts to ml / g (L / kg from 950; one decimal under 1, e.g. "0.3 ml").
+to 3 tsp, 1 up to 4 tbsp, ¼ up to 16 cups, under 16 oz, ½ lb and up), otherwise the unit it does
+read well in ("16 tbsp" × ½ → "½ cup"); qt, pt, fl oz and metric units keep their unit. **Metric**
+converts to ml / g (l / kg from 950; one decimal under 1, e.g. "0.3 ml").
 
 ## Ingredient tables
 
@@ -147,7 +153,7 @@ portions; it may be empty.
   crust pie shell”) belongs to every portion. A cell may also hold a whole line (“¾ cup packed
   brown sugar”).
 - **The multiplier** of each portion is worked out from its amounts compared with the first column
-  (the median of the ratios, units converted where needed: 3 Tbsp → ⅔ cup, 1 Tbsp → ¼ cup… gives ×4; rounded to a kitchen fraction), or from the
+  (the median of the ratios, units converted where needed: 3 tbsp → ⅔ cup, 1 tbsp → ¼ cup… gives ×4; rounded to a kitchen fraction), or from the
   label (“Double”, “2x”) when the amounts can't tell. Columns whose amounts are about the same are
   versions, not sizes.
 - **Reading view:** chips above the ingredients pick a portion (“Single ×1”, “Double ×2”); only that

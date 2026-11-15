@@ -3,7 +3,8 @@ version: alpha
 name: Recipes
 description: >-
   A family cookbook kept as plain-text recipes: a warm, paper-like reading app for the Mac and for
-  phones and tablets at home. Light theme tokens below; dark theme counterparts end in -dark.
+  phones and tablets at home. Light theme tokens below (the default everywhere); dark theme
+  counterparts end in -dark.
 colors:
   primary: "#d97706"
   primary-ink: "#9a4f05"
@@ -277,7 +278,7 @@ phones and tablets around the house, often with flour on their hands.
 - **Content first.** The recipe is the page. Chrome stays small and muted; formatting marks are
   never shown, even while editing (Apple Notes style); navigation follows Obsidian (a folder column,
   breadcrumbs, `[[links]]`, properties).
-- **Native feel.** System fonts, system colour scheme (light and dark follow the device), standard
+- **Native feel.** System fonts, light paper pages on every device (dark only when chosen), standard
   controls (`select`, checkboxes) wherever they work.
 
 ## Colors
@@ -304,8 +305,8 @@ accent, and eight pastel card colours the family picks for folders and recipes.
   favourite chip.
 - **Dark theme:** each token has a `-dark` counterpart (warm near-black pages, `primary-dark`
   #f0a640, `primary-ink-dark` #f5b860, `primary-soft-dark` #3a2c18; card pastels become deep muted
-  tones). The theme follows the system setting unless the user picks one in Settings. On amber in
-  dark mode, put the dark background colour, not white, as text (9.0:1).
+  tones). Light is the default everywhere, whatever the system setting; dark applies only when
+  `data-theme="dark"` is set (`theme.js`, from the saved `theme`). On amber in dark mode, put the dark background colour, not white, as text (9.0:1).
 
 ## Typography
 
@@ -324,7 +325,8 @@ the system sans for the app around it, and the system monospace only for the Mar
 - **label** (sans 14px/500): chips, menu items, settings rows. **caption** (13px) for secondary
   lines; **micro** (11–12px/500) for counts, tags and keyboard hints, always in `muted`.
 - Numbers that line up (counts) use tabular figures. Fractions are written with glyphs where the
-  recipe has them (½, ¼) and amounts are never restyled.
+  recipe has them (½, ¼). In ingredient lists the leading amount and its unit are bold ("**1 ½ cups**
+  flour"); the words are never changed.
 - Print: recipe text at 12pt in black on white, all chrome hidden.
 
 ## Layout
@@ -334,8 +336,10 @@ the system sans for the app around it, and the system monospace only for the Mar
   their text to `reading-width` 760px; folder pages use a card grid up to `page-max-width` 1200px
   (`repeat(auto-fill, minmax(220px, 1fr))`, 16px gaps, folder cards too).
 - **Compact (≤ `compact-breakpoint` 899px):** one column. The navigation column becomes a drawer
-  (86vw, at most 330px) over a dimmed scrim, a top bar holds menu / back / title / search, and a
-  fixed bottom bar holds Home, Folders, Search, Add and Settings. Breadcrumbs are hidden. Cards
+  (86vw, at most 330px) over a dimmed scrim; there is no top bar. A fixed bottom bar holds Home,
+  Folders and Search; Add is in each folder's toolbar and Settings at the foot of the drawer.
+  Breadcrumbs are hidden except Back, which sits in the page's toolbar row (beside ⋯ on a recipe).
+  Pages can't be zoomed (pinch, double tap or focusing a field). Cards
   shrink to `minmax(150px, 1fr)` with 12px gaps; page padding drops to 16px with room for the bottom bar. Respect
   safe-area insets.
 - **Spacing scale:** 2, 4, 8, 12, 16, 24, 48px (`xxs`…`xxl`), plus 20 and 32 where a step is needed;
@@ -397,6 +401,9 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   never visible; tables are real grids with cell borders.
 - **Feedback.** Toasts at the bottom, inverted (`text` on `background`), red with white text for
   errors, green with dark text when something was saved. Notices inside a page use the yellow `banner`.
+- **Suggestion.** At the top of the home page: "Suggested for breakfast / lunch / dinner" (by the
+  time of day, from recipes with that tag) as one recipe card, a `button` "Random" with a shuffle
+  icon, and native `select`s (meal, folder) and a checkbox (favourites) that filter the random pick.
 - **Cook mode.** A full-screen view with large checkable ingredient and step lists that keeps the
   screen awake.
 
@@ -408,8 +415,8 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
 - Don't put white text on amber or green: it is 3.2:1 (2.1:1 in dark mode), below WCAG AA. The
   primary button and the green saved toast use `on-primary` (dark text, 5.5:1; `--on-accent` in the
   CSS).
-- Do show the recipe exactly as written: never restyle amounts, never show Markdown marks, never
-  hide a line.
+- Do show the recipe exactly as written: never change an amount or a word (bolding the leading
+  amount and unit is the one restyle), never show Markdown marks, never hide a line.
 - Don't use the card pastels to mean anything (status, category); they are the family's choice.
 - Do make every control reachable at phone width and at least 36px (40px on touch) tall.
 - Don't add shadows to show hierarchy; use the paper tones and 1px borders.

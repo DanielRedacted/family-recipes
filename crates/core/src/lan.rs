@@ -40,6 +40,8 @@ pub struct LanStatus {
     pub qr_name: String,
     pub qr_ip: String,
     pub keep_awake: bool,
+    /// another Mac already shares Recipes on this network (its address): this one leaves it to that Mac
+    pub other: Option<String>,
 }
 
 #[derive(Default)]
@@ -210,14 +212,23 @@ pub fn stop(state: &AppState) {
     }
     kill_dnssd(&lan.dnssd);
     set_keep_awake(state, false);
-    lan.status.write().unwrap().running = false;
+    let mut s = lan.status.write().unwrap();
+    s.running = false;
+    s.other = None;
 }
 
 async fn start_inner(state: Arc<AppState>, app: Router) -> Result<()> {
     let lan = &state.ext.lan;
+    let ips = lan_ips();
+    // one Mac owns recipes.local: when another already serves it, this one only shows the window
+    reap_stale(&state.data_dir);
+    if let Some(ip) = other_server(&ips).await {
+        tracing::info!("Recipes on {ip} already shares on this network; not sharing from this Mac");
+        *lan.status.write().unwrap() = LanStatus { other: Some(ip.to_string()), ..Default::default() };
+        return Ok(());
+    }
     let dir = state.data_dir.join("tls");
     let (ca_pem, ca_key) = load_or_create_ca(&dir)?;
-    let ips = lan_ips();
     let (chain, key) = leaf(&dir, &ca_pem, &ca_key, &ips)?;
     let tls = RustlsConfig::from_pem(chain, key).await.context("loading certificate")?;
     *lan.tls.lock().unwrap() = Some(tls.clone());
@@ -265,12 +276,53 @@ async fn start_inner(state: Arc<AppState>, app: Router) -> Result<()> {
             mdns,
             error: if ips.is_empty() { Some("Not connected to a home network (no private IP address).".into()) } else { None },
             keep_awake: false,
+            other: None,
         };
     }
     if state.settings.read().unwrap().keep_awake {
         set_keep_awake(&state, true);
     }
     Ok(())
+}
+
+/// Another Mac serving Recipes here: recipes.local resolves to an address that isn't this Mac's and
+/// a Recipes server answers there (a stale registration of a Mac that's gone doesn't count).
+async fn other_server(own: &[Ipv4Addr]) -> Option<Ipv4Addr> {
+    let ip = tokio::task::spawn_blocking(resolve_host).await.ok().flatten()?;
+    if own.contains(&ip) {
+        return None;
+    }
+    // ponytail: asks port 80 only, not the 8080 fallback a Mac uses when 80 is taken
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(2)).build().ok()?;
+    let r = client.get(format!("http://{ip}/api/session")).send().await.ok()?;
+    r.status().is_success().then_some(ip)
+}
+
+/// The IPv4 address recipes.local is registered at on this network (`dns-sd -G`, up to 2 s).
+fn resolve_host() -> Option<Ipv4Addr> {
+    use std::io::BufRead;
+    let mut child = Command::new("/usr/bin/dns-sd")
+        .args(["-G", "v4", HOST])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .ok()?;
+    let out = child.stdout.take()?;
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        // "14:05:08.823  Add  40000002  11  recipes.local.  192.168.1.206  240"
+        for line in std::io::BufReader::new(out).lines().map_while(Result::ok) {
+            let ip = line.split_whitespace().nth(5).and_then(|w| w.parse::<Ipv4Addr>().ok());
+            if line.contains(" Add ") && ip.is_some_and(|i| !i.is_unspecified()) {
+                let _ = tx.send(ip.unwrap());
+                return;
+            }
+        }
+    });
+    let ip = rx.recv_timeout(Duration::from_secs(2)).ok();
+    let _ = child.kill();
+    let _ = child.wait();
+    ip
 }
 
 fn bind_first(ports: &[u16]) -> Result<u16> {
@@ -331,9 +383,21 @@ fn reap_stale(dir: &Path) {
 /// Watch for IP changes (Wi-Fi switch, DHCP renewal): reissue the leaf cert and re-advertise.
 pub fn spawn_ip_watch(state: Arc<AppState>) {
     tokio::spawn(async move {
+        let mut tick = 0u32;
         loop {
             tokio::time::sleep(Duration::from_secs(15)).await;
-            if !state.ext.lan.status.read().unwrap().running {
+            let (running, other) = {
+                let s = state.ext.lan.status.read().unwrap();
+                (s.running, s.other.is_some())
+            };
+            if !running {
+                // left to another Mac: take over once a minute when it has stopped sharing
+                tick += 1;
+                if other && tick % 4 == 0 && state.settings.read().unwrap().lan {
+                    if let Some(app) = state.ext.app.get().cloned() {
+                        start(state.clone(), app).await;
+                    }
+                }
                 continue;
             }
             let ips = lan_ips();

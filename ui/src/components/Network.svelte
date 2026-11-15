@@ -14,6 +14,9 @@
 <label class="row"><input type="checkbox" checked={lan} onchange={(e) => onchange({ lan: e.currentTarget.checked })} /> Share recipes with devices on this Wi-Fi</label>
 
 {#if lan && status}
+  {#if status.other}
+    <p class="small">Another Mac ({status.other}) is already sharing Recipes on this network. Phones and tablets use that one; this Mac shows its own recipes here, and takes over sharing if that Mac stops.</p>
+  {/if}
   {#if status.error}<p class="err small">{status.error}</p>{/if}
   {#if status.running}
     <div class="share">

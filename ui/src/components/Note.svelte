@@ -1,10 +1,10 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { onMount, untrack } from 'svelte';
-  import { app, canWrite, go, folderHash, noteHash, dirOf, nameOf, toast, loadVault, setLeaveGuard, clearLeaveGuard, resolveLink } from '../lib/state.svelte';
+  import { app, canWrite, go, folderHash, noteHash, dirOf, nameOf, toast, loadVault, setLeaveGuard, clearLeaveGuard } from '../lib/state.svelte';
   import { fileUrl, saveFile, ApiError, api } from '../lib/api';
   import Crumbs from './Crumbs.svelte';
-  import { renderMarkdown, scaledRaw, bodyOf, vaultTarget } from '../lib/markdown';
+  import { renderMarkdown, scaledRaw, bodyOf, vaultTarget, linksTo } from '../lib/markdown';
   import { formatNum, parseYield, portionMultipliers, resolvePortion, yieldLabel, type Units } from '../lib/scale';
   import { openMenu, type MenuItem } from '../lib/menu.svelte';
   import { entryItems, requireWrite, attachImage, shell } from '../lib/ops';
@@ -186,7 +186,7 @@
   }
 
   // notes whose [[links]] point here
-  const mentionedIn = $derived(entry ? app.files.filter((f) => f.path !== path && f.links?.some((l) => resolveLink(l)?.path === path)) : []);
+  const mentionedIn = $derived(entry ? app.files.filter((f) => f.path !== path && linksTo(f, path)) : []);
 
   // a view-only PDF recipe: the note points at the original PDF
   const origPdf = $derived.by(() => {

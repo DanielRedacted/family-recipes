@@ -68,7 +68,7 @@ function countNoun(rest: string, n: number): string {
 /** Metric: millilitres / grams (litres / kilograms from 950 up). */
 function toMetric(val: number, unit: string): { val: number; unit: string } | null {
   const u = unit.toLowerCase().replace(/\.$/, '').replace('fl. oz', 'fl oz');
-  if (UNIT_TO_ML[u] !== undefined) { const ml = val * UNIT_TO_ML[u]; return ml >= 950 ? { val: ml / 1000, unit: 'L' } : { val: ml, unit: 'ml' }; }
+  if (UNIT_TO_ML[u] !== undefined) { const ml = val * UNIT_TO_ML[u]; return ml >= 950 ? { val: ml / 1000, unit: 'l' } : { val: ml, unit: 'ml' }; }
   if (UNIT_TO_G[u] !== undefined) { const g = val * UNIT_TO_G[u]; return g >= 950 ? { val: g / 1000, unit: 'kg' } : { val: g, unit: 'g' }; }
   return null;
 }
@@ -77,7 +77,7 @@ function toMetric(val: number, unit: string): { val: number; unit: string } | nu
 const LADDERS: { unit: string; size: number; from: number; to: number }[][] = [
   [
     { unit: 'tsp', size: 4.929, from: 0, to: 3 },
-    { unit: 'Tbsp', size: 14.787, from: 1, to: 4 },
+    { unit: 'tbsp', size: 14.787, from: 1, to: 4 },
     { unit: 'cup', size: 236.588, from: 0.25, to: 16 },
     { unit: 'gal', size: 3785.41, from: 1, to: Infinity },
   ],
@@ -89,7 +89,7 @@ const LADDERS: { unit: string; size: number; from: number; to: number }[][] = [
 
 /**
  * US, after scaling: the recipe's own unit while the amount reads well in it (⅛ tsp up to 3 tsp,
- * 1 up to 4 Tbsp, ¼ up to 16 cups, …), else the unit it does read well in ("16 Tbsp" × ½ → "½ cup").
+ * 1 up to 4 tbsp, ¼ up to 16 cups, …), else the unit it does read well in ("16 tbsp" × ½ → "½ cup").
  * Other units (qt, pt, fl oz, g, ml…) keep their unit.
  */
 function tidyUS(val: number, unit: string): { val: number; unit: string } | null {
@@ -106,7 +106,7 @@ function tidyUS(val: number, unit: string): { val: number; unit: string } | null
 
 /** Whole ml / g; one decimal for litres, kilograms and anything under 1 (never "0 ml"). */
 const metricFmt = (v: number, unit: string) =>
-  unit === 'L' || unit === 'kg' || v < 1 ? String(Math.max(0.1, Math.round(v * 10) / 10)) : String(Math.round(v));
+  unit === 'l' || unit === 'kg' || v < 1 ? String(Math.max(0.1, Math.round(v * 10) / 10)) : String(Math.round(v));
 const unitName = (unit: string, val: number) => (unit === 'cup' && val > 1 ? 'cups' : unit);
 
 /** Rewrite the leading quantity (and unit, when converting) of an ingredient line; units in one spelling. */
@@ -151,6 +151,17 @@ export function scaleLine(text: string, factor: number, units: Units = 'us'): st
   }
   const sep = b !== null ? (m[0].includes('to') ? ' to ' : '–') : '';
   return m[1] + fmtA + (fmtB !== null ? sep + fmtB : '') + rest;
+}
+
+/** "1 ½ cups flour" → "**1 ½ cups** flour": the reader shows the leading amount (and its unit) in bold.
+ * A line whose amount is already marked up is left as written. */
+export function boldQty(text: string): string {
+  const m = text.match(QTY_RX);
+  if (!m || /[*_]/.test(m[1]) || /^\s*[*_]/.test(text.slice(m[0].length))) return text;
+  const um = text.slice(m[0].length).match(UNIT_RX);
+  const u = um?.[1].toLowerCase().replace('fl. oz', 'fl oz');
+  const end = m[0].length + (um && u && (u in UNIT_TO_ML || u in UNIT_TO_G) ? um[0].length : 0);
+  return `${m[1]}**${text.slice(m[1].length, end).trim()}**${text.slice(end)}`;
 }
 
 // ---------- yields ----------
