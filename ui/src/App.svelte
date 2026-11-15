@@ -14,11 +14,13 @@
   import Ingredients from './components/Ingredients.svelte';
   import Switcher from './components/Switcher.svelte';
   import Overlays from './components/Overlays.svelte';
+  import { update, checkForUpdate, installUpdate } from './lib/update.svelte';
 
   onMount(async () => {
     await loadSession();
     await loadVault();
     listenForChanges();
+    if (app.session.shell) setTimeout(() => checkForUpdate(true), 3000);
   });
 
   const dir = $derived(app.route.view === 'folder' ? app.route.path : app.route.path.includes('/') ? app.route.path.slice(0, app.route.path.lastIndexOf('/')) : '');
@@ -63,6 +65,16 @@
       <a href="#/" class="mtitle">Recipes</a>
       <button class="btn ghost icon" aria-label="Search" onclick={() => (app.switcher = true)}><Icon name="search" size={22} /></button>
     </header>
+    {#if update.version && !update.hidden}
+      <div class="update no-print" role="status">
+        <div class="utext">
+          <strong>Recipes {update.version} is available.</strong>
+          {#if update.notes}<details><summary>What's new</summary><p>{update.notes}</p></details>{/if}
+        </div>
+        <button class="btn" onclick={() => (update.hidden = true)} disabled={update.busy}>Later</button>
+        <button class="btn primary" onclick={installUpdate} disabled={update.busy}>{update.busy ? 'Updating…' : 'Update and restart'}</button>
+      </div>
+    {/if}
     <main>
       {#if app.route.view === 'note'}
         {#key app.route.path}<Note path={app.route.path} mode={app.route.mode} />{/key}
@@ -91,6 +103,13 @@
   .sidebar { border-right: 1px solid var(--border); background: var(--sunken); overflow: hidden; min-height: 0; max-height: 100dvh; padding-top: env(safe-area-inset-top); }
   .main-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; }
   main { flex: 1; overflow-y: auto; min-width: 0; }
+  .update {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px;
+    background: var(--accent-soft); border-bottom: 1px solid var(--border);
+  }
+  .utext { flex: 1 1 240px; }
+  .update summary { cursor: pointer; color: var(--accent-ink); font-size: 14px; }
+  .update details p { margin: 6px 0 0; white-space: pre-line; font-size: 14px; }
   .mobilebar, .bottombar, .scrim { display: none; }
   @media (max-width: 899px) {
     .app { grid-template-columns: 1fr; }

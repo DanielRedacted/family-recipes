@@ -86,6 +86,14 @@ pub trait Shell: Send + Sync {
     fn autostart(&self, _set: Option<bool>) -> bool {
         false
     }
+    /// Look for a newer release: Some((version, release notes)), or None when up to date.
+    fn update_check(&self) -> Result<Option<(String, String)>, String> {
+        Err("updates come with the desktop app".into())
+    }
+    /// Download and install the newer release, then restart the app.
+    fn update_install(&self) -> Result<(), String> {
+        Err("updates come with the desktop app".into())
+    }
 }
 
 pub struct Payload {
@@ -667,6 +675,15 @@ async fn shell_action(State(s): St, caller: Caller, AxPath(action): AxPath<Strin
             let set = serde_json::from_slice::<serde_json::Value>(&body).ok().and_then(|v| v["enabled"].as_bool());
             let on = tokio::task::spawn_blocking(move || shell.autostart(set)).await.unwrap();
             Ok(Json(json!({ "enabled": on })).into_response())
+        }
+        "update-check" => {
+            let found = tokio::task::spawn_blocking(move || shell.update_check()).await.unwrap().map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
+            let (version, notes) = found.unzip();
+            Ok(Json(json!({ "version": version, "notes": notes })).into_response())
+        }
+        "update-install" => {
+            tokio::task::spawn_blocking(move || shell.update_install()).await.unwrap().map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
+            Ok(StatusCode::NO_CONTENT.into_response())
         }
         _ => Err(err(StatusCode::NOT_FOUND, "unknown action")),
     }

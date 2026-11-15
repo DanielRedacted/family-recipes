@@ -12,6 +12,7 @@ use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
+use tauri_plugin_updater::UpdaterExt;
 
 struct TauriShell(AppHandle);
 
@@ -46,6 +47,32 @@ impl Shell for TauriShell {
         }
         m.is_enabled().unwrap_or(false)
     }
+    fn update_check(&self) -> Result<Option<(String, String)>, String> {
+        let app = self.0.clone();
+        tauri::async_runtime::block_on(async move {
+            let found = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| format!("could not check for updates: {e}"))?;
+            Ok(found.map(|u| (u.version, u.body.unwrap_or_default())))
+        })
+    }
+    fn update_install(&self) -> Result<(), String> {
+        // the bundle is replaced in place, which fails inside a disk image or a quarantined copy
+        let exe = std::env::current_exe().unwrap_or_default().to_string_lossy().into_owned();
+        if exe.starts_with("/Volumes/") || exe.contains("/AppTranslocation/") {
+            return Err("Move Recipes to the Applications folder, open it from there, then update.".into());
+        }
+        let app = self.0.clone();
+        tauri::async_runtime::block_on(async move {
+            let update = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?.ok_or("Recipes is already up to date.")?;
+            update.download_and_install(|_, _| {}, || {}).await.map_err(|e| format!("the update could not be installed: {e}"))
+        })?;
+        let app = self.0.clone();
+        // answer the request first, then restart into the new version
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            app.restart();
+        });
+        Ok(())
+    }
 }
 
 fn show(app: &AppHandle) {
@@ -68,6 +95,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let handle = app.handle().clone();
             let data_dir = app.path().app_data_dir()?;

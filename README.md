@@ -1,5 +1,7 @@
 # Recipes
 
+Preserving my mom and grandma's recipes.
+
 The family cookbook as a folder of plain-text recipes, with an app to browse, search, read, cook
 from, edit, import and manage them.
 
@@ -24,14 +26,54 @@ links to web pages marked ↗ and opened in the browser, and an importer for web
 REST data, nutrition and equipment), PDFs, Word files, photos and pasted text — several at once,
 each with a step log.
 
-The 259 family recipes from `home-recipes/` ship with the app (`vault-seed/`, 257 files: two were
-exact duplicates) and are copied into the recipes folder on first launch. When a later version
-corrects or renames a bundled recipe, the app updates it in your folder only if you have not
-changed that file (the old copy goes to `.trash/versions`); edited, moved or deleted files are left
-alone. File names and titles were tidied (typos, ALL CAPS, "Recipe" suffixes) by
-`tools/names.tsv`; old names stay searchable as `aliases`. The text is in standard Markdown without
-a word added or dropped: ingredient tables in one layout (amounts first, name last; see
-`docs/FORMAT.md`), yields and times in properties, flattened Word tables rebuilt.
+## The recipes are not in this repository
+
+The app ships empty and works on whatever folder of recipes you give it. The family recipes live in
+a private repository of their own (`home-recipes`), and on the Mac `~/Recipes` is a clone of it:
+
+```sh
+git clone https://github.com/DanielRedacted/home-recipes.git ~/Recipes   # first time, on a new Mac
+cd ~/Recipes && git pull                                                  # get changes
+cd ~/Recipes && git add -A && git commit -m "…" && git push               # share your edits
+```
+
+The app sees pulled changes at once. `.trash/` stays out of git; `.git/` and `.tools/` (the
+conversion scripts) are hidden from the app. The original conversions from the family's Word
+documents are kept on that repository's `original-markdown` branch.
+
+## Download and updates
+
+Download `Recipes_X.Y.Z_universal.dmg` from
+[Releases](https://github.com/DanielRedacted/family-recipes/releases/latest) and drag Recipes into
+**Applications**. Run it from there: updates can't be installed into a copy that runs from the disk
+image or the Downloads folder.
+
+The app isn't notarized by Apple, so the first launch needs one extra step: right-click Recipes in
+Applications → **Open** → **Open**. (Or, in Terminal: `xattr -cr /Applications/Recipes.app`.)
+
+When a new version is out, the app says so a few seconds after it opens: **Update and restart**
+downloads it, asks about any unsaved edit, and restarts into the new version. Settings → App →
+**Check for updates** looks on demand. Each update is a new ad-hoc signed build, so macOS may ask
+once more for Keychain access (the AI key) and for incoming network connections: choose **Always
+Allow** / **Allow**.
+
+## Release
+
+```sh
+node scripts/release.mjs 0.2.0 "What changed, one line per item"
+```
+
+It refuses a dirty tree, an existing tag or a version that isn't newer, then builds a universal
+`Recipes.app` on this Mac, signs the update, commits the version, tags `v0.2.0` (the message becomes
+the release notes, shown in the app under *What's new*), pushes, and publishes the GitHub release
+with the disk image, the update bundle and `latest.json`. Nothing is committed or published if the
+build fails. Needs `gh` signed in and the Rust target `x86_64-apple-darwin`
+(`rustup target add x86_64-apple-darwin`).
+
+**Back up the signing key.** Updates are signed with `~/.tauri/family-recipes.key` and its password
+in `~/.tauri/family-recipes.key.password`; the public half is in `src-tauri/tauri.conf.json`. Keep
+copies of both files somewhere safe (a password manager). If they're lost, installed apps will
+refuse every future update and need a manual reinstall from a build with a new key. Never commit them.
 
 ## Build and run
 
@@ -57,11 +99,7 @@ crates/core/        server library: vault, recipe parser, HTTP API, LAN/TLS, imp
   src/bin/recipes-server.rs   headless server
 src-tauri/          desktop shell (window, menu-bar item, Finder/dialog/print hooks)
 ui/                 Svelte 5 + Vite frontend (embedded into the binary), PWA
-vault-seed/         the converted family recipes
-tools/              convert.py + verify.py (conversion from home-recipes/, word-for-word check),
-                    overrides.json (structure-only fixes), names.tsv (renames and titles),
-                    ingredient_tables.txt (tables rewritten in the standard layout),
-                    techniques.txt, seed-etags.py
+scripts/release.mjs build, sign and publish a release (see Release)
 deploy/linux/       Linux / Raspberry Pi notes and the old projects' deploy files (not used on macOS)
 docs/FORMAT.md      the recipe file format
 ```
@@ -69,9 +107,9 @@ docs/FORMAT.md      the recipe file format
 ## Tests
 
 ```sh
-python3 -I tools/verify.py --self-test && python3 -I tools/verify.py   # 259/259 originals preserved (or proven duplicates)
-cargo test -p recipes-core                                             # parser, vault, auth, importer
-cd ui && npx vitest run                                                # scaling / unit conversion
+cargo test -p recipes-core                                   # parser, vault, auth, importer
+VAULT=~/Recipes cargo test -p recipes-core -- --ignored       # every note in a real recipes folder parses
+cd ui && npx vitest run                                      # scaling / unit conversion
 # end-to-end (needs a running recipes-server; see the scripts for arguments)
 node e2e/flows.mjs <admin-url> <vault> <outdir>        # navigation, save, menus, icons, links
 node e2e/editor.mjs <admin-url> <vault> <outdir>       # formatted editor

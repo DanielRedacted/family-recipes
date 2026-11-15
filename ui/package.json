@@ -8,7 +8,7 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
     "tauri": "tauri",
-    "app": "cd .. && ui/node_modules/.bin/tauri build"
+    "app": "cd .. && ui/node_modules/.bin/tauri build --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",

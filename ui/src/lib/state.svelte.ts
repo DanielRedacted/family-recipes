@@ -63,6 +63,8 @@ export const folderHash = (p: string) => '#/f/' + p.split('/').map(encodeURIComp
 let leaveGuard: (() => Promise<boolean>) | null = null;
 export const setLeaveGuard = (g: typeof leaveGuard) => { leaveGuard = g; };
 export const clearLeaveGuard = (g: typeof leaveGuard) => { if (leaveGuard === g) leaveGuard = null; };
+/** Ask the open page about unsaved work, as a route change would (true = fine to go). */
+export const mayLeave = () => (leaveGuard ? leaveGuard() : Promise.resolve(true));
 let currentHash = location.hash;
 // every history entry carries its place in this app's history, so Back knows when there is a page to return to
 let navIndex = typeof history.state?.nav === 'number' ? history.state.nav : 0;

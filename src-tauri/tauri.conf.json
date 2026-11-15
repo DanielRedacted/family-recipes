@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Recipes",
-  "version": "0.1.0",
   "identifier": "family.recipes.desktop",
   "build": {
     "beforeBuildCommand": "npm run build",
@@ -14,10 +13,17 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app"],
+    "targets": ["app", "dmg"],
+    "createUpdaterArtifacts": true,
     "category": "Lifestyle",
     "shortDescription": "The family cookbook",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.png"],
     "macOS": { "signingIdentity": "-", "minimumSystemVersion": "12.0" }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERCQjBBNUI0QThFMDRBREQKUldUZFN1Q290S1d3Mi9uYSt6V2FzUnN6MmVYVy9XVlRkZDVEakw3U2F2UjVCYmI1MTJxb0FGdzUK",
+      "endpoints": ["https://github.com/DanielRedacted/family-recipes/releases/latest/download/latest.json"]
+    }
   }
 }

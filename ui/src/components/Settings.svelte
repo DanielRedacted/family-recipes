@@ -4,6 +4,7 @@
   import { api } from '../lib/api';
   import { shell } from '../lib/ops';
   import { confirmIt } from '../lib/dialog.svelte';
+  import { checkForUpdate } from '../lib/update.svelte';
   import Network from './Network.svelte';
   import Trash from './Trash.svelte';
   import SettingsNav, { settingsSections, currentSection } from './SettingsNav.svelte';
@@ -130,6 +131,11 @@
       <section class="card">
         <label class="row toggle"><input type="checkbox" checked={!!s.autostart} onchange={async (e) => { const r = await shell('autostart', { enabled: e.currentTarget.checked }); if (r) s.autostart = r.enabled; }} /> Open Recipes at login</label>
         <p class="muted small">Closing the window keeps Recipes running in the menu bar, so phones and tablets can still reach it. Quit from the menu-bar icon.</p>
+      </section>
+      <section class="card">
+        <h2>Updates</h2>
+        <p class="muted small">Recipes {app.session.version}. New versions are looked for each time the app opens.</p>
+        <div class="row"><button class="btn" onclick={() => checkForUpdate()}>Check for updates</button></div>
       </section>
   {:else if sec === 'devices'}
     <section class="card">
