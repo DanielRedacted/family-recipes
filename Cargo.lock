@@ -4309,7 +4309,7 @@ dependencies = [
 
 [[package]]
 name = "recipes-app"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "recipes-core",
@@ -4328,7 +4328,7 @@ dependencies = [
 
 [[package]]
 name = "recipes-core"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "argon2",
