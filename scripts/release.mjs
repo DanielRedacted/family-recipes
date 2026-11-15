@@ -2,8 +2,8 @@
 // Builds Recipes.app on this Mac (Apple silicon + Intel), signs the update with the key in ~/.tauri,
 // commits the version, tags vX.Y.Z (the tag message becomes the release notes), pushes, and publishes
 // a GitHub release with the disk image, the update bundle and latest.json. Installed apps then offer it.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
 
 const [v, notes] = process.argv.slice(2);
@@ -49,6 +49,14 @@ const out = `target/${target}/release/bundle`;
 const bundle = `${out}/macos/Recipes.app.tar.gz`;
 const dmg = `${out}/dmg/Recipes_${v}_universal.dmg`;
 for (const f of [bundle, `${bundle}.sig`, dmg]) if (!existsSync(f)) die(`Missing ${f}`);
+
+// the build's own Recipes.app (and the disk images mounted while packaging) would otherwise show up
+// next to the installed app in Launchpad, Spotlight and Open With
+const lsregister = '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister';
+const built = `${process.cwd()}/${out}/macos/Recipes.app`;
+const dump = spawnSync(lsregister, ['-dump'], { encoding: 'utf8', maxBuffer: 1 << 28 }).stdout ?? '';
+for (const p of new Set([built, ...(dump.match(/\/Volumes\/dmg\.\w+\/Recipes\.app/g) ?? [])])) spawnSync(lsregister, ['-u', p]);
+rmSync(built, { recursive: true, force: true });
 const mac = { url: `https://github.com/${repo}/releases/download/v${v}/Recipes.app.tar.gz`, signature: readFileSync(`${bundle}.sig`, 'utf8') };
 const latest = `${out}/latest.json`;
 writeFileSync(latest, JSON.stringify({ version: v, notes, pub_date: new Date().toISOString(), platforms: { 'darwin-aarch64': mac, 'darwin-x86_64': mac } }, null, 2));
