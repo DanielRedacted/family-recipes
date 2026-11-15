@@ -1,0 +1,131 @@
+🍎 Red Apple — fruit dishes, apple desserts, cider
+🍏 Green Apple — tart apple dishes, green apple desserts, sour fruit
+🍊 Tangerine — oranges, citrus glazes, mandarin-based dishes, citrus desserts
+🍋 Lemon — lemon-forward dishes, lemon curd, citrus dressings, lemonade
+🍋‍🟩 Lime — lime juice/zest, tropical and Mexican dishes, key lime pie
+🍌 Banana — banana bread, smoothies, tropical desserts
+🍍 Pineapple — Hawaiian-inspired, sweet-savory, tropical cocktails and desserts
+🥭 Mango — mango salsa, mango sticky rice, South/Southeast Asian, tropical smoothies
+🍑 Peach — peach cobblers, preserves, grilled peach, Southern cooking
+🍒 Cherries — cherry desserts, Black Forest cake, cherry compote
+🍓 Strawberry — strawberry shortcake, jam, berry desserts, summer salads
+🫐 Blueberry — blueberry muffins, pancakes, compotes
+🍇 Grapes — wine-braised dishes, cheese boards, fruit salads
+🍉 Watermelon — summer salads, chilled fruit, watermelon agua fresca
+🍈 Melon — melon salads, prosciutto e melone, chilled platters
+🍐 Pear — pear tarts, poached pear, pear and cheese, autumn dishes
+🍗 Poultry Leg — roasted poultry, BBQ chicken, fried chicken, festive roasts
+🍖 Meat on Bone — braised short ribs, T-bone steak, roasted bone-in pork
+🥩 Cut of Meat — steaks, beef-forward dishes, butchered cuts
+🥓 Bacon — breakfast dishes, bacon-wrapped, smoky flavor, BLT
+🍔 Hamburger — burgers, sliders, American fast-casual
+🍟 French Fries — fried potato sides, crispy potato dishes
+🌭 Hot Dog — hot dogs, sausages in buns, grilled sausages
+🍕 Pizza — pizza, flatbreads, tomato-and-cheese baked dishes
+🌮 Taco — tacos, Mexican street food, Tex-Mex
+🌯 Burrito / Wrap — burritos, wraps, shawarma, rolled sandwiches
+🫔 Tamale — tamales, masa-based dishes, Mesoamerican cuisine
+🥪 Sandwich — sandwiches, deli-style, club sandwiches, subs
+🥙 Stuffed Flatbread — falafel wraps, gyros, shawarma, Middle Eastern sandwiches
+🧆 Falafel — falafel, Middle Eastern chickpea dishes, vegetarian street food
+🧇 Waffle — waffles, Belgian waffles, brunch dishes
+🥞 Pancakes — pancakes, crepes, hotcakes, brunch
+🧈 Butter — buttery dishes, French cuisine, pan sauces, butter-rich baked goods
+🍳 Cooking — fried eggs, pan cooking, breakfast, skillet dishes
+🥚 Egg — egg-based dishes, quiche, frittata, baked goods using eggs
+🧀 Cheese Wedge — cheese-forward dishes, pasta, gratins, cheese boards
+🥗 Green Salad — salads, fresh vegetable dishes, light healthy meals
+🥘 Shallow Pan — paella, shallow-braised dishes, one-pot meals, pilaf
+🍲 Pot of Food — stews, braises, soups, hot pot, slow-cooked meals
+🫕 Fondue — fondue, cheese dip, communal dipping dishes
+🥣 Bowl with Spoon — oatmeal, porridge, granola, cereal, congee, grain bowls
+🍱 Bento Box — bento, Japanese cuisine, meal prep, multicourse compact meals
+🍘 Rice Cracker — Japanese rice crackers, light savory bites
+🍙 Rice Ball — Japanese onigiri, stuffed rice snacks
+🍚 Cooked Rice — rice dishes, Asian cuisine, steamed grains
+🍛 Curry Rice — curry dishes, South and Southeast Asian, rice with sauce
+🍜 Steaming Bowl — ramen, noodle soups, pho, Asian broth-based dishes
+🍝 Spaghetti — pasta dishes, Italian cuisine, spaghetti bolognese, noodles
+🍠 Sweet Potato — sweet potato dishes, roasted root vegetables, yam
+🍢 Oden — Japanese hot pot, braised skewers, oden stew
+🍣 Sushi — sushi, Japanese raw fish, seafood rice bites
+🍤 Fried Shrimp — fried seafood, tempura shrimp
+🍥 Fish Cake — Japanese narutomaki, fish cakes, ramen toppings
+🥮 Moon Cake — Chinese pastries, dense filled cakes
+🍡 Dango — Japanese dango, rice cake skewers, mochi-style sweets
+🥟 Dumpling — dumplings, gyoza, potstickers, dim sum, pierogi, empanadas
+🥠 Fortune Cookie — Chinese-American, crispy dessert cookies
+🍦 Soft Ice Cream — soft serve, frozen desserts, gelato
+🍧 Shaved Ice — kakigori, shaved ice, snow cones, iced desserts
+🍨 Ice Cream — ice cream, gelato, frozen dessert scoops
+🍩 Doughnut — doughnuts, fried dough, glazed sweet pastries
+🍪 Cookie — cookies, biscuits, baked sweet snacks
+🎂 Birthday Cake — celebration cakes, layer cakes, frosted desserts
+🍰 Shortcake — cake slices, layered cakes, cream-filled desserts
+🧁 Cupcake — cupcakes, individual cakes, frosted baked goods
+🥧 Pie — pies, tarts, fruit pies, pot pies, savory pastry crusts
+🍫 Chocolate Bar — chocolate desserts, brownies, chocolate-forward recipes
+🍬 Candy — confections, hard candies, sugar-based sweets
+🍭 Lollipop — lollipops, candy-coated desserts
+🍮 Custard — flan, crème caramel, custard puddings, panna cotta
+🍯 Honey Pot — honey-sweetened dishes, glazes, baklava
+🍞 Bread — bread baking, sandwich loaves, rustic breads
+🥐 Croissant — croissants, French pastries, laminated dough, buttery baked goods
+🥖 Baguette — French bread, baguettes, crusty breads, bruschetta
+🫓 Flatbread — flatbread, naan, focaccia, pita, lavash
+🥨 Pretzel — pretzels, German baked goods, beer hall snacks
+🥯 Bagel — bagels, New York deli food, cream cheese pairings
+🧋 Bubble Tea — bubble tea, boba, Taiwanese milk teas
+🍵 Teacup — Japanese tea, matcha dishes, herbal infusions, tea ceremony
+☕ Hot Beverage — coffee, espresso, tea, hot chocolate
+🫖 Teapot — tea service, brewed teas, British afternoon tea
+🧃 Juice Box — fruit juices, packaged juice
+🥤 Cup with Straw — smoothies, milkshakes, cold drinks, iced beverages
+🧊 Ice — chilled dishes, cocktails, cold preparations, frozen elements
+🍶 Sake — Japanese sake, rice wine, Asian rice spirits
+🍾 Sparkling Wine — champagne, sparkling wine, celebration drinks
+🍷 Wine Glass — red wine, wine-braised dishes, French/Italian cuisine
+🍸 Cocktail Glass — cocktails, mixed drinks, elegant bar fare
+🍹 Tropical Drink — tropical cocktails, piña coladas, fruity mixed drinks
+🍺 Beer Mug — beer pairings, pub food, beer-battered dishes, ales and lagers
+🍻 Clinking Mugs — beer, celebratory drinks, pub culture
+🥂 Clinking Glasses — champagne toasts, wine pairings, celebratory meals
+🥃 Tumbler Glass — whisky, bourbon, spirits-based cocktails
+🫗 Pouring Liquid — pouring sauces, deglazing, liquid additions
+🥬 Leafy Green — leafy greens, stir-fry vegetables, salad bases, bok choy
+🥦 Broccoli — broccoli dishes, cruciferous vegetable sides
+🧄 Garlic — garlic-forward dishes, aromatic bases, Mediterranean and Asian
+🧅 Onion — onion-based dishes, caramelized onions, French onion soup
+🥒 Cucumber — fresh salads, pickles, tzatziki, cooling dishes
+🌶️ Hot Pepper — spicy dishes, hot sauce, chili, Mexican/Asian heat
+🫑 Bell Pepper — peppers in stir-fry, stuffed peppers, roasted vegetables
+🥑 Avocado — guacamole, avocado toast, California cuisine
+🍅 Tomato — tomato-based sauces, Caprese salad, fresh or cooked tomato
+🍆 Eggplant — eggplant parmesan, ratatouille, moussaka, grilled aubergine
+🥔 Potato — potato dishes, mashed potatoes, roasted potatoes, potato soup
+🌽 Corn — corn dishes, grilled corn, cornbread, elote
+🥕 Carrot — carrot-based dishes, roasted vegetables, carrot cake, mirepoix
+🥜 Peanuts — peanut sauce, satay, peanut butter dishes, groundnut stews
+🫘 Beans — legume dishes, chili, bean stews, refried beans
+🌰 Chestnut — chestnut stuffing, marrons glacés, autumnal dishes
+🍄 Mushroom — mushroom sauté, mushroom soups, umami-rich dishes, risotto
+🍄‍🟫 Brown Mushroom — shiitake, cremini, porcini, umami mushroom flavors
+🫒 Olive — Mediterranean cooking, olive oil dressings, sautéed dishes
+🫛 Pea Pod — green peas, snap peas, pea soup, spring vegetables
+🥝 Kiwi — kiwi fruit salads, tropical desserts, pavlova topping
+🥥 Coconut — coconut milk dishes, Thai curry, tropical desserts
+🦀 Crab — crab dishes, crab cakes, shellfish boils, seafood bisque
+🦞 Lobster — lobster bisque, lobster rolls, upscale seafood
+🦐 Shrimp — shrimp dishes, shrimp scampi, prawn curries, seafood pasta
+🦑 Squid — calamari, squid ink pasta, grilled squid
+🦪 Oyster — raw oysters, oysters Rockefeller, shellfish platters
+🐟 Fish — fish dishes, fillets, grilled fish, fish tacos
+🧂 Salt — seasoning, brined dishes, salt-cured foods
+🥫 Canned Food — canned ingredients, pantry staples, preserved foods
+🫙 Jar — pickles, jams, preserves, fermented foods, jarred sauces
+🔪 Kitchen Knife — knife skills, butchery, precision cutting, professional cooking
+🍴 Fork and Knife — plated meals, restaurant-style dishes, sit-down dining
+🥄 Spoon — soups, stews, spooning sauces, measured cooking
+🍽️ Plate Setting — full plated meals, fine dining, complete courses
+🥢 Chopsticks — Asian cuisine, noodles, sushi, dim sum, rice dishes
+🌿 Herb — fresh herbs, pesto, chimichurri, herb-crusted proteins

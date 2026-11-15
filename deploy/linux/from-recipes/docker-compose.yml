@@ -1,6 +1,7 @@
 services:
-  recipe-app:
+  recipes:
     build: .
+    network_mode: host
     volumes:
       - ./config.toml:/app/config.toml:ro
       - ./recipes.db:/app/recipes.db
@@ -23,12 +24,14 @@ services:
       - "80:80"
       - "443:443"
       - "2019:2019"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - recipe-app
+      - recipes
     restart: unless-stopped
 
 volumes:

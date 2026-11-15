@@ -6,7 +6,7 @@ host = "0.0.0.0"
 path = "./recipes.db"
 
 [ollama]
-base_url = "http://ollama:11434"
+base_url = "http://localhost:11434"
 model = "llama3.2:latest"
 timeout_secs = 300
 max_retries = 3

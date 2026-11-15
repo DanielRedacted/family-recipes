@@ -1,4 +1,4 @@
-/* Family cookbook: warm paper palette from the old recipe app (recipes/src/frontend/style.css),
+/* Family cookbook: warm paper palette from the earlier `recipes` app's stylesheet,
    card pastels from its colour swatches, amber accent from its --warning tone. */
 :root {
   --bg: #fafaf8;

@@ -1,0 +1,30 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Recipe",
+  "name": "Test Pasta",
+  "description": "A simple test pasta recipe for automated tests.",
+  "author": "Test Kitchen",
+  "image": null,
+  "cookTime": "PT20M",
+  "prepTime": "PT10M",
+  "totalTime": "PT30M",
+  "recipeYield": "4 servings",
+  "recipeCategory": "Pasta",
+  "recipeCuisine": "Italian",
+  "keywords": "pasta, quick, easy, test",
+  "recipeIngredient": [
+    { "quantity": "2", "unit": "cups", "name": "pasta", "preparation": null },
+    { "quantity": "1/2", "unit": "cup", "name": "parmesan", "preparation": "grated" },
+    { "quantity": "3", "unit": "cloves", "name": "garlic", "preparation": "minced" },
+    { "quantity": null, "unit": null, "name": "salt", "preparation": null }
+  ],
+  "recipeInstructions": [
+    "Bring a large pot of salted water to a boil.",
+    "Cook pasta according to package directions until al dente.",
+    "Meanwhile, sauté garlic in olive oil over medium heat for 2 minutes.",
+    "Drain pasta, reserving 1/4 cup pasta water.",
+    "Toss pasta with garlic oil, parmesan, and pasta water. Season with salt."
+  ],
+  "tool": ["large pot", "colander", "skillet"],
+  "suitableForDiet": null
+}

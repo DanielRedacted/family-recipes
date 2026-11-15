@@ -13,7 +13,7 @@ docker compose exec ollama ollama pull llama3.2:latest
 
 # Run the app (registers recipes.local on your LAN via mDNS)
 cargo run
-# or: ./target/release/recipe-app
+# or: ./target/release/recipes
 ```
 
 ### Trust the TLS certificate

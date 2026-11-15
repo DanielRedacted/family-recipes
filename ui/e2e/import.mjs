@@ -3,7 +3,8 @@ import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 const [url, vault, out] = process.argv.slice(2);
-const SRC = '/Users/daniel/Desktop/recipe stuff/cookbook/recipes';
+// Source files from the recipes repository's `originals` branch (see AGENTS.md, Tests).
+const SRC = process.env.IMPORT_SRC ?? '/tmp/import-src';
 const browser = await chromium.launch();
 const page = await (await browser.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
 const errors = [];
@@ -63,7 +64,7 @@ await page.click('button:has-text("Discard")');
 // 4. Word document and a pasted recipe queued together
 await imp();
 await page.selectOption('label.dest select', 'Cookies');
-await page.setInputFiles('input[type=file]', `${SRC}/images/Cookies - Macaroons.docx`);
+await page.setInputFiles('input[type=file]', `${SRC}/Cookies - Macaroons.docx`);
 await page.waitForSelector('.rev input.title', { timeout: 30000 });
 await page.screenshot({ path: `${out}/docx-review.png` });
 await page.fill('.rev input.title', 'Macaroons');

@@ -10,7 +10,8 @@ This app does both jobs itself:
 
 - **HTTPS:** it creates its own certificate authority and serves `https://recipes.local`
   on port 443 (`crates/core/src/lan.rs`).
-- **AI:** it uses an API key; there is no local model.
+- **AI:** it uses an API key, or a local model (Ollama, LM Studio) through its OpenAI-compatible
+  address on the same machine. No container is needed for either.
 
 A Pi build needs neither Docker nor Caddy. It needs the native `recipes-server` binary run
 by systemd, with Avahi publishing `recipes.local`.
@@ -19,7 +20,7 @@ by systemd, with Avahi publishing `recipes.local`.
 
 | File | From | What it was |
 |---|---|---|
-| `from-recipes/Dockerfile`, `.dockerignore` | `recipes/` (commit aee6b73) | Two-stage Rust build on `debian:bookworm-slim`. Usable as a pattern if a container is ever wanted; drop `SQLX_OFFLINE`. |
+| `from-recipes/Dockerfile`, `.dockerignore` | `recipes/` (commit bdb3151, its last) | Two-stage Rust build on `debian:bookworm-slim`. Usable as a pattern if a container is ever wanted; drop `SQLX_OFFLINE`. |
 | `from-recipes/docker-compose.yml` | `recipes/` | App + Ollama + Caddy containers. |
 | `from-recipes/Caddyfile` | `recipes/` | Reverse proxy for `recipes.local`. |
 | `from-recipes/deploy.sh` | `recipes/` | Ubuntu/Debian bootstrap: installs Docker CE, starts the stack. |
@@ -31,8 +32,12 @@ by systemd, with Avahi publishing `recipes.local`.
 Known defects in the copied files (from `NOTES.md`; don't reuse them as they are):
 
 - The Caddyfile serves plain HTTP although the README describes HTTPS.
-- The compose file runs the app in a container, which breaks mDNS. It also lacks the
-  `extra_hosts` line its README mentions.
+- Commit bdb3151 put the app on the host network (`network_mode: host`) and pointed Caddy at
+  `host.docker.internal` with an `extra_hosts` entry, which fixed mDNS and the proxy. `NOTES.md`
+  was written before that and still lists them as broken.
+
+The rest of what the two projects left behind (code, prompts, product ideas) is in
+[docs/legacy/](../../docs/legacy/README.md).
 
 ## Porting checklist for a Pi build
 
