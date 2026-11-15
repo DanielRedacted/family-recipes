@@ -337,6 +337,49 @@ pub fn unique(root: &Path, p: &VaultPath) -> VaultPath {
 /// bundled (renamed, or a duplicate dropped) is removed if it is still untouched (a copy goes to
 /// .trash/versions); removals run first so a rename that only changes letter case works.
 /// Returns (added, updated, removed).
+/// Properties the app itself writes into a recipe (⋯ menu, icon picker). A bundled recipe that
+/// differs from what was installed only by these still counts as untouched, and keeps them.
+const APP_PROPS: &[&str] = &["favorite", "emoji", "color"];
+
+fn yaml_scalar(v: &serde_json::Value) -> String {
+    match v {
+        serde_json::Value::String(s) if !s.is_empty() && s.chars().all(|c| c.is_alphanumeric() || c == ' ' || c == '-' || !c.is_ascii()) && !s.starts_with(['-', ' ']) => s.clone(),
+        serde_json::Value::String(s) => serde_json::to_string(s).unwrap_or_default(),
+        other => other.to_string(),
+    }
+}
+
+/// The text as it was before the app added its properties (two candidates: the app may have put a
+/// blank line after a new properties block), and those properties as `key: value` lines.
+fn without_app_props(text: &str) -> Option<(Vec<String>, Vec<String>)> {
+    let (yaml, body_start, _) = recipe::split_frontmatter(text)?;
+    let map: serde_json::Value = serde_saphyr::from_str(yaml).ok()?;
+    let obj = map.as_object()?;
+    let props: Vec<String> = APP_PROPS.iter().filter_map(|k| obj.get(*k).map(|v| format!("{k}: {}\n", yaml_scalar(v)))).collect();
+    if props.is_empty() {
+        return None;
+    }
+    let body = &text[body_start..];
+    let cands = if obj.keys().all(|k| APP_PROPS.contains(&k.as_str())) {
+        vec![body.to_string(), body.strip_prefix('\n').unwrap_or(body).to_string()]
+    } else {
+        let kept: String = yaml.lines().filter(|l| !APP_PROPS.iter().any(|k| l.starts_with(&format!("{k}:")))).map(|l| format!("{l}\n")).collect();
+        vec![format!("---\n{kept}---\n{body}")]
+    };
+    Some((cands, props))
+}
+
+/// The bundled text with the app's properties added back.
+fn with_app_props(bundled: &[u8], props: &[String]) -> Vec<u8> {
+    let text = String::from_utf8_lossy(bundled);
+    let props = props.concat();
+    match recipe::split_frontmatter(&text) {
+        Some((yaml, start, _)) => format!("---\n{yaml}{props}---\n{}", &text[start..]),
+        None => format!("---\n{props}---\n\n{text}"),
+    }
+    .into_bytes()
+}
+
 pub fn seed(root: &Path, files: impl Iterator<Item = (String, Vec<u8>)>, installed: &mut BTreeMap<String, String>) -> Result<(usize, usize, usize)> {
     let (mut added, mut updated, mut removed) = (0, 0, 0);
     let files: Vec<(String, Vec<u8>)> = files.collect();
@@ -374,7 +417,16 @@ pub fn seed(root: &Path, files: impl Iterator<Item = (String, Vec<u8>)>, install
                     atomic_write(&abs, &bytes)?;
                     updated += 1;
                 }
-                _ => continue, // changed or removed by the user
+                // only favorite / icon / colour added from the app: update, keeping them
+                Ok(cur) => match without_app_props(&String::from_utf8_lossy(&cur)) {
+                    Some((cands, props)) if cands.iter().any(|c| etag_of(c.as_bytes()) == *old) => {
+                        backup_before_overwrite(root, &p, &abs)?;
+                        atomic_write(&abs, &with_app_props(&bytes, &props))?;
+                        updated += 1;
+                    }
+                    _ => continue, // changed by the user
+                },
+                Err(_) => continue, // removed by the user
             },
         }
         installed.insert(p.as_str().to_string(), new);
@@ -404,6 +456,34 @@ mod tests {
         assert!(root.join(".trash/versions/A/x.md").is_dir(), "old x kept");
         // running again changes nothing
         assert_eq!(seed(&root, ["x", "y", "z", "w"].map(v2).into_iter(), &mut installed).unwrap(), (0, 0, 0));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn seed_keeps_app_properties() {
+        let root = std::env::temp_dir().join(format!("seed-props-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let f = |v: &[(&str, &str)]| v.iter().map(|(p, b)| (p.to_string(), b.as_bytes().to_vec())).collect::<Vec<_>>().into_iter();
+        let v1 = [("A/fav.md", "# Fav\n\nv1\n"), ("A/flow.md", "# Flow\n\nv1\n"), ("A/icon.md", "---\nyield: 2\n---\n\n# Icon\n\nv1\n"), ("A/mine.md", "# Mine\n\nv1\n")];
+        let mut installed = BTreeMap::new();
+        seed(&root, f(&v1), &mut installed).unwrap();
+        // what the app writes: a favorite, the same as an old flow-style map, an icon; and a real edit
+        std::fs::write(root.join("A/fav.md"), "---\nfavorite: true\n---\n\n# Fav\n\nv1\n").unwrap();
+        std::fs::write(root.join("A/flow.md"), "---\n{ favorite: true }\n---\n\n# Flow\n\nv1\n").unwrap();
+        std::fs::write(root.join("A/icon.md"), "---\nyield: 2\nemoji: 🎃\n---\n\n# Icon\n\nv1\n").unwrap();
+        std::fs::write(root.join("A/mine.md"), "---\nfavorite: true\n---\n\n# Mine\n\nmy edit\n").unwrap();
+        let v2 = [("A/fav.md", "# Fav\n\nv2\n"), ("A/flow.md", "# Flow\n\nv2\n"), ("A/icon.md", "---\nyield: 2\n---\n\n# Icon\n\nv2\n"), ("A/mine.md", "# Mine\n\nv2\n")];
+        assert_eq!(seed(&root, f(&v2), &mut installed).unwrap(), (0, 3, 0));
+        let read = |n: &str| std::fs::read_to_string(root.join(n)).unwrap();
+        assert_eq!(read("A/fav.md"), "---\nfavorite: true\n---\n\n# Fav\n\nv2\n");
+        assert_eq!(read("A/flow.md"), "---\nfavorite: true\n---\n\n# Flow\n\nv2\n");
+        assert_eq!(read("A/icon.md"), "---\nyield: 2\nemoji: 🎃\n---\n\n# Icon\n\nv2\n");
+        assert!(read("A/mine.md").contains("my edit"), "a real edit still blocks the update");
+        // and the next update recognises the merged files again
+        let v3 = [("A/fav.md", "# Fav\n\nv3\n"), ("A/flow.md", "# Flow\n\nv2\n"), ("A/icon.md", "---\nyield: 2\n---\n\n# Icon\n\nv2\n"), ("A/mine.md", "# Mine\n\nv2\n")];
+        assert_eq!(seed(&root, f(&v3), &mut installed).unwrap(), (0, 1, 0));
+        assert_eq!(read("A/fav.md"), "---\nfavorite: true\n---\n\n# Fav\n\nv3\n");
         std::fs::remove_dir_all(&root).unwrap();
     }
 
