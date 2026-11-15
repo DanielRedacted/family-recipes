@@ -82,7 +82,6 @@ static CONTAINER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^(cans?|ja
 static SIZE2: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^(\d+(?:\.\d+)?\s*-?\s*(?:fl\.?\s*oz|oz|ounces?|g|grams?|ml|lbs?|pounds?))\.?\s+").unwrap());
 static SIZE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^(large|medium|small|heaping|level|scant|generous)\s+").unwrap());
 static MD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[\[([^\]|]+)(?:\|[^\]]*)?\]\]|\[([^\]]*)\]\([^)]*\)|[*_`]").unwrap());
-static NUM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\d|[½¼¾⅓⅔⅛⅜⅝⅞])").unwrap());
 
 fn plain(s: &str) -> String {
     let s = s.replace('⁄', "/");
@@ -92,11 +91,6 @@ fn plain(s: &str) -> String {
 /// "1 ½ cups flour, sifted" → qty "1 ½", unit "cup", name "flour", note "sifted".
 pub fn parse_line(text: &str) -> IngredientLine {
     let text = plain(text);
-    // a table row "1 ½ cups · AP flour · 3 cups": the cell without a quantity holds the name
-    if text.contains(" · ") {
-        let cell = text.split(" · ").find(|c| !NUM.is_match(c.trim())).unwrap_or("").trim();
-        return IngredientLine { qty: None, ..parse_line(cell) };
-    }
     let mut rest = text.as_str();
     let mut out = IngredientLine::default();
     if let Some(c) = QTY.captures(rest) {
@@ -331,8 +325,6 @@ mod tests {
         assert_eq!(p("2 Tbsp unsalted butter - softened"), (Some("2"), Some("tbsp"), "unsalted butter".into(), Some("softened".into())));
         assert_eq!(p("1 cup of sugar"), (Some("1"), Some("cup"), "sugar".into(), None));
         assert_eq!(p("Pinch of salt"), (None, Some("pinch"), "salt".into(), None));
-        assert_eq!(p("1 ½ cups · AP flour · 3 cups"), (None, None, "AP flour".into(), None));
-        assert_eq!(p("1 · Tbsp sugar · 2"), (None, Some("tbsp"), "sugar".into(), None));
         assert_eq!(p("2 TB garlic cloves"), (Some("2"), Some("tbsp"), "garlic cloves".into(), None));
         assert_eq!(p("Tea bags"), (None, None, "Tea bags".into(), None));
         assert_eq!(p("1 1⁄2 tablespoons [cinnamon](http://x)"), (Some("1 1/2"), Some("tbsp"), "cinnamon".into(), None));

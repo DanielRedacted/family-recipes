@@ -1,9 +1,9 @@
 <script lang="ts" module>
   import { parseDocument } from 'yaml';
 
-  export const KNOWN = ['tags', 'yield', 'servings', 'prep_time', 'cook_time', 'total_time', 'source', 'author', 'original', 'needs_review', 'emoji', 'color', 'nutrition', 'favorite', 'note', 'aliases'];
+  export const KNOWN = ['tags', 'yield', 'servings', 'prep_time', 'cook_time', 'total_time', 'additional_time', 'source', 'author', 'original', 'needs_review', 'emoji', 'color', 'nutrition', 'favorite', 'note', 'aliases'];
   export const LABELS: Record<string, string> = {
-    tags: 'Tags', yield: 'Yield', servings: 'Servings', prep_time: 'Prep', cook_time: 'Cook', total_time: 'Total',
+    tags: 'Tags', yield: 'Yield', servings: 'Servings', prep_time: 'Prep', cook_time: 'Cook', total_time: 'Total', additional_time: 'Additional',
     source: 'Source', author: 'Author', original: 'Original file', needs_review: 'Needs review', created: 'Created',
     emoji: 'Icon', color: 'Card colour', nutrition: 'Nutrition', favorite: 'Favorite', note: 'Note', aliases: 'Also called',
   };

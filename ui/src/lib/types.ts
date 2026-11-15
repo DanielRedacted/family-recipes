@@ -1,5 +1,7 @@
-export interface Line { line: number; text: string }
-export interface Group { name: string | null; items: Line[] }
+/** `alts`: in a table with alternative portions, this ingredient's line for each portion ("" = not used) */
+export interface Line { line: number; text: string; alts?: string[] }
+/** `portions`: the labels of a table's alternative portions; `table`: its first and last line */
+export interface Group { name: string | null; items: Line[]; portions?: string[]; table?: [number, number] }
 export interface Recipe { ingredients: Group[]; steps: Group[] }
 
 export interface Entry {

@@ -5,7 +5,7 @@
   import { fileUrl, saveFile, ApiError, api } from '../lib/api';
   import Crumbs from './Crumbs.svelte';
   import { renderMarkdown, scaledRaw, bodyOf, vaultTarget } from '../lib/markdown';
-  import { yieldNumber, type Units } from '../lib/scale';
+  import { formatNum, parseYield, portionMultipliers, resolvePortion, yieldLabel, type Units } from '../lib/scale';
   import { openMenu, type MenuItem } from '../lib/menu.svelte';
   import { entryItems, requireWrite, attachImage, shell } from '../lib/ops';
   import { confirm3 } from '../lib/dialog.svelte';
@@ -33,6 +33,8 @@
   let comparing = $state(false);
   let cooking = $state(false);
   let factor = $state(1);
+  /** the chosen column of an ingredient table with alternative portions (Single / Double…) */
+  let portion = $state(0);
   let units = $state<Units>((() => { try { return (localStorage.getItem('units') as Units) || 'original'; } catch { return 'original'; } })());
   let editor: Editor | undefined = $state();
 
@@ -48,6 +50,7 @@
       tidied = null;
       conflict = null;
       factor = 1;
+      portion = 0;
     });
   });
 
@@ -139,24 +142,37 @@
       const fmEnd = draft.match(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/);
       return renderMarkdown(fmEnd ? draft.slice(fmEnd[0].length) : draft, path);
     }
-    return renderMarkdown(bodyOf(scaledRaw(entry, factor, units), entry.body_line), path);
+    return renderMarkdown(bodyOf(scaledRaw(entry, factor, units, portion), entry.body_line), path);
   });
 
-  const baseYield = $derived(entry ? yieldNumber(entry.frontmatter?.servings) ?? yieldNumber(entry.frontmatter?.yield) : null);
-  const yieldUnit = $derived.by(() => {
-    const y = String(entry?.frontmatter?.yield ?? entry?.frontmatter?.servings ?? '');
-    return y.replace(/^\s*(about\s+|makes\s+)?[\d½¼¾⅓⅔⅛\s/.-]+/i, '').trim() || (entry?.frontmatter?.servings ? 'servings' : '');
-  });
+  const baseYield = $derived(entry ? parseYield(entry.frontmatter?.servings) ?? parseYield(entry.frontmatter?.yield) : null);
+  const yieldFallbackUnit = $derived(parseYield(entry?.frontmatter?.servings) ? 'servings' : '');
+
+  // a table with alternative portions: a chip per portion, with what it makes compared with the first
+  const portionGroup = $derived(entry?.recipe?.ingredients.find((g) => g.portions?.length));
+  const mults = $derived(portionGroup ? portionMultipliers(portionGroup.items, portionGroup.portions!) : []);
+  const chips = $derived((portionGroup?.portions ?? []).map((label, k) => ({
+    label: label || (mults[k] !== null ? '' : `Version ${k + 1}`),
+    mult: mults[k] !== null ? '×' + formatNum(mults[k]!) : '',
+  })));
+  // the chip shown as chosen: a size whose multiplier the scaler reached, else the one picked
+  const shown = $derived(mults.length ? resolvePortion(mults, portion, factor).col : 0);
+  function pick(k: number) {
+    portion = k;
+    if (mults[k] !== null) factor = mults[k]!;
+  }
 
   function step(d: number) {
     if (baseYield) {
-      const next = Math.max(1, Math.round(baseYield * factor) + d);
-      factor = next / baseYield;
+      const by = baseYield.dozen ? 6 : 1;
+      const next = Math.max(by, Math.round((baseYield.n * factor) / by) * by + d * by);
+      factor = next / baseYield.n;
     } else {
-      const steps = [0.25, 0.5, 1, 1.5, 2, 3, 4];
+      const steps = [...new Set([0.25, 0.5, 1, 1.5, 2, 3, 4, ...mults.filter((m): m is number => m !== null)])].sort((a, b) => a - b);
       const i = steps.findIndex((s) => s >= factor - 1e-9);
-      factor = steps[Math.min(steps.length - 1, Math.max(0, (i < 0 ? 2 : i) + d))];
+      factor = steps[Math.min(steps.length - 1, Math.max(0, (i < 0 ? steps.indexOf(1) : i) + d))];
     }
+    if (mults.length) portion = resolvePortion(mults, portion, factor).col;
   }
 
   async function onImages(files: File[]): Promise<string | null> {
@@ -290,10 +306,19 @@
         <div class="recipebar row no-print">
           <div class="row scaler" role="group" aria-label="Scale recipe">
             <button class="btn icon" onclick={() => step(-1)} aria-label="Fewer"><Icon name="minus" /></button>
-            <span class="qty">{#if baseYield}{+(baseYield * factor).toFixed(2)} {yieldUnit}{:else}×{+factor.toFixed(2)}{/if}</span>
+            <span class="qty">{#if baseYield}{yieldLabel(baseYield, factor, yieldFallbackUnit)}{:else}×{+factor.toFixed(2)}{/if}</span>
             <button class="btn icon" onclick={() => step(1)} aria-label="More servings"><Icon name="plus" /></button>
-            {#if factor !== 1}<button class="btn ghost small" onclick={() => (factor = 1)}>Reset</button>{/if}
+            {#if factor !== 1}<button class="btn ghost small" onclick={() => { factor = 1; portion = 0; }}>Reset</button>{/if}
           </div>
+          {#if chips.length}
+            <div class="row portions" role="radiogroup" aria-label="Portion">
+              {#each chips as c, k}
+                <button class="chip" role="radio" aria-checked={shown === k} class:on={shown === k} onclick={() => pick(k)}>
+                  {c.label}{#if c.mult}{c.label ? ' ' : ''}<span class="mult">{c.mult}</span>{/if}
+                </button>
+              {/each}
+            </div>
+          {/if}
           <select class="field units" bind:value={units} aria-label="Units">
             <option value="original">Units as written</option>
             <option value="us">US units</option>
@@ -359,7 +384,7 @@
     <Merge theirs={conflict.theirs} mine={draft} leftLabel="Version saved elsewhere" onaccept={(t) => { draft = t; keepMine(); }} oncancel={() => (comparing = false)} />
   {/if}
   {#if cooking && entry.recipe}
-    <CookMode {entry} {factor} {units} onclose={() => (cooking = false)} />
+    <CookMode {entry} {factor} {units} {portion} onclose={() => (cooking = false)} />
   {/if}
 {/if}
 
@@ -373,6 +398,10 @@
   .banner.warn { background: var(--p-red); max-width: none; }
   .recipebar { margin: 0 0 16px; max-width: 760px; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
   .scaler .qty { min-width: 90px; text-align: center; font-weight: 600; }
+  .portions { gap: 4px; }
+  .chip { border: 1px solid var(--border); background: var(--surface); border-radius: 14px; padding: 3px 11px; min-height: 30px; cursor: pointer; font-size: 14px; }
+  .chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .chip .mult { margin-left: 2px; color: var(--muted); font-weight: 500; }
   .units { width: auto; }
   .body { display: block; }
   .split .body { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }

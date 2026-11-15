@@ -169,6 +169,62 @@ await page.click('aside a:has-text("Recipes")');
 await page.waitForSelector('aside .tree');
 assert.equal((await page.request.get(new URL('/api/download', url).href)).status() >= 400 || !(await page.request.get(new URL('/api/download', url).href)).headers()['content-type']?.includes('zip'), true, 'download route gone');
 
+// ingredient tables with alternative portions: one portion at a time, its multiplier on the chip
+const ingText = () => page.locator('.prose li').allTextContents();
+await page.goto(new URL('/#/n/Pies/Pie%20Crust%20(Grandma).md', url).href);
+await page.waitForSelector('.portions');
+assert.deepEqual((await page.locator('.portions .chip').allTextContents()).map((t) => t.replace(/\s+/g, ' ').trim()), ['Single ×1', 'Double ×2']);
+assert.ok((await ingText()).includes('1 ½ cups AP flour'), 'Single amounts shown');
+assert.equal(await page.locator('.prose table').count(), 0, 'the table is shown as a list');
+await page.click('.portions .chip:has-text("Double")');
+assert.ok((await ingText()).includes('3 cups AP flour'), 'Double amounts shown');
+assert.ok((await ingText()).includes('1 1/2 tsp Salt'), "the family's Double amount, not 2 × 1 tsp");
+assert.equal((await page.locator('.scaler .qty').textContent()).trim(), '×2');
+await page.screenshot({ path: `${out}/portions.png` });
+await page.click('button:has-text("Cook mode")');
+await page.waitForSelector('.cook li:has-text("3 cups AP flour")');
+await page.click('.cook button:has-text("Done")');
+await page.goto(new URL('/#/n/Eggs/Quiche%20Lorraine.md', url).href);
+await page.waitForSelector('.portions .chip:has-text("10” Quiche")');
+assert.match(await page.locator('.portions .chip:has-text("10” Quiche")').textContent(), /×1½/);
+// versions rather than sizes: no multiplier, and an ingredient only one version uses
+await page.goto(new URL('/#/n/Desserts/Ice%20Cream.md', url).href);
+await page.waitForSelector('.portions');
+assert.ok(!(await ingText()).some((t) => /Unsweetened baking chocolate/.test(t)), 'Vanilla has no chocolate');
+await page.click('.portions .chip:has-text("Chocolate")');
+assert.ok((await ingText()).includes('2 oz. Unsweetened baking chocolate'));
+assert.doesNotMatch(await page.locator('.portions').textContent(), /×/);
+// a yield in dozens
+await page.goto(new URL('/#/n/Cookies/Chocolate%20Boiled%20Oatmeal%20Cookies.md', url).href);
+await page.waitForSelector('.scaler .qty');
+assert.equal((await page.locator('.scaler .qty').textContent()).trim(), '24 (2 dozen)');
+await page.click('button[aria-label="More servings"]');
+assert.equal((await page.locator('.scaler .qty').textContent()).trim(), '30 (2½ dozen)');
+assert.ok((await ingText()).some((t) => t.startsWith('2½ cups')), 'every ingredient scaled: ' + (await ingText())[0]);
+// every set of ingredients scales, not only the first (Pizza Sauce comes after the dough's steps)
+await page.goto(new URL('/#/n/Breads/Pizza%20Dough%20%26%20Sauce.md', url).href);
+await page.waitForSelector('.portions');
+await page.click('.portions .chip:has-text("Large")');
+assert.ok((await ingText()).includes('12 oz Liquid (water or beer)'));
+assert.ok((await ingText()).some((t) => /^11 oz canned tomato paste/.test(t)), 'the sauce scales too: ' + (await ingText()).filter((t) => /tomato/.test(t)));
+// no table rows joined with " · " in the ingredient catalogue
+await page.goto(new URL('/#/ingredients', url).href);
+await page.waitForSelector('.ing, table, li');
+assert.equal(await page.locator('text= · ').count(), 0);
+// the bundled tables are already in the editor's layout: opening, editing elsewhere and saving keeps them
+const crust = `${vault}/Pies/Pie Crust (Grandma).md`;
+const crustBefore = fs.readFileSync(crust, 'utf8');
+await page.goto(new URL('/#/n/Pies/Pie%20Crust%20(Grandma).md?mode=edit', url).href);
+await page.waitForSelector('.tbl-table');
+await page.locator('.cm-line').first().click();
+await page.keyboard.press('End');
+await page.keyboard.type('!');
+await page.click('button:has-text("Save")');
+await page.waitForTimeout(800);
+const crustAfter = fs.readFileSync(crust, 'utf8');
+assert.equal(crustAfter.split('\n').filter((l) => l.startsWith('|')).join('\n'), crustBefore.split('\n').filter((l) => l.startsWith('|')).join('\n'), 'table text unchanged by the editor');
+fs.writeFileSync(crust, crustBefore);
+
 await browser.close();
 if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
 console.log('flows ok');

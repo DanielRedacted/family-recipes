@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Entry } from '../lib/types';
-  import { scaleLine, type Units } from '../lib/scale';
+  import { groupLines, type Units } from '../lib/scale';
   import { renderInline } from '../lib/markdown';
 
-  let { entry, factor, units, onclose }: { entry: Entry; factor: number; units: Units; onclose: () => void } = $props();
+  let { entry, factor, units, portion = 0, onclose }: { entry: Entry; factor: number; units: Units; portion?: number; onclose: () => void } = $props();
   const r = $derived(entry.recipe!);
   let done = $state<Record<string, boolean>>({});
   let tab = $state<'ing' | 'steps'>('ing');
@@ -42,10 +42,10 @@
       {#each r.ingredients as g}
         {#if g.name}<h3>{g.name}</h3>{/if}
         <ul>
-          {#each g.items as it}
+          {#each groupLines(g, portion, factor, units) as it (it.line)}
             {@const id = 'i' + it.line}
             <li class:done={done[id]}>
-              <label><input type="checkbox" bind:checked={done[id]} /> <span>{@html renderInline(scaleLine(it.text, factor, units))}</span></label>
+              <label><input type="checkbox" bind:checked={done[id]} /> <span>{@html renderInline(it.text)}</span></label>
             </li>
           {/each}
         </ul>

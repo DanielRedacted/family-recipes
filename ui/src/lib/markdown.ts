@@ -2,7 +2,7 @@ import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import { fileUrl } from './api';
 import { noteHash, resolveLink, dirOf } from './state.svelte';
-import { scaleLine, type Units } from './scale';
+import { groupLines, scaleLine, type Units } from './scale';
 import type { Entry } from './types';
 
 const md = new MarkdownIt({ html: true, linkify: true, typographer: false });
@@ -71,16 +71,26 @@ md.renderer.rules.link_open = (tokens, idx, opts, _env, self) => {
 md.renderer.rules.table_open = () => '<div class="table-wrap"><table>\n';
 md.renderer.rules.table_close = () => '</table></div>\n';
 
-/** Raw note text with ingredient quantities scaled/converted in place. */
-export function scaledRaw(e: Entry, factor: number, units: Units): string {
+/**
+ * Raw note text with ingredient quantities scaled/converted in place. A table with alternative
+ * portions becomes a list of the chosen portion's lines (see `groupLines`).
+ */
+export function scaledRaw(e: Entry, factor: number, units: Units, portion = 0): string {
   const raw = e.raw ?? '';
-  if (!e.recipe || (factor === 1 && units === 'original')) return raw;
+  if (!e.recipe || (factor === 1 && units === 'original' && !e.recipe.ingredients.some((g) => g.table))) return raw;
   const lines = raw.split('\n');
   for (const g of e.recipe.ingredients) {
+    if (g.table) {
+      const [a, b] = g.table;
+      const list = groupLines(g, portion, factor, units).map((it) => '- ' + it.text);
+      for (let k = a; k <= b; k++) lines[k] = '';
+      lines[a] = (a > 0 && lines[a - 1].trim() ? '\n' : '') + list.join('\n');
+      continue;
+    }
     for (const it of g.items) {
       const l = lines[it.line];
       if (l === undefined) continue;
-      lines[it.line] = l.replace(/^(\s*(?:[-*+]\s+|\d+[.)]\s+)?)(.*)$/, (_, mk: string, rest: string) => mk + scaleLine(rest, factor, units));
+      lines[it.line] = l.replace(/^(\s*(?:(?:[-*+]|\d+[.)])\s+)*)(.*)$/, (_, mk: string, rest: string) => mk + scaleLine(rest, factor, units));
     }
   }
   return lines.join('\n');

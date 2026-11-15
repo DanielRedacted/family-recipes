@@ -70,8 +70,8 @@ Freezes well. See [[Pie Crust]].
 | Key | Meaning |
 |---|---|
 | `tags` | list, e.g. `[pie, holiday]` |
-| `yield`, `servings` | e.g. `8 servings`, `2 loaves`; the leading number drives the serving scaler |
-| `prep_time`, `cook_time`, `total_time` | human text, e.g. `1 hr 20 min` |
+| `yield`, `servings` | e.g. `8 servings`, `2 loaves`, `2 dozen`; the leading number (a dozen counts as 12) drives the serving scaler. A yield with a second number (`3 small, 2 large or 1 jumbo pizza`) is shown as written and the scaler shows ×N |
+| `prep_time`, `cook_time`, `total_time`, `additional_time` | human text, e.g. `1 hr 20 min` |
 | `source`, `author` | where the recipe came from |
 | `original` | path of the kept original file (PDF, DOCX) |
 | `needs_review` | `true` when the converter could not find clear sections |
@@ -95,17 +95,50 @@ Unknown keys are kept as they are.
   `## CAKE INGREDIENTS` is the "CAKE" group.
 - **Groups:** `###` headings, or a bold-only line, inside a section.
 - **Items:** list items; if a section has no list, each line of text.
-- **Tables:** under an Ingredients heading, each table row is an ingredient. A `qty | name` row
-  reads “qty name”; other rows keep every cell, separated by “ · ” (side-by-side batch sizes are
-  shown, not scaled).
-- **No headings at all:** the first list whose items mostly start with a quantity is the
-  ingredients, and further “**Label**” + list pairs right after it are more ingredient groups. A
-  table counts too when it has an “Ingredients” column, is a plain `qty | name` table, or lists
-  batch sizes side by side (one name cell, the rest amounts with kitchen units). Charts such as
-  cooking times are not read as recipes. What follows is the steps.
+- **Tables:** under an Ingredients heading, each table row is an ingredient (see *Ingredient
+  tables* below). The reading view and cook mode show a table as a scaled list.
+- **Ingredient sets elsewhere:** every list, table or run of lines that mostly start with an
+  amount is a set of ingredients, wherever it is: before the Ingredients heading (“**Dumplings**:”
+  + list), with no headings at all (“**Pizza Sauce**” + list, “Add:” + list), or labelled under
+  Directions (“### Turmeric Rice” + amounts). A bold or heading label names the set; an
+  instruction label (“Add:”, “Mix:”, “Then add:”) stays a step. Numbered lists under Directions
+  are steps. Charts such as cooking times are not read as recipes. With no Directions heading,
+  the rest is the steps.
+- **Lists of lists:** `- + 3 cups flour` (an item holding only a nested list) reads its nested
+  items.
 - **Equipment:** an ordinary `## Equipment` section (the importer writes one when the source lists
   tools).
 - **Scaling:** only the leading quantity of an ingredient line changes (`1 ½`, `1½`, `1/2`, `1-2`,
-  `2.5`); the rest of the line stays as written.
+  `2.5`); the rest of the line stays as written. Every set of ingredients scales by the same factor.
+
+## Ingredient tables
+
+The standard layout: one column per alternative portion (sizes like Single / Double, or versions
+like Vanilla / Chocolate), the amounts first and the ingredient name last. The header names the
+portions; it may be empty.
+
+```markdown
+| Single     | Double     | Ingredients         |
+| ---------- | ---------- | ------------------- |
+| 1 ½ cups   | 3 cups     | AP flour            |
+| 1 tsp      | 1 1/2 tsp  | Salt                |
+| -          | 1 tsp      | Vanilla             |
+```
+
+- An empty cell or `-` means that portion leaves the ingredient out; a row with no amounts (“One
+  crust pie shell”) belongs to every portion. A cell may also hold a whole line (“¾ cup packed
+  brown sugar”).
+- **The multiplier** of each portion is worked out from its amounts compared with the first column
+  (the median of the ratios, units converted where needed: 3 Tbsp → ⅔ cup, 1 Tbsp → ¼ cup… gives ×4; rounded to a kitchen fraction), or from the
+  label (“Double”, “2x”) when the amounts can't tell. Columns whose amounts are about the same are
+  versions, not sizes.
+- **Reading view:** chips above the ingredients pick a portion (“Single ×1”, “Double ×2”); only that
+  portion's amounts are shown. The −/+ scaler stops at each portion's multiplier and then shows the
+  family's own amounts from that column; between them it scales the chosen column.
+- The parser reads any column order (name first, name in the middle, whole lines side by side) and
+  a header that holds the first row of amounts. A table with one amount column is better written as
+  a list (`- ¾ cup Warm milk`).
+- The formatted editor writes tables padded so the columns line up; opening a note only re-spaces
+  them and doesn't count as a change.
 
 HTML is allowed (it is sanitised when shown) but the app itself only writes standard Markdown.
