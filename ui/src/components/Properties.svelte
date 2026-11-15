@@ -36,6 +36,18 @@
   let { entry, editable, onchange }: { entry: Entry; editable: boolean; onchange: (raw: string) => void } = $props();
   let editing = $state(false);
   let newKey = $state('');
+  /** a missing standard property being filled in from its chip */
+  let adding = $state<string | null>(null);
+  // a recipe always shows these, with an Add button when they are missing
+  const STANDARD = ['yield', 'servings', 'prep_time', 'cook_time', 'total_time', 'source'];
+  const missing = $derived(editable && entry.recipe ? STANDARD.filter((k) => !(k in fm)) : []);
+
+  function addValue(k: string, text: string) {
+    if (adding !== k) return; // Enter already saved it (the field's blur follows)
+    adding = null;
+    if (text.trim()) update(k, text);
+  }
+  const focus = (el: HTMLInputElement) => el.focus();
 
   const fm = $derived(entry.frontmatter ?? {});
   const keys = $derived(Object.keys(fm));
@@ -71,9 +83,20 @@
         {#each keys.filter((k) => !HIDDEN.includes(k)) as k}
           <span class="chip"><span class="k">{LABELS[k] ?? k}</span>
             {#if k === 'source' && /^https?:/.test(String(fm[k]))}
-              <a href={String(fm[k])} target="_blank" rel="noopener noreferrer">{new URL(String(fm[k])).hostname}</a>
+              <a class="ext" href={String(fm[k])} target="_blank" rel="noopener noreferrer">{new URL(String(fm[k])).hostname}</a>
             {:else}{fmtVal(fm[k])}{/if}
           </span>
+        {/each}
+        {#each missing as k (k)}
+          {#if adding === k}
+            <span class="chip adding"><span class="k">{LABELS[k]}</span>
+              <input class="inline" use:focus aria-label={LABELS[k]} placeholder={k === 'source' ? 'https://…' : k.endsWith('_time') ? 'e.g. 20 min' : 'e.g. 12'}
+                onkeydown={(e) => { if (e.key === 'Enter') addValue(k, e.currentTarget.value); else if (e.key === 'Escape') adding = null; }}
+                onblur={(e) => addValue(k, e.currentTarget.value)} />
+            </span>
+          {:else}
+            <button class="chip missing" aria-label="Add {LABELS[k]}" onclick={() => (adding = k)}><span class="k">{LABELS[k]}</span>＋</button>
+          {/if}
         {/each}
         {#each tagsOf(entry) as t}<span class="chip tag">#{t}</span>{/each}
         {#if orig}<a class="chip" href={noteHash(orig)}>📎 Original file</a>{/if}
@@ -111,6 +134,11 @@
   .chip .k { color: var(--muted); margin-right: 5px; }
   .chip.tag { color: var(--accent-ink); background: var(--accent-soft); }
   .chip.fav { background: var(--p-yellow); }
+  .chip.missing { border: 1px dashed var(--border); background: none; color: var(--muted); cursor: pointer; font: inherit; }
+  .chip.missing:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .chip.adding { display: inline-flex; align-items: center; }
+  .inline { border: 0; background: var(--surface); border-radius: 8px; padding: 1px 6px; width: 9em; font: inherit; }
+  .inline:focus { outline: 2px solid var(--accent); }
   table { border-collapse: collapse; width: 100%; max-width: 640px; margin-bottom: 8px; }
   th { text-align: left; font-weight: 500; color: var(--muted); padding: 3px 8px 3px 0; width: 140px; }
   td { padding: 3px 0; }

@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 const [url, vault, out] = process.argv.slice(2);
 const browser = await chromium.launch();
-const page = await (await browser.newContext({ viewport: { width: 1280, height: 820 } })).newPage();
+const context = await browser.newContext({ viewport: { width: 1280, height: 820 } });
+const page = await context.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 const pie = `${vault}/Pies/Pumpkin Pie.md`;
@@ -130,7 +131,7 @@ assert.equal(await page.locator('aside .row-item.folder:has-text("Pies")').getAt
 await page.click('aside .row-item.folder:has-text("Breads") >> nth=0 >> .chev');
 await page.waitForTimeout(300);
 assert.equal(await page.locator('aside .row-item.folder:has-text("Breads") >> nth=0').getAttribute('aria-expanded'), 'true', 'a folder opened by hand stays open');
-assert.deepEqual(await page.locator('.crumbs > *').allTextContents(), ['All recipes', '›', 'Soups & Chili', '›', 'Gumbo']);
+assert.deepEqual((await page.locator('.crumbs > *').allTextContents()).filter((t) => t.trim()), ['All recipes', '›', 'Soups & Chili', '›', 'Gumbo']);
 const [asideH, winH] = await page.evaluate(() => [document.querySelector('aside').getBoundingClientRect().height, innerHeight]);
 assert.equal(asideH, winH, 'nav column is one window tall');
 // folder cards show only the count, in the corner
@@ -216,7 +217,7 @@ const crust = `${vault}/Pies/Pie Crust (Grandma).md`;
 const crustBefore = fs.readFileSync(crust, 'utf8');
 await page.goto(new URL('/#/n/Pies/Pie%20Crust%20(Grandma).md?mode=edit', url).href);
 await page.waitForSelector('.tbl-table');
-await page.locator('.cm-line').first().click();
+await page.locator('.cm-line').last().click(); // not the title: other recipes link to it by name
 await page.keyboard.press('End');
 await page.keyboard.type('!');
 await page.click('button:has-text("Save")');
@@ -224,6 +225,48 @@ await page.waitForTimeout(800);
 const crustAfter = fs.readFileSync(crust, 'utf8');
 assert.equal(crustAfter.split('\n').filter((l) => l.startsWith('|')).join('\n'), crustBefore.split('\n').filter((l) => l.startsWith('|')).join('\n'), 'table text unchanged by the editor');
 fs.writeFileSync(crust, crustBefore);
+
+// links work on a plain click; Back (and ⌘[) returns
+await page.goto(new URL('/#/n/Pies/Pumpkin%20Pie.md', url).href);
+await page.waitForSelector('.prose a.wikilink');
+await page.click('.prose a.wikilink');
+await page.waitForFunction(() => location.hash.includes('Pie%20Crust'));
+await page.click('button[aria-label="Back"]:visible');
+await page.waitForFunction(() => location.hash.includes('Pumpkin'));
+await page.click('.prose a.wikilink');
+await page.waitForFunction(() => location.hash.includes('Pie%20Crust'));
+await page.keyboard.press('Meta+BracketLeft');
+await page.waitForFunction(() => location.hash.includes('Pumpkin'));
+const fresh = await context.newPage();
+await fresh.goto(new URL('/#/n/Pies/Pumpkin%20Pie.md', url).href);
+await fresh.waitForSelector('.prose h1');
+assert.ok(await fresh.locator('button[aria-label="Back"]:visible').isDisabled(), 'nothing to go back to on the first page');
+await fresh.close();
+// a web page link is marked ↗ and opens outside the app; the page stays where it is
+await page.goto(new URL('/#/n/Cookies/Chocolate%20Boiled%20Oatmeal%20Cookies.md', url).href);
+const ext = page.locator('.prose a.ext').first();
+await ext.waitFor();
+assert.equal(await ext.evaluate((a) => getComputedStyle(a, '::after').content), '"↗"');
+assert.equal(await page.locator('.prose a.wikilink.ext, .prose a.internal.ext').count(), 0);
+const [popup] = await Promise.all([page.waitForEvent('popup'), ext.click()]);
+assert.match(popup.url(), /food\.com/);
+await popup.close();
+assert.ok((await page.evaluate(() => location.hash)).includes('Oatmeal'), 'still on the recipe');
+// a missing property shows its label with Add; filling it in saves it
+await page.goto(new URL('/#/n/Pies/Pumpkin%20Pie.md', url).href);
+await page.click('button[aria-label="Add Prep"]');
+await page.keyboard.type('20 min');
+await page.keyboard.press('Enter');
+await page.waitForTimeout(800);
+assert.match(fs.readFileSync(pie, 'utf8'), /^---\n(?:.*\n)*prep_time: 20 min\n/, 'prep time saved');
+await page.waitForSelector('.props .chip:has-text("20 min")');
+assert.equal(await page.locator('button[aria-label="Add Prep"]').count(), 0);
+await page.screenshot({ path: `${out}/props.png` });
+// a recipe sits indented under its folder in the navigation column
+const icX = async (sel) => (await page.locator(sel).first().locator('.ic').boundingBox()).x;
+const folderX = await icX('aside .row-item.folder:has-text("Pies")');
+const fileX = await icX('aside .row-item:has-text("Pumpkin Pie"):not(.folder)');
+assert.ok(fileX > folderX + 8, `file icon ${fileX} indented from folder icon ${folderX}`);
 
 await browser.close();
 if (errors.length) { console.error(errors.join('\n')); process.exit(1); }

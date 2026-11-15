@@ -134,8 +134,9 @@
   >
     {#if n.folder}
       <button class="chev" class:open={expanded[n.path]} aria-label="Toggle folder" tabindex="-1" onclick={(e) => { e.stopPropagation(); toggle(n); }}>›</button>
-    {:else if !ic}
-      <span class="chev-space">{icon(n)}</span>
+    {:else}
+      <!-- a file keeps the chevron's space, so it sits indented under its folder -->
+      <span class="chev-space">{ic ? '' : icon(n)}</span>
     {/if}
     {#if ic}<span class="ic"><CardIcon icon={ic} size={15} /></span>{/if}
     <span class="name">{label(n)}</span>
