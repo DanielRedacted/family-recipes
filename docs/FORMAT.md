@@ -77,6 +77,9 @@ Freezes well. See [[Pie Crust]].
 | `needs_review` | `true` when the converter could not find clear sections |
 | `emoji` | the card icon; `none` hides it. Without it the app picks one from the title or folder name, or shows none |
 | `color` | card colour: `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `brown` or `grey` |
+| `favorite` | `true` puts the recipe under Favorites (home page and the top of the folder column) |
+| `note` | a short remark kept out of the title, e.g. `not tried yet` |
+| `aliases` | another name the recipe is known by (or a list); search and `[[links]]` find the recipe by it |
 | `nutrition` | map of values as written, e.g. `calories: 320 kcal`. Keys: `serving_size`, `calories`, `carbohydrates`, `protein`, `fat`, `saturated_fat`, `unsaturated_fat`, `polyunsaturated_fat`, `monounsaturated_fat`, `trans_fat`, `cholesterol`, `sodium`, `potassium`, `fiber`, `sugar`, `vitamin_a`, `vitamin_c`, `calcium`, `iron` |
 
 A value lives in one place: the importer and the converter put times, yield and nutrition in the

@@ -333,9 +333,29 @@ pub fn unique(root: &Path, p: &VaultPath) -> VaultPath {
 /// Install or update the bundled recipes. `installed` maps each path to the fingerprint of the
 /// version the app last put there. A file is written only when it is new to this folder, or
 /// when it is still exactly what the app installed (the old copy goes to .trash/versions).
-/// Anything edited, moved or deleted by the user is left alone. Returns (added, updated).
-pub fn seed(root: &Path, files: impl Iterator<Item = (String, Vec<u8>)>, installed: &mut BTreeMap<String, String>) -> Result<(usize, usize)> {
-    let (mut added, mut updated) = (0, 0);
+/// Anything edited, moved or deleted by the user is left alone. A bundled file that is no longer
+/// bundled (renamed, or a duplicate dropped) is removed if it is still untouched (a copy goes to
+/// .trash/versions); removals run first so a rename that only changes letter case works.
+/// Returns (added, updated, removed).
+pub fn seed(root: &Path, files: impl Iterator<Item = (String, Vec<u8>)>, installed: &mut BTreeMap<String, String>) -> Result<(usize, usize, usize)> {
+    let (mut added, mut updated, mut removed) = (0, 0, 0);
+    let files: Vec<(String, Vec<u8>)> = files.collect();
+    let bundled: std::collections::HashSet<String> =
+        files.iter().filter_map(|(r, _)| VaultPath::parse(r).ok()).map(|p| p.as_str().to_string()).collect();
+    let gone: Vec<(String, String)> = installed.iter().filter(|(k, _)| !bundled.contains(*k)).map(|(k, v)| (k.clone(), v.clone())).collect();
+    for (rel, etag) in gone {
+        installed.remove(&rel);
+        let Ok(p) = VaultPath::parse(&rel) else { continue };
+        let abs = root.join(p.as_str());
+        if std::fs::read(&abs).is_ok_and(|cur| etag_of(&cur) == etag) {
+            backup_before_overwrite(root, &p, &abs)?;
+            std::fs::remove_file(&abs)?;
+            if let Some(dir) = abs.parent().filter(|d| *d != root) {
+                let _ = std::fs::remove_dir(dir); // only succeeds when the folder is now empty
+            }
+            removed += 1;
+        }
+    }
     for (rel, bytes) in files {
         let Ok(p) = VaultPath::parse(&rel) else { continue };
         let abs = root.join(p.as_str());
@@ -359,7 +379,7 @@ pub fn seed(root: &Path, files: impl Iterator<Item = (String, Vec<u8>)>, install
         }
         installed.insert(p.as_str().to_string(), new);
     }
-    Ok((added, updated))
+    Ok((added, updated, removed))
 }
 
 #[cfg(test)]
@@ -373,17 +393,38 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         let v1 = |n: &str| (format!("A/{n}.md"), format!("{n} v1").into_bytes());
         let mut installed = BTreeMap::new();
-        assert_eq!(seed(&root, ["x", "y", "z"].map(v1).into_iter(), &mut installed).unwrap(), (3, 0));
+        assert_eq!(seed(&root, ["x", "y", "z"].map(v1).into_iter(), &mut installed).unwrap(), (3, 0, 0));
         std::fs::write(root.join("A/y.md"), "my edit").unwrap(); // user edited y
         std::fs::remove_file(root.join("A/z.md")).unwrap(); // user deleted z
         let v2 = |n: &str| (format!("A/{n}.md"), format!("{n} v2").into_bytes());
-        assert_eq!(seed(&root, ["x", "y", "z", "w"].map(v2).into_iter(), &mut installed).unwrap(), (1, 1));
+        assert_eq!(seed(&root, ["x", "y", "z", "w"].map(v2).into_iter(), &mut installed).unwrap(), (1, 1, 0));
         assert_eq!(std::fs::read_to_string(root.join("A/x.md")).unwrap(), "x v2");
         assert_eq!(std::fs::read_to_string(root.join("A/y.md")).unwrap(), "my edit");
         assert!(!root.join("A/z.md").exists());
         assert!(root.join(".trash/versions/A/x.md").is_dir(), "old x kept");
         // running again changes nothing
-        assert_eq!(seed(&root, ["x", "y", "z", "w"].map(v2).into_iter(), &mut installed).unwrap(), (0, 0));
+        assert_eq!(seed(&root, ["x", "y", "z", "w"].map(v2).into_iter(), &mut installed).unwrap(), (0, 0, 0));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn seed_renames_remove_only_untouched_old_files() {
+        let root = std::env::temp_dir().join(format!("seed-rename-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let mut installed = BTreeMap::new();
+        let v1 = [("A/PANCAKES.md", "p"), ("A/old.md", "o"), ("A/mine.md", "m"), ("B/dup.md", "d")];
+        let f = |v: &[(&str, &str)]| v.iter().map(|(p, b)| (p.to_string(), b.as_bytes().to_vec())).collect::<Vec<_>>().into_iter();
+        assert_eq!(seed(&root, f(&v1), &mut installed).unwrap(), (4, 0, 0));
+        std::fs::write(root.join("A/mine.md"), "my edit").unwrap();
+        // v2: PANCAKES -> Pancakes (case only), old -> new, mine -> renamed, dup dropped
+        let v2 = [("A/Pancakes.md", "p"), ("A/new.md", "o"), ("A/Mine2.md", "m")];
+        assert_eq!(seed(&root, f(&v2), &mut installed).unwrap(), (3, 0, 3));
+        let names = |d: &str| { let mut v: Vec<String> = std::fs::read_dir(root.join(d)).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into()).collect(); v.sort(); v };
+        assert_eq!(names("A"), ["Mine2.md", "Pancakes.md", "mine.md", "new.md"], "edited old file kept");
+        assert!(!root.join("B").exists(), "emptied folder removed");
+        assert!(root.join(".trash/versions/A/old.md").is_dir(), "copy kept");
+        assert!(!installed.contains_key("A/old.md") && installed.contains_key("A/new.md"));
         std::fs::remove_dir_all(&root).unwrap();
     }
 

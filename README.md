@@ -12,18 +12,21 @@ from, edit, import and manage them.
 - **AI:** optional, off by default, your own Anthropic or OpenAI-compatible API key (stored in the
   macOS Keychain). Only ever proposes changes you accept.
 
-What it does: a folder tree and cards (with emoji and colours you can change), ⌘K search
-(recipes, folders, ingredients), a reader with serving scaler, unit conversion and cook mode, a
-formatted Markdown editor (Obsidian-style: markup shows only on the line you edit; saves when you
-press Save), `[[links]]` between recipes with backlinks, an ingredient catalogue that also feeds
-suggestions while typing, and an importer for web pages (schema.org, WP Recipe Maker incl. its
+What it does: a folder column that follows the open recipe and cards (with emoji and colours you
+can change), favorites, ⌘K search (recipes, folders, ingredients), a reader with serving scaler,
+unit conversion and cook mode, a formatted editor in the style of Apple Notes (Markdown marks are
+never shown; text types, lists, checklists and tables from the toolbar; the file stays plain
+Markdown and is saved only when you press Save), `[[links]]` between recipes with backlinks, an
+ingredient catalogue with pictures that also feeds suggestions while typing, and an importer for web pages (schema.org, WP Recipe Maker incl. its
 REST data, nutrition and equipment), PDFs, Word files, photos and pasted text — several at once,
 each with a step log.
 
-The 259 family recipes from `home-recipes/` ship with the app (`vault-seed/`) and are copied into
-the recipes folder on first launch. When a later version corrects a bundled recipe, the app
-updates it in your folder only if you have not changed that file (the old copy goes to
-`.trash/versions`); edited, moved or deleted files are left alone.
+The 259 family recipes from `home-recipes/` ship with the app (`vault-seed/`, 257 files: two were
+exact duplicates) and are copied into the recipes folder on first launch. When a later version
+corrects or renames a bundled recipe, the app updates it in your folder only if you have not
+changed that file (the old copy goes to `.trash/versions`); edited, moved or deleted files are left
+alone. File names and titles were tidied (typos, ALL CAPS, "Recipe" suffixes) by
+`tools/names.tsv`; old names stay searchable as `aliases`.
 
 ## Build and run
 
@@ -51,7 +54,8 @@ src-tauri/          desktop shell (window, menu-bar item, Finder/dialog/print ho
 ui/                 Svelte 5 + Vite frontend (embedded into the binary), PWA
 vault-seed/         the converted family recipes
 tools/              convert.py + verify.py (conversion from home-recipes/, word-for-word check),
-                    overrides.json (structure-only fixes), techniques.txt, seed-etags.py
+                    overrides.json (structure-only fixes), names.tsv (renames and titles),
+                    techniques.txt, seed-etags.py
 deploy/linux/       Linux / Raspberry Pi notes and the old projects' deploy files (not used on macOS)
 docs/FORMAT.md      the recipe file format
 ```
@@ -59,7 +63,7 @@ docs/FORMAT.md      the recipe file format
 ## Tests
 
 ```sh
-python3 -I tools/verify.py --self-test && python3 -I tools/verify.py   # 259/259 originals preserved
+python3 -I tools/verify.py --self-test && python3 -I tools/verify.py   # 259/259 originals preserved (or proven duplicates)
 cargo test -p recipes-core                                             # parser, vault, auth, importer
 cd ui && npx vitest run                                                # scaling / unit conversion
 # end-to-end (needs a running recipes-server; see the scripts for arguments)

@@ -1,5 +1,5 @@
 // File-manager actions shared by the tree, folder view and note toolbar.
-import { parseDocument } from 'yaml';
+import { isMap, parseDocument } from 'yaml';
 import { api, saveFile } from './api';
 import { setProp } from '../components/Properties.svelte';
 import { ask, choose, confirmIt } from './dialog.svelte';
@@ -182,6 +182,8 @@ const META_HEADER = '# Folder icons and card colours (edited by the Recipes app;
 
 async function writeFolderMeta(edit: (doc: ReturnType<typeof parseDocument>) => void) {
   const doc = parseDocument(app.folderMetaRaw.trim() ? app.folderMetaRaw : META_HEADER);
+  // a file with only the header comment (or "null") has no map yet to add folders to
+  if (!isMap(doc.contents)) doc.contents = doc.createNode({}) as unknown as typeof doc.contents;
   edit(doc);
   await api('PUT', '/api/folders', String(doc));
 }

@@ -151,6 +151,12 @@ await page.waitForSelector('h2:has-text("Favorites") + .grid .recipe:has-text("P
 await page.waitForSelector('aside .row-item:has-text("Favorites")');
 await page.screenshot({ path: `${out}/favorites.png` });
 
+// renamed recipes are still found by their old names (aliases:)
+await page.click('aside button.search');
+await page.fill('input[aria-label="Search"]', 'Tigernut');
+await page.waitForSelector('[role=dialog][aria-label=Search] >> text=Grain and Sugar Free Pumpkin Muffins');
+await page.keyboard.press('Escape');
+
 // Settings has its own navigation column; recent changes and trash are pages in it
 await page.goto(new URL('/#/settings', url).href);
 await page.waitForSelector('aside nav[aria-label="Settings"]');

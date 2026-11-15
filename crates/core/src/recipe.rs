@@ -628,7 +628,7 @@ mod tests {
                 }
             }
         }
-        assert_eq!(n, 259);
+        assert_eq!(n, 257); // 259 originals, two exact duplicates left out (tools/names.tsv)
         eprintln!("{recipes}/{n} seed notes detected as recipes");
         assert!(missed.is_empty(), "not detected as recipes: {missed:?}");
         assert!(charts.is_empty(), "reference pages read as recipes: {charts:?}");

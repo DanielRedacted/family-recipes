@@ -560,9 +560,9 @@ fn install_seed(state: &AppState) -> Result<()> {
         return Ok(()); // a different recipes folder was chosen: leave it as it is
     }
     let files = Seed::iter().filter_map(|f| Seed::get(&f).map(|d| (f.to_string(), d.data.into_owned())));
-    let (added, updated) = vault::seed(&state.root, files, &mut rec.files)?;
-    if added + updated > 0 {
-        tracing::info!("bundled recipes: {added} added, {updated} updated in {}", state.root.display());
+    let (added, updated, removed) = vault::seed(&state.root, files, &mut rec.files)?;
+    if added + updated + removed > 0 {
+        tracing::info!("bundled recipes: {added} added, {updated} updated, {removed} renamed or removed in {}", state.root.display());
     }
     write_private(&path, &serde_json::to_vec_pretty(&rec)?)?;
     if !seeded {
