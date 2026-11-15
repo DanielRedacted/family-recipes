@@ -86,6 +86,8 @@ pub trait Shell: Send + Sync {
     fn reveal(&self, abs: &Path);
     fn choose_folder(&self) -> Option<PathBuf>;
     fn print(&self);
+    /// Open a web page in the default browser.
+    fn open_url(&self, _url: &str) {}
     /// Query (None) or set "open at login"; returns the current state.
     fn autostart(&self, _set: Option<bool>) -> bool {
         false
@@ -696,6 +698,15 @@ async fn shell_action(State(s): St, caller: Caller, AxPath(action): AxPath<Strin
         }
         "print" => {
             shell.print();
+            Ok(StatusCode::NO_CONTENT.into_response())
+        }
+        "open-url" => {
+            // a link to a web page, opened in the browser instead of inside the app window
+            let url = serde_json::from_slice::<serde_json::Value>(&body).ok().and_then(|v| v["url"].as_str().map(str::to_string)).unwrap_or_default();
+            if !(url.starts_with("https://") || url.starts_with("http://")) {
+                return Err(err(StatusCode::BAD_REQUEST, "only web addresses can be opened"));
+            }
+            shell.open_url(&url);
             Ok(StatusCode::NO_CONTENT.into_response())
         }
         "autostart" => {

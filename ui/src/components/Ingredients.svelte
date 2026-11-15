@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Back from './Back.svelte';
   import { onMount } from 'svelte';
   import { app, noteHash, dirOf } from '../lib/state.svelte';
   import { catalog, loadIngredients } from '../lib/ingredients.svelte';
@@ -22,7 +23,7 @@
 </script>
 
 <div class="page">
-  <h1>Ingredients</h1>
+  <h1 class="title"><Back />Ingredients</h1>
   <p class="muted small">Every ingredient in your recipes. Spellings of the same thing (“Eggs”, “2 large eggs, beaten”) are grouped together.</p>
   <div class="row bar">
     <input class="field grow" placeholder="Find an ingredient…" bind:value={q} aria-label="Find an ingredient" />
@@ -54,6 +55,7 @@
 </div>
 
 <style>
+  .title { display: flex; align-items: center; gap: 4px; margin-left: -8px; }
   .page { padding: 16px 28px 80px; max-width: 820px; }
   h1 { margin: 6px 0 4px; }
   .bar { margin: 12px 0 6px; }

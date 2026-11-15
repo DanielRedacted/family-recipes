@@ -20,6 +20,8 @@ export const app = $state({
   toasts: [] as { id: number; text: string; kind: string }[],
   pinPrompt: false,
   switcher: false,
+  /** there is a page in this app to go back to (the Back button) */
+  canBack: false,
 });
 
 export const canWrite = () => app.session.role !== 'reader';
@@ -62,18 +64,32 @@ let leaveGuard: (() => Promise<boolean>) | null = null;
 export const setLeaveGuard = (g: typeof leaveGuard) => { leaveGuard = g; };
 export const clearLeaveGuard = (g: typeof leaveGuard) => { if (leaveGuard === g) leaveGuard = null; };
 let currentHash = location.hash;
+// every history entry carries its place in this app's history, so Back knows when there is a page to return to
+let navIndex = typeof history.state?.nav === 'number' ? history.state.nav : 0;
+history.replaceState({ ...(history.state ?? {}), nav: navIndex }, '');
+app.canBack = navIndex > 0;
 window.addEventListener('hashchange', async () => {
   const next = location.hash;
   if (next === currentHash) return;
+  const st = history.state?.nav;
   if (leaveGuard) {
-    history.replaceState(null, '', currentHash || '#/'); // stay put while asking
+    history.replaceState({ nav: navIndex }, '', currentHash || '#/'); // stay put while asking
     if (!(await leaveGuard())) return;
     leaveGuard = null;
-    history.pushState(null, '', next);
+    history.pushState({ nav: ++navIndex }, '', next);
+  } else if (typeof st === 'number') {
+    navIndex = st; // back or forward
+  } else {
+    history.replaceState({ nav: ++navIndex }, '');
   }
+  app.canBack = navIndex > 0;
   currentHash = next;
   app.route = parseRoute();
 });
+
+export function back() {
+  if (app.canBack) history.back();
+}
 
 // ---------- data ----------
 

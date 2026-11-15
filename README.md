@@ -19,7 +19,8 @@ tables with alternative portions (Single / Double…: one portion at a time, wit
 formatted editor in the style of Apple Notes (Markdown marks are never shown; text types, lists,
 checklists and real tables with an editor in each cell; the file stays plain
 Markdown and is saved only when you press Save), `[[links]]` between recipes with backlinks, an
-ingredient catalogue with pictures that also feeds suggestions while typing, and an importer for web pages (schema.org, WP Recipe Maker incl. its
+ingredient catalogue with pictures that also feeds suggestions while typing, a Back button (⌘[),
+links to web pages marked ↗ and opened in the browser, and an importer for web pages (schema.org, WP Recipe Maker incl. its
 REST data, nutrition and equipment), PDFs, Word files, photos and pasted text — several at once,
 each with a step log.
 

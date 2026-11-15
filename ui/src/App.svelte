@@ -2,7 +2,9 @@
   import Icon from './components/Icon.svelte';
   import { onMount } from 'svelte';
   import { app, loadSession, loadVault, listenForChanges, go, canWrite } from './lib/state.svelte';
-  import { newNote, newFolder, plusMenu } from './lib/ops';
+  import { newNote, newFolder, openExternal, plusMenu } from './lib/ops';
+  import { back } from './lib/state.svelte';
+  import Back from './components/Back.svelte';
   import Sidebar from './components/Sidebar.svelte';
   import Folder from './components/Folder.svelte';
   import Note from './components/Note.svelte';
@@ -26,10 +28,28 @@
     if (mod && (e.key === 'k' || e.key === 'o' || e.key === 'p')) { e.preventDefault(); app.switcher = !app.switcher; }
     else if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); if (e.shiftKey) newFolder(dir); else newNote(dir); }
     else if (mod && e.key === ',') { e.preventDefault(); go('#/settings'); }
+    else if (mod && e.key === '[') { e.preventDefault(); back(); }
+  }
+
+  // Every link in the app works on a plain click: pages of this app open here, web pages in the
+  // browser (from the desktop app through the system, so they never replace the app's window).
+  function linkClick(e: MouseEvent) {
+    if (e.defaultPrevented || e.button !== 0) return;
+    const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+    if (!a || a.closest('.cm-editor')) return;
+    const href = a.getAttribute('href') ?? '';
+    if (href.startsWith('#/')) {
+      e.preventDefault();
+      go(href);
+    } else if (/^https?:\/\//i.test(href) && new URL(href).host !== location.host) {
+      e.preventDefault();
+      openExternal(href);
+    }
   }
 </script>
 
 <svelte:window onkeydown={key} />
+<svelte:document onclick={linkClick} />
 
 <div class="app" class:open={app.sidebar}>
   <aside class="sidebar no-print" aria-label={app.route.view === 'settings' ? 'Settings' : 'Recipes folder'}>
@@ -39,6 +59,7 @@
   <div class="main-col">
     <header class="mobilebar no-print">
       <button class="btn ghost icon" aria-label="Open folders" onclick={() => (app.sidebar = true)}><Icon name="menu" size={22} /></button>
+      {#if app.canBack}<Back />{/if}
       <a href="#/" class="mtitle">Recipes</a>
       <button class="btn ghost icon" aria-label="Search" onclick={() => (app.switcher = true)}><Icon name="search" size={22} /></button>
     </header>

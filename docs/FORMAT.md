@@ -141,4 +141,8 @@ portions; it may be empty.
 - The formatted editor writes tables padded so the columns line up; opening a note only re-spaces
   them and doesn't count as a change.
 
+**Links:** `[[Recipe name]]` and links to files in the recipes folder (`[text](../Pies/Pie Crust.md)`)
+open in the app; links to web pages (`[text](https://…)`) are shown with ↗ and open in the browser.
+In the reader a plain click follows a link; in the editor ⌘-click does.
+
 HTML is allowed (it is sanitised when shown) but the app itself only writes standard Markdown.

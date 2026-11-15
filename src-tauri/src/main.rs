@@ -19,6 +19,9 @@ impl Shell for TauriShell {
     fn reveal(&self, abs: &Path) {
         let _ = self.0.opener().reveal_item_in_dir(abs);
     }
+    fn open_url(&self, url: &str) {
+        let _ = self.0.opener().open_url(url, None::<&str>);
+    }
     fn choose_folder(&self) -> Option<PathBuf> {
         self.0.dialog().file().set_title("Choose your recipes folder").blocking_pick_folder()?.into_path().ok()
     }

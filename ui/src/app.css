@@ -88,7 +88,10 @@ input.field:focus, select.field:focus, textarea.field:focus { outline: 2px solid
 .prose th, .prose td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
 .prose th { background: var(--sunken); }
 .prose thead tr:not(:has(th:not(:empty))) { display: none; }
-.prose a.wikilink { text-decoration: none; border-bottom: 1px dashed var(--accent); }
+.prose a.wikilink, .prose a.internal { text-decoration: none; border-bottom: 1px dashed var(--accent); }
+/* a link to a web page (not a recipe): ↗ after it, opens in the browser */
+a.ext::after { content: "↗"; display: inline-block; margin-left: 2px; font-size: 0.75em; color: var(--muted); text-decoration: none; }
+@media print { a.ext::after { content: none; } }
 .prose a.wikilink.missing { color: var(--muted); border-bottom-color: var(--muted); cursor: help; }
 
 @media print {

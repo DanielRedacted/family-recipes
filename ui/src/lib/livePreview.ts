@@ -7,12 +7,15 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorState, RangeSet, Transaction, type Range } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view';
+import type { SyntaxNode } from '@lezer/common';
 
 export interface LivePreviewOptions {
   /** URL for an image reference as written in the note (or null to leave it as text) */
   imageUrl: (src: string) => string | null;
   /** open a [[link]] target (⌘-click) */
   openLink: (target: string) => void;
+  /** open a Markdown link's address (⌘-click): a web page or a file in the recipes folder */
+  openHref: (href: string) => void;
 }
 
 class Bullet extends WidgetType {
@@ -49,6 +52,12 @@ class Img extends WidgetType {
     img.className = 'cm-lp-img';
     return img;
   }
+}
+
+/** "↗" after a link to a web page, as in the reading view */
+class ExtMark extends WidgetType {
+  eq() { return true; }
+  toDOM() { const s = document.createElement('span'); s.className = 'cm-lp-extmark'; s.textContent = '↗'; s.title = 'A web page: ⌘-click to open it in the browser'; return s; }
 }
 
 class Rule extends WidgetType {
@@ -145,7 +154,10 @@ function build(view: EditorView, opts: LivePreviewOptions): { deco: DecorationSe
             return false;
           }
           case 'Link': {
-            out.push(mark('cm-lp-link').range(n.from, n.to));
+            const url = n.node.getChild('URL');
+            const ext = !!url && /^<?https?:/i.test(doc.sliceString(url.from, url.to));
+            out.push(mark(ext ? 'cm-lp-link cm-lp-ext' : 'cm-lp-link').range(n.from, n.to));
+            if (ext) out.push(Decoration.widget({ widget: new ExtMark(), side: 1 }).range(n.to));
             // hide "[" and "](url)" — keep the text
             const marks = n.node.getChildren('LinkMark');
             if (marks.length >= 2) {
@@ -258,6 +270,15 @@ export function livePreview(opts: LivePreviewOptions) {
       if (!(e.metaKey || e.ctrlKey)) return false;
       const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
       if (pos === null) return false;
+      // a Markdown link: [text](address)
+      let link: SyntaxNode | null = syntaxTree(view.state).resolveInner(pos, 1);
+      while (link && link.name !== 'Link') link = link.parent;
+      const url = link?.getChild('URL');
+      if (url) {
+        e.preventDefault();
+        opts.openHref(view.state.sliceDoc(url.from, url.to).replace(/^<|>$/g, ''));
+        return true;
+      }
       const l = view.state.doc.lineAt(pos);
       for (const m of l.text.matchAll(WIKI)) {
         const a = l.from + m.index!;
@@ -291,6 +312,7 @@ const theme = EditorView.theme({
   '.cm-lp-listmark': { color: 'var(--accent-ink)' },
   '.cm-lp-task': { margin: '0 8px 0 0', verticalAlign: 'middle', width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer' },
   '.cm-lp-link': { color: 'var(--accent-ink)', textDecoration: 'underline', textDecorationColor: 'var(--accent-soft)' },
+  '.cm-lp-extmark': { color: 'var(--muted)', fontSize: '0.75em', marginLeft: '1px', verticalAlign: 'top' },
   '.cm-lp-wikilink': { color: 'var(--accent-ink)', textDecoration: 'underline dotted' },
   '.cm-lp-img': { maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', display: 'inline-block', verticalAlign: 'top' },
   '.cm-lp-hr': { display: 'inline-block', width: '100%', borderTop: '1px solid var(--border)', verticalAlign: 'middle' },

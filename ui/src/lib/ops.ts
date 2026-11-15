@@ -111,6 +111,13 @@ export async function attachImage(file: File, baseName: string): Promise<string 
   } catch (e: any) { toast(e.message, 'error'); return null; }
 }
 
+/** Open a web page in the browser: from the desktop app via the system, elsewhere in a new tab. */
+export function openExternal(url: string) {
+  const tab = () => window.open(url, '_blank', 'noopener');
+  if (app.session.shell) api('POST', '/api/shell/open-url', { url }).catch(tab);
+  else tab();
+}
+
 export async function shell(action: string, body: any = {}) {
   try { return await api('POST', `/api/shell/${action}`, body); } catch (e: any) { toast(e.message, 'error'); }
 }

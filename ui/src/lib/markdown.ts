@@ -61,9 +61,13 @@ md.renderer.rules.link_open = (tokens, idx, opts, _env, self) => {
   const p = vaultTarget(href, String(_env?.dir ?? ''));
   if (p !== null) {
     t.attrSet('href', noteHash(p));
+    t.attrJoin('class', 'internal');
   } else if (/^https?:/i.test(href)) {
+    // a web page, not a recipe: marked with ↗ and opened in the browser
     t.attrSet('target', '_blank');
     t.attrSet('rel', 'noopener noreferrer');
+    t.attrJoin('class', 'ext');
+    try { t.attrSet('title', `Opens ${new URL(href).hostname.replace(/^www\./, '')} in your browser`); } catch {}
   }
   return self.renderToken(tokens, idx, opts);
 };

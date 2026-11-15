@@ -1,5 +1,6 @@
 <script lang="ts">
   import { folderHash } from '../lib/state.svelte';
+  import Back from './Back.svelte';
 
   /** Full trail from "All recipes" to `dir`, then the optional `leaf` (the open note). */
   let { dir, leaf }: { dir: string; leaf?: string } = $props();
@@ -7,6 +8,7 @@
 </script>
 
 <nav class="crumbs" aria-label="Breadcrumb">
+  <Back />
   <a href="#/">All recipes</a>
   {#each segs as c}<span class="sep">›</span><a href={folderHash(c.path)}>{c.name}</a>{/each}
   {#if leaf}<span class="sep">›</span><span class="leaf">{leaf}</span>{/if}

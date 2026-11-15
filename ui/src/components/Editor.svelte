@@ -18,6 +18,7 @@
   import { fileUrl } from '../lib/api';
   import { app, go, noteHash, resolveLink, toast } from '../lib/state.svelte';
   import { choose } from '../lib/dialog.svelte';
+  import { openExternal } from '../lib/ops';
 
   let { value, onchange, onsave, onfiles, readonly = false, notePath = '', toolbar = true }: {
     value: string;
@@ -69,6 +70,11 @@
       const e = resolveLink(t);
       if (e) go(noteHash(e.path));
       else toast(`No recipe called “${t}”`, 'error');
+    },
+    openHref: (href) => {
+      if (/^https?:\/\//i.test(href)) return openExternal(href);
+      const p = vaultTarget(href, noteDir());
+      if (p !== null) go(noteHash(p));
     },
   });
   // tables are HTML tables with a small editor in each cell (codemirror-markdown-tables): clicks,
