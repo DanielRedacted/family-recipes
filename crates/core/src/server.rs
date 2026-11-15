@@ -29,6 +29,8 @@ struct Ui;
 pub enum Listener {
     Loopback,
     Lan,
+    /// Plain HTTP on the home network (port 80): no certificate needed on the device.
+    LanHttp,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -134,7 +136,7 @@ impl AppState {
                 let port = self.loopback_port.load(Ordering::Relaxed);
                 host == format!("127.0.0.1:{port}") || host == format!("localhost:{port}")
             }
-            Listener::Lan => {
+            Listener::Lan | Listener::LanHttp => {
                 let h = host.rsplit_once(':').filter(|(_, p)| p.chars().all(|c| c.is_ascii_digit())).map_or(host, |(h, _)| h);
                 self.lan_hosts.read().unwrap().iter().any(|x| x == h)
             }
@@ -321,7 +323,7 @@ struct PinBody {
     pin: String,
 }
 
-async fn login(State(s): St, ConnectInfo(addr): ConnectInfo<SocketAddr>, Json(b): Json<PinBody>) -> Res {
+async fn login(State(s): St, Extension(l): Extension<Listener>, ConnectInfo(addr): ConnectInfo<SocketAddr>, Json(b): Json<PinBody>) -> Res {
     let ip = addr.ip();
     if let Err(wait) = s.limiter.check(ip) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, format!("too many attempts, wait {wait} s")));
@@ -338,12 +340,21 @@ async fn login(State(s): St, ConnectInfo(addr): ConnectInfo<SocketAddr>, Json(b)
     }
     s.limiter.success(ip);
     let v = auth::make_session(&s.cookie_key, pin_gen);
-    let cookie = format!("{}={v}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age={}", auth::SESSION_COOKIE, 90 * 86400);
+    // `__Host-` cookies must be Secure, which browsers refuse over plain HTTP
+    let cookie = if l == Listener::LanHttp {
+        format!("{}={v}; Path=/; HttpOnly; SameSite=Strict; Max-Age={}", auth::HTTP_SESSION_COOKIE, 90 * 86400)
+    } else {
+        format!("{}={v}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age={}", auth::SESSION_COOKIE, 90 * 86400)
+    };
     Ok(([(header::SET_COOKIE, cookie)], Json(json!({"role": "writer"}))).into_response())
 }
 
-async fn logout() -> Response {
-    let c = format!("{}=; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=0", auth::SESSION_COOKIE);
+async fn logout(Extension(l): Extension<Listener>) -> Response {
+    let c = if l == Listener::LanHttp {
+        format!("{}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0", auth::HTTP_SESSION_COOKIE)
+    } else {
+        format!("{}=; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=0", auth::SESSION_COOKIE)
+    };
     ([(header::SET_COOKIE, c)], StatusCode::NO_CONTENT).into_response()
 }
 

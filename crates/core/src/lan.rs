@@ -1,5 +1,6 @@
-//! Sharing on the home network: local CA + HTTPS at https://recipes.local, a plain-HTTP
-//! device-setup page on port 80, and the name advertised through the system Bonjour responder.
+//! Sharing on the home network: the app over plain HTTP on port 80 (no setup on the device),
+//! HTTPS at https://recipes.local with a local CA (needed for the offline home-screen app; the
+//! one-time setup page is /setup on port 80), and the name advertised through Bonjour.
 
 use crate::server::{AppState, Listener, write_private};
 use anyhow::{Context, Result, anyhow};
@@ -228,6 +229,7 @@ async fn start_inner(state: Arc<AppState>, app: Router) -> Result<()> {
     let h1 = Handle::new();
     let h2 = Handle::new();
     lan.handles.lock().unwrap().extend([h1.clone(), h2.clone()]);
+    let http_app = setup_router(state.clone()).merge(app.clone().layer(Extension(Listener::LanHttp)));
     let https_app = app.layer(Extension(Listener::Lan));
     let svc = https_app.into_make_service_with_connect_info::<SocketAddr>();
     tokio::spawn(async move {
@@ -235,11 +237,10 @@ async fn start_inner(state: Arc<AppState>, app: Router) -> Result<()> {
             tracing::warn!("https listener stopped: {e}");
         }
     });
-    let setup = setup_router(state.clone());
     tokio::spawn(async move {
-        let svc = setup.into_make_service();
+        let svc = http_app.into_make_service_with_connect_info::<SocketAddr>();
         if let Err(e) = axum_server::bind(SocketAddr::from(([0, 0, 0, 0], http_port))).handle(h2).serve(svc).await {
-            tracing::warn!("setup listener stopped: {e}");
+            tracing::warn!("http listener stopped: {e}");
         }
     });
 
@@ -363,7 +364,8 @@ async fn refresh(state: &Arc<AppState>, ips: &[Ipv4Addr]) -> Result<()> {
     s.ips = ips.iter().map(|i| i.to_string()).collect();
     s.mdns = mdns;
     if let Some(ip) = ips.first() {
-        s.ip_setup_url = format!("http://{ip}/");
+        let port = s.setup_url.rsplit_once(':').and_then(|(_, p)| p.trim_end_matches('/').parse::<u16>().ok());
+        s.ip_setup_url = format!("http://{ip}{}/", port.map(|p| format!(":{p}")).unwrap_or_default());
         s.qr_ip = qr(&s.ip_setup_url);
     }
     Ok(())
@@ -399,14 +401,10 @@ pub fn trust_on_this_mac(state: &AppState) -> Result<()> {
     Ok(())
 }
 
-// ---------- device setup page (port 80) ----------
+// ---------- device setup page (port 80, merged in front of the app) ----------
 
 fn setup_router(state: Arc<AppState>) -> Router {
-    Router::new()
-        .route("/", get(setup_page))
-        .route("/ca.crt", get(ca_cert))
-        .fallback(|| async { (StatusCode::NOT_FOUND, "Not found — open / for setup") })
-        .with_state(state)
+    Router::new().route("/setup", get(setup_page)).with_state(state) // /ca.crt is an app route
 }
 
 pub async fn ca_cert(State(s): State<Arc<AppState>>) -> Response {

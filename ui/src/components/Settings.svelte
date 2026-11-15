@@ -104,6 +104,10 @@
       {:else}
         <p>Read-only. To allow editing from this device, set a PIN in the Recipes app on the Mac.</p>
       {/if}
+      {#if location.protocol === 'http:'}
+        <p class="muted small">To add Recipes to the home screen as an app that keeps working while the Mac is asleep, do the one-time setup.</p>
+        <a class="btn" href="/setup">Install as an app</a>
+      {/if}
     </section>
   {/if}
   <p class="muted small">Recipes {app.session.version} · {app.files.filter((f) => f.kind === 'note').length} notes</p>

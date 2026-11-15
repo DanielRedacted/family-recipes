@@ -6,9 +6,10 @@ The family cookbook as a folder of plain-text recipes, with an app to browse, se
 from, edit, import and manage them.
 
 - **On the Mac:** `Recipes.app` (Tauri). Closing the window keeps it running in the menu bar.
-- **On phones, tablets and other computers:** `https://recipes.local`, installable as a full-screen
-  app (PWA) that keeps working for reading when the Mac is asleep. Read-only until the PIN set on the
-  Mac is entered.
+- **On phones, tablets and other computers:** `http://recipes.local` in any browser, with nothing to
+  set up. Read-only until the PIN set on the Mac is entered. After a one-time certificate step it is
+  also installable from `https://recipes.local` as a full-screen app (PWA) that keeps working for
+  reading when the Mac is asleep.
 - **The files:** `~/Recipes` (changeable in Settings). Markdown, one file per recipe, folder = category.
   See [docs/FORMAT.md](docs/FORMAT.md).
 - **Sync:** optional, with a private GitHub repository: every save is uploaded, other Macs' changes
@@ -135,9 +136,13 @@ node e2e/import.mjs <admin-url> <vault> <outdir>       # importer (needs interne
 
 ## Network sharing, in short
 
-The app makes its own certificate authority (limited to `recipes.local` and home-network
-addresses), serves HTTPS on port 443 and a device setup page on port 80, and advertises
-`recipes.local` through macOS Bonjour. Each device trusts the certificate once: Settings → *Phones,
-tablets and other computers* shows a QR code that opens the setup page with per-device steps.
+The app serves itself over plain HTTP on port 80, so any device on the home network opens
+`http://recipes.local` with no setup (the PIN and the session cookie then cross the Wi-Fi
+unencrypted, as with a home file share). It also makes its own certificate authority (limited to
+`recipes.local` and home-network addresses), serves HTTPS on port 443, and advertises
+`recipes.local` through macOS Bonjour. The HTTPS address is only needed for the installable offline
+app. A device trusts the certificate once through the setup page at `http://recipes.local/setup`
+(Settings → This device → *Install as an app*), and after that `http://` moves it to `https://` by
+itself. Settings → *Phones & tablets* on the Mac shows a QR code that opens the app.
 No Docker or Caddy is involved; see `deploy/linux/README.md` for what a Raspberry Pi version
 would need.

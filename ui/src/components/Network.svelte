@@ -19,12 +19,12 @@
     <div class="share">
       <div class="qr" aria-label="QR code">{@html useIp ? status.qr_ip : status.qr_name}</div>
       <div class="how">
-        <p><b>Set up a phone or tablet:</b> scan this code with its camera (or type the address) and follow the steps on the page. One-time per device.</p>
+        <p><b>Open Recipes on a phone or tablet:</b> scan this code with its camera, or type the address. Nothing to set up.</p>
         <p class="mono">{useIp ? status.ip_setup_url : status.setup_url}</p>
         {#if status.ip_setup_url}
           <button class="btn ghost small" onclick={() => (useIp = !useIp)}>{useIp ? 'Use recipes.local address' : 'Device can’t find recipes.local? Use the IP address'}</button>
         {/if}
-        <p class="muted small">Once set up, recipes open at <b>{status.url}</b>.</p>
+        <p class="muted small">To install it as a home-screen app that keeps working while this Mac sleeps, open <b>Settings → This device → Install as an app</b> on the phone (one-time certificate step). It then opens at <b>{status.url}</b>.</p>
       </div>
     </div>
     <label class="row"><input type="checkbox" checked={keepAwake} onchange={(e) => onchange({ keep_awake: e.currentTarget.checked })} /> Keep this Mac awake while sharing</label>

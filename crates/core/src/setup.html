@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Set up Recipes</title>
+<title>Install Recipes as an app</title>
 <style>
   :root { --bg:#fafaf8; --surface:#fff; --border:#e5e5e0; --text:#1a1a18; --muted:#6b6b66; --accent:#d97706; --soft:#ffe5cc; color-scheme: light dark; }
   @media (prefers-color-scheme: dark) { :root { --bg:#141412; --surface:#1e1e1c; --border:#2e2e2a; --text:#f0f0ec; --muted:#9a9a94; --soft:#3a2c18; } }
@@ -22,11 +22,11 @@
 </head>
 <body>
 <main>
-  <h1>🍳 Set up Recipes</h1>
-  <p class="muted">Do this once on each phone, tablet or computer. Afterwards the family recipes open securely at <b>https://recipes.local</b> and can be added to the home screen like an app.</p>
+  <h1>🍳 Install Recipes as an app</h1>
+  <p class="muted">Optional. <a href="/">Recipes already works in this browser</a> with no setup. Do this once on a phone, tablet or computer to add Recipes to the home screen as an app that keeps working while the Mac is asleep. Afterwards it opens securely at <b>https://recipes.local</b>.</p>
 
   <div id="ready" class="card ok" hidden>
-    <b>This device is already set up.</b>
+    <b>This device is already set up.</b> Opening Recipes…
     <p><a class="btn" id="open" href="#">Open Recipes</a></p>
   </div>
 
@@ -81,7 +81,10 @@
     : /Android/.test(ua) ? 'android' : /Mac/.test(ua) ? 'mac' : /Windows/.test(ua) ? 'windows' : '';
   if (id) document.getElementById(id).open = true;
   fetch(target + 'api/ping', { mode: 'no-cors', cache: 'no-store' })
-    .then(function () { document.getElementById('ready').hidden = false; })
+    .then(function () {
+      document.getElementById('ready').hidden = false;
+      setTimeout(function () { location.replace(target); }, 1500);
+    })
     .catch(function () {});
 </script>
 </body>

@@ -106,8 +106,10 @@ covers, and follow it together with this file; where they disagree, this file an
 - **Build order.** The server embeds `ui/dist`, so build the UI before compiling a server you want to
   test: `cd ui && npm run build`, then `cargo build --bin recipes-server`.
 - **API mutations** need the header `X-Recipes: 1` and a same-origin `Origin` (CSRF guard in
-  `auth.rs`); the UI's `api()` adds it. Shell actions (`/api/shell/*`) are admin-only and need the
-  desktop app.
+  `auth.rs`); the UI's `api()` adds it. The LAN app runs on two listeners: HTTPS (`Listener::Lan`,
+  session cookie `__Host-recipes`) and plain HTTP on port 80 (`Listener::LanHttp`, cookie
+  `recipes_session`, because `__Host-` cookies need HTTPS; `/setup` is only served there). Shell
+  actions (`/api/shell/*`) are admin-only and need the desktop app.
 - **Parser line numbers** (`recipe.rs`) are 0-based within the whole file, frontmatter included; the
   reader maps them onto the raw text (`scaledRaw` in `ui/src/lib/markdown.ts`). Ingredient detection
   is heuristic: when you change it, dump every recipe's parse before and after

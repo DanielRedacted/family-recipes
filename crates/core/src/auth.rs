@@ -23,6 +23,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 pub const ADMIN_COOKIE: &str = "recipes_admin";
 pub const SESSION_COOKIE: &str = "__Host-recipes";
+/// The same session on the plain-HTTP listener (a `__Host-` cookie needs HTTPS).
+pub const HTTP_SESSION_COOKIE: &str = "recipes_session";
 const SESSION_DAYS: u64 = 90;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -98,12 +100,11 @@ pub fn role_of(state: &AppState, listener: Listener, headers: &HeaderMap) -> Rol
                 return Role::Admin;
             }
         }
-        Listener::Lan => {}
+        Listener::Lan | Listener::LanHttp => {}
     }
     let s = state.settings.read().unwrap();
-    if s.pin_hash.is_some()
-        && cookie(headers, SESSION_COOKIE).is_some_and(|c| check_session(&state.cookie_key, s.pin_gen, c))
-    {
+    let valid = |name| cookie(headers, name).is_some_and(|c| check_session(&state.cookie_key, s.pin_gen, c));
+    if s.pin_hash.is_some() && (valid(SESSION_COOKIE) || valid(HTTP_SESSION_COOKIE)) {
         return Role::Writer;
     }
     Role::Reader
@@ -222,6 +223,26 @@ mod tests {
         assert!(!check_session(&key, 3, &tampered));
         let h = hash_pin("123456");
         assert!(verify_pin("123456", &h) && !verify_pin("123457", &h));
+    }
+
+    #[tokio::test]
+    async fn plain_http_session_cookie_unlocks_editing() {
+        let tmp = std::env::temp_dir().join(format!("recipes-auth-{}", std::process::id()));
+        let cfg = crate::server::Config { vault: tmp.join("v"), data_dir: tmp.join("d"), shell: None, pdf_text: None };
+        let state = crate::server::init(cfg).unwrap();
+        state.settings.write().unwrap().pin_hash = Some(hash_pin("1234"));
+        let gen_ = state.settings.read().unwrap().pin_gen;
+        let session = make_session(&state.cookie_key, gen_);
+        let with = |c: String| {
+            let mut h = HeaderMap::new();
+            h.insert(header::COOKIE, c.parse().unwrap());
+            h
+        };
+        assert_eq!(role_of(&state, Listener::LanHttp, &with(format!("{HTTP_SESSION_COOKIE}={session}"))), Role::Writer);
+        assert_eq!(role_of(&state, Listener::Lan, &with(format!("{SESSION_COOKIE}={session}"))), Role::Writer);
+        assert_eq!(role_of(&state, Listener::LanHttp, &with(format!("{HTTP_SESSION_COOKIE}=forged"))), Role::Reader);
+        assert_eq!(role_of(&state, Listener::LanHttp, &HeaderMap::new()), Role::Reader);
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[test]
