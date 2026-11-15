@@ -4352,6 +4352,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rust-embed",
+ "rustls",
  "scraper",
  "serde",
  "serde-saphyr",

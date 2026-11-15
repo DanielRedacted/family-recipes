@@ -195,6 +195,9 @@ pub struct Config {
 
 /// Build state: load settings, scan the recipes folder, start the watcher.
 pub fn init(cfg: Config) -> Result<Arc<AppState>> {
+    // Choose the TLS backend explicitly: with two compiled in (the desktop app's updater brings `ring`),
+    // rustls refuses to pick one and the sharing server panics, taking the app's own window down with it.
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
     std::fs::create_dir_all(&cfg.data_dir)?;
     let settings: Settings = match std::fs::read(cfg.data_dir.join("settings.json")) {
         Ok(b) => serde_json::from_slice(&b).unwrap_or_default(),
