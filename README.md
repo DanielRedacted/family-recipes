@@ -19,8 +19,8 @@ from, edit, import and manage them.
   key). Only ever proposes changes you accept.
 
 What it does: a folder column that follows the open recipe and cards (with emoji and colours you
-can change), favorites, a suggested recipe for the time of day on the home page (from the Breakfast /
-Lunch / Dinner tags) with a Random button and filters, ⌘K search (recipes, folders, ingredients), a reader with serving scaler (every set of
+can change), favorites, a suggested dinner on the home page with Random beside it (filters: kind of recipe, default Dinner;
+protein; folder; favorites), ⌘K search (recipes, folders, ingredients), a reader with serving scaler (every set of
 ingredients scales; yields such as "2 dozen" count as 24), US or metric units (units are written one
 way, in lower case, with amounts in bold: `docs/FORMAT.md`) and cook mode, ingredient
 tables with alternative portions (Single / Double…: one portion at a time, with its multiplier), a

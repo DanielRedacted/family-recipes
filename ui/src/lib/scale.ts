@@ -109,10 +109,16 @@ const metricFmt = (v: number, unit: string) =>
   unit === 'l' || unit === 'kg' || v < 1 ? String(Math.max(0.1, Math.round(v * 10) / 10)) : String(Math.round(v));
 const unitName = (unit: string, val: number) => (unit === 'cup' && val > 1 ? 'cups' : unit);
 
+const GLYPHS: Record<string, string> = { '1/2': '½', '1/4': '¼', '3/4': '¾', '1/3': '⅓', '2/3': '⅔', '1/8': '⅛', '3/8': '⅜', '5/8': '⅝', '7/8': '⅞' };
+/** "1 1/2" → "1½", "3/4" → "¾": written kitchen fractions as glyphs, as scaled amounts read; nothing rounded
+ * (1/16, 2.5 stay as written). */
+const glyphs = (q: string) => q.replace(/(\d+\s+)?(?<!\d)(\d)\s*[/⁄]\s*(\d)(?!\d)/g,
+  (all, whole: string | undefined, a: string, b: string) => (GLYPHS[a + '/' + b] ? (whole?.trim() ?? '') + GLYPHS[a + '/' + b] : all));
+
 /** Rewrite the leading quantity (and unit, when converting) of an ingredient line; units in one spelling. */
 export function scaleLine(text: string, factor: number, units: Units = 'us'): string {
   text = normalizeUnits(text);
-  if (factor === 1 && units === 'us') return text;
+  if (factor === 1 && units === 'us') return text.replace(QTY_RX, glyphs);
   const m = text.match(QTY_RX);
   if (!m) return text;
   const a = parseNum(m[2]);

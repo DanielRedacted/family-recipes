@@ -139,11 +139,21 @@ describe('alternative portions', () => {
     expect(resolvePortion([null, null], 1, 2)).toEqual({ col: 1, scale: 2 });
     const pie = (portion: number, factor: number) => groupLines(fx.pie, portion, factor, 'us').map((l) => l.text);
     expect(pie(1, 2)[0]).toBe('3 cups AP flour');
-    expect(pie(0, 2)[1]).toBe('1 1/2 tsp Salt'); // the Double column as written, not 2 × 1 tsp
+    expect(pie(0, 2)[1]).toBe('1½ tsp Salt'); // the Double column's own amount, not 2 × 1 tsp
     expect(pie(0, 3)[0]).toBe('4½ cups AP flour');
     const ice = (portion: number) => groupLines(fx.icecream, portion, 1, 'us').map((l) => l.text);
     expect(ice(1)).toContain('2 oz Unsweetened baking chocolate');
     expect(ice(0).some((t) => t.includes('chocolate'))).toBe(false);
+  });
+});
+
+describe('fractions at ×1', () => {
+  it('shows written fractions as glyphs without rounding', () => {
+    expect(scaleLine('1 1/2 cups flour', 1)).toBe('1½ cups flour');
+    expect(scaleLine('1/3 to 1/2 cup Mayonnaise', 1)).toBe('⅓ to ½ cup Mayonnaise');
+    expect(scaleLine('3/4 tsp salt (1/2 if coarse)', 1)).toBe('¾ tsp salt (1/2 if coarse)');
+    expect(scaleLine('1/16 tsp pepper', 1)).toBe('1/16 tsp pepper');
+    expect(scaleLine('11/2 cups water', 1)).toBe('11/2 cups water');
   });
 });
 

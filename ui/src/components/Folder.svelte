@@ -1,6 +1,8 @@
 <script lang="ts" module>
   /** the home page's pick, kept while the app is open so coming back home doesn't reshuffle it */
-  let kept: { path: string; meal: string; random: boolean } | null = null;
+  let kept: { path: string } | null = null;
+  /** the Random card's filters, kept the same way ('' = any) */
+  const filters = { tag: 'Dinner', protein: '', folder: '', fav: false };
 </script>
 
 <script lang="ts">
@@ -40,27 +42,30 @@
   }
   const meta = (f: Entry) => [f.frontmatter?.yield ?? f.frontmatter?.servings, f.frontmatter?.total_time ?? f.frontmatter?.cook_time]
     .filter(Boolean).map(String).join(' · ');
-  // ---------- home: a recipe for this time of day, or a random one ----------
-  const MEALS = ['Breakfast', 'Lunch', 'Dinner'];
-  const hour = new Date().getHours();
-  const meal = hour >= 4 && hour < 11 ? 'Breakfast' : hour >= 11 && hour < 16 ? 'Lunch' : 'Dinner';
+  // ---------- home: a suggested recipe (dinner unless the filters say otherwise) ----------
+  const TAGS = ['Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack', 'Side', 'Drink', 'Sauce'];
+  const PROTEINS = ['Chicken', 'Beef', 'Pork', 'Turkey', 'Seafood', 'Eggs', 'Beans'];
   const recipes = $derived(app.files.filter((f) => f.kind === 'note' && f.recipe));
   const hasTag = (f: Entry, t: string) => tagsOf(f).some((x) => x.toLowerCase() === t.toLowerCase());
-  let pickMeal = $state(''); // the Random button's filters ('' = any)
-  let pickFolder = $state('');
-  let pickFav = $state(false);
-  let pick = $state(kept?.meal === meal || kept?.random ? kept : null);
+  let pickTag = $state(filters.tag);
+  let pickProtein = $state(filters.protein);
+  let pickFolder = $state(filters.folder);
+  let pickFav = $state(filters.fav);
+  let pick = $state(kept);
   const anyOf = (list: Entry[]) => (list.length ? list[Math.floor(Math.random() * list.length)].path : null);
+  // shown as soon as the recipes load: a dinner recipe (any recipe while none is tagged Dinner)
   $effect(() => {
     if (path || pick || !app.loaded) return;
-    const p = anyOf(recipes.filter((f) => hasTag(f, meal)));
-    if (p) pick = kept = { path: p, meal, random: false };
+    const dinners = recipes.filter((f) => hasTag(f, 'Dinner'));
+    const p = anyOf(dinners.length ? dinners : recipes);
+    if (p) pick = kept = { path: p };
   });
   function randomize() {
-    const pool = recipes.filter((f) => (!pickMeal || hasTag(f, pickMeal)) && (!pickFolder || f.path.startsWith(pickFolder + '/'))
-      && (!pickFav || f.frontmatter?.favorite === true));
+    Object.assign(filters, { tag: pickTag, protein: pickProtein, folder: pickFolder, fav: pickFav });
+    const pool = recipes.filter((f) => (!pickTag || hasTag(f, pickTag)) && (!pickProtein || hasTag(f, pickProtein))
+      && (!pickFolder || f.path.startsWith(pickFolder + '/')) && (!pickFav || f.frontmatter?.favorite === true));
     const p = anyOf(pool.length > 1 ? pool.filter((f) => f.path !== pick?.path) : pool);
-    if (p) pick = kept = { path: p, meal, random: true };
+    if (p) pick = kept = { path: p };
     else toast('No recipe matches those filters');
   }
   const picked = $derived(pick ? app.byPath[pick.path] : undefined);
@@ -95,6 +100,7 @@
 <div class="page">
   <header class="toolbar row">
     <Crumbs dir={path} />
+    {#if path}<span class="bar-name">{nameOf(path)}</span>{/if}
     <span class="spacer"></span>
     {#if canWrite()}
       <button class="btn primary add" aria-label="Add" title="Add a recipe, files or a folder" onclick={(e) => plusMenu(e, path)}><Icon name="plus" /></button>
@@ -107,34 +113,33 @@
     </div>
   </header>
 
+  <!-- only the folder's contents scroll; the row and the folder's title above stay put -->
+  {#if path && exists}<h1 class="title">{nameOf(path)}</h1>{/if}
+  <div class="scroll">
   {#if !exists && app.loaded}
     <p class="muted">This folder no longer exists. <a href="#/">Back to all recipes</a></p>
   {:else}
-    {#if !path}
-      {#if app.offline}<p class="muted">Offline — showing the last saved copy.</p>{/if}
-    {:else}
-      <h1 class="title">{nameOf(path)}</h1>
-    {/if}
+    {#if !path && app.offline}<p class="muted">Offline — showing the last saved copy.</p>{/if}
 
     {#if !path && recipes.length}
       <section class="suggest" aria-label="Suggested recipe">
-        <div class="row">
-          <h2 class="sub first">{pick?.random ? 'Random pick' : `Suggested for ${meal.toLowerCase()}`}</h2>
-          <span class="spacer"></span>
-          <button class="btn" onclick={randomize}><Icon name="shuffle" size={16} /> Random</button>
+        <h2 class="sub first">Suggested</h2>
+        <div class="grid">
+          {#if picked}{@render card(picked)}{/if}
+          <div class="picker" role="group" aria-label="Random recipe">
+            <label class="opt"><span>Kind</span>
+              <select class="plain-select" bind:value={pickTag}><option value="">Any</option>{#each TAGS as t}<option value={t}>{t}</option>{/each}</select>
+            </label>
+            <label class="opt"><span>Protein</span>
+              <select class="plain-select" bind:value={pickProtein}><option value="">Any</option>{#each PROTEINS as t}<option value={t}>{t}</option>{/each}</select>
+            </label>
+            <label class="opt"><span>Folder</span>
+              <select class="plain-select" bind:value={pickFolder}><option value="">Any</option>{#each app.folders.filter((f) => !f.includes('/')) as f}<option value={f}>{f}</option>{/each}</select>
+            </label>
+            <label class="opt"><span>Favorites</span><input type="checkbox" {...{ switch: true }} bind:checked={pickFav} /></label>
+            <button class="btn primary" onclick={randomize}><Icon name="shuffle" size={16} /> Random</button>
+          </div>
         </div>
-        <div class="row filters" role="group" aria-label="Random recipe filters">
-          <select class="field" bind:value={pickMeal} aria-label="Meal">
-            <option value="">Any meal</option>
-            {#each MEALS as m}<option value={m}>{m}</option>{/each}
-          </select>
-          <select class="field" bind:value={pickFolder} aria-label="Folder">
-            <option value="">Any folder</option>
-            {#each app.folders.filter((f) => !f.includes('/')) as f}<option value={f}>{f}</option>{/each}
-          </select>
-          <label class="row fav"><input type="checkbox" bind:checked={pickFav} /> Favorites only</label>
-        </div>
-        {#if picked}<div class="grid">{@render card(picked)}</div>{/if}
       </section>
     {/if}
 
@@ -188,16 +193,20 @@
       <p class="muted">This folder is empty.</p>
     {/if}
   {/if}
+  </div>
 </div>
 
 <style>
-  .page { padding: 16px 24px 48px; max-width: 1200px; }
-  .toolbar { position: sticky; top: 0; background: var(--bg); padding: 8px 0 12px; z-index: 5; }
+  .page { display: flex; flex-direction: column; height: 100%; max-width: 1200px; }
+  .toolbar { flex: none; padding: 16px 24px 12px; }
+  .scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 24px 48px; }
+  .bar-name { display: none; }
+  @media print { .page { height: auto; } .scroll { overflow: visible; } }
   .seg { display: flex; }
   .seg .btn { border-radius: 0; }
   .seg .btn:first-child { border-radius: 8px 0 0 8px; }
   .seg .btn:last-child { border-radius: 0 8px 8px 0; border-left: 0; }
-  .title { font-size: 2rem; margin: 8px 0 16px; }
+  .title { flex: none; font-size: 2rem; margin: 8px 24px 16px; }
   .sub { font-size: 1.05rem; margin: 24px 0 12px; color: var(--muted); font-family: var(--sans); font-weight: 500; }
   .folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; }
   .wrap { position: relative; display: grid; }
@@ -214,10 +223,13 @@
   .star { color: var(--accent); margin-left: 4px; }
   .sub.first { margin-top: 0; }
   .suggest { margin-bottom: 8px; }
-  .suggest .sub { margin-bottom: 0; }
-  .filters { margin: 8px 0 12px; }
-  .filters .field { width: auto; }
-  .fav { gap: 4px; font-size: 14px; color: var(--muted); }
+  /* beside the suggestion, on the page itself: label left, value right, hairlines between rows */
+  .picker { display: flex; flex-direction: column; padding: 4px 12px 12px; font-size: 14px; }
+  .opt { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; border-bottom: 1px solid var(--border); }
+  .opt span { color: var(--muted); }
+  .opt select { text-align: right; text-align-last: right; }
+  .opt input { accent-color: var(--accent); }
+  .picker .btn { justify-content: center; margin-top: 12px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
   .recipe { display: flex; flex-direction: column; text-decoration: none; color: var(--text); overflow: hidden; }
   .recipe:hover { box-shadow: var(--shadow-md); border-color: var(--accent); }
@@ -234,7 +246,11 @@
   .tbl th { color: var(--muted); font-weight: 500; font-size: 13px; }
   .acts { white-space: nowrap; text-align: right; }
   @media (max-width: 899px) {
-    .page { padding: 8px 16px 96px; }
+    .toolbar { padding: 8px 16px 12px; flex-wrap: nowrap; }
+    .scroll { padding: 0 16px 96px; }
+    /* the folder's name sits in the row (back, name, add, view); the big title would repeat it */
+    .bar-name { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 19px var(--serif); }
+    .title { display: none; }
     .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
     .folders { gap: 12px; }
     .toolbar .btn { min-height: 40px; }

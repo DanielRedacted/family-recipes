@@ -1,7 +1,6 @@
 <script lang="ts" module>
   import { Document, parseDocument } from 'yaml';
 
-  export const KNOWN = ['tags', 'yield', 'servings', 'prep_time', 'cook_time', 'total_time', 'additional_time', 'source', 'author', 'original', 'needs_review', 'emoji', 'color', 'nutrition', 'favorite', 'note', 'aliases'];
   export const LABELS: Record<string, string> = {
     tags: 'Tags', yield: 'Yield', servings: 'Servings', prep_time: 'Prep', cook_time: 'Cook', total_time: 'Total', additional_time: 'Additional',
     source: 'Source', author: 'Author', original: 'Original file', needs_review: 'Needs review', created: 'Created',
@@ -35,8 +34,6 @@
   import Icon from './Icon.svelte';
 
   let { entry, editable, onchange }: { entry: Entry; editable: boolean; onchange: (raw: string) => void } = $props();
-  let editing = $state(false);
-  let newKey = $state('');
   /** a missing standard property being filled in from its chip */
   let adding = $state<string | null>(null);
   // a recipe always shows these, with an Add button when they are missing
@@ -54,8 +51,6 @@
   const keys = $derived(Object.keys(fm));
   // shown elsewhere: tags as chips, nutrition as its own table, icon/colour on the cards
   const HIDDEN = ['tags', 'needs_review', 'original', 'nutrition', 'emoji', 'color', 'favorite'];
-  // maps (nutrition) are edited in the file itself
-  const editableKeys = $derived(keys.filter((k) => !(fm[k] && typeof fm[k] === 'object' && !Array.isArray(fm[k]))));
   const fmtVal = (v: unknown) => (Array.isArray(v) ? v.join(', ') : v === true ? 'yes' : v === false ? 'no' : v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
   function update(key: string, text: string) {
@@ -66,20 +61,12 @@
     onchange(setProp(entry.raw ?? '', key, v));
   }
 
-  function add() {
-    const k = newKey.trim().toLowerCase().replace(/\s+/g, '_');
-    if (!k || k in fm) return;
-    onchange(setProp(entry.raw ?? '', k, k === 'tags' ? ['recipe'] : k === 'favorite' ? true : 'TBD'));
-    newKey = '';
-  }
-
   const orig = $derived(typeof fm.original === 'string' ? vaultTarget(fm.original, '') : null);
 </script>
 
 {#if keys.length || editable}
   <section class="props" aria-label="Properties">
-    {#if !editing}
-      <div class="chips">
+    <div class="chips">
         {#if fm.favorite === true}<span class="chip fav">★ Favorite</span>{/if}
         {#each keys.filter((k) => !HIDDEN.includes(k)) as k}
           <span class="chip"><span class="k">{LABELS[k] ?? k}</span>
@@ -101,30 +88,8 @@
         {/each}
         {#each tagsOf(entry) as t}<span class="chip tag">#{t}</span>{/each}
         {#if orig}<a class="chip" href={noteHash(orig)}><Icon name="paperclip" size={14} /> Original file</a>{/if}
-        {#if editable && keys.length}<button class="btn ghost small" onclick={() => (editing = true)}>Edit properties</button>{/if}
       </div>
-      {#if entry.frontmatter_error}<p class="warn small">Properties block could not be read: {entry.frontmatter_error}</p>{/if}
-    {:else}
-      <table>
-        <tbody>
-          {#each editableKeys as k (k)}
-            <tr>
-              <th>{LABELS[k] ?? k}</th>
-              <td><input class="field" value={fmtVal(fm[k])} onchange={(e) => update(k, e.currentTarget.value)} aria-label={LABELS[k] ?? k} /></td>
-              <td><button class="btn ghost icon" aria-label="Remove {k}" onclick={() => update(k, '')}><Icon name="x" size={16} /></button></td>
-            </tr>
-          {/each}
-          <tr>
-            <th>
-              <input class="field" list="known-props" placeholder="Add property" bind:value={newKey} onkeydown={(e) => e.key === 'Enter' && add()} aria-label="New property name" />
-              <datalist id="known-props">{#each KNOWN.filter((k) => !(k in fm)) as k}<option value={k}>{LABELS[k]}</option>{/each}</datalist>
-            </th>
-            <td colspan="2"><button class="btn" onclick={add} disabled={!newKey.trim()}>Add</button></td>
-          </tr>
-        </tbody>
-      </table>
-      <button class="btn small" onclick={() => (editing = false)}>Done</button>
-    {/if}
+    {#if entry.frontmatter_error}<p class="warn small">Properties block could not be read: {entry.frontmatter_error}</p>{/if}
   </section>
 {/if}
 
@@ -140,8 +105,5 @@
   .chip.adding { display: inline-flex; align-items: center; }
   .inline { border: 0; background: var(--surface); border-radius: 8px; padding: 2px 8px; width: 9em; font: inherit; }
   .inline:focus { outline: 2px solid var(--accent); }
-  table { border-collapse: collapse; width: 100%; max-width: 640px; margin-bottom: 8px; }
-  th { text-align: left; font-weight: 500; color: var(--muted); padding: 4px 8px 4px 0; width: 140px; }
-  td { padding: 4px 0; }
   .warn { color: var(--danger); }
 </style>

@@ -336,8 +336,8 @@ the system sans for the app around it, and the system monospace only for the Mar
   their text to `reading-width` 760px; folder pages use a card grid up to `page-max-width` 1200px
   (`repeat(auto-fill, minmax(220px, 1fr))`, 16px gaps, folder cards too).
 - **Compact (≤ `compact-breakpoint` 899px):** one column. The navigation column becomes a drawer
-  (86vw, at most 330px) over a dimmed scrim; there is no top bar. A fixed bottom bar holds Home,
-  Folders and Search; Add is in each folder's toolbar and Settings at the foot of the drawer.
+  (86vw, at most 330px) over a dimmed scrim; there is no top bar. A fixed bottom bar holds Folders
+  (menu icon), Home (book icon) and Search; Add is in each folder's toolbar and Settings at the foot of the drawer.
   Breadcrumbs are hidden except Back, which sits in the page's toolbar row (beside ⋯ on a recipe).
   Pages can't be zoomed (pinch, double tap or focusing a field). Cards
   shrink to `minmax(150px, 1fr)` with 12px gaps; page padding drops to 16px with room for the bottom bar. Respect
@@ -383,7 +383,8 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   toolbar icons; `button-selected` for a toggled state; `button-danger` text for destructive menu
   actions. Icon-only buttons are 36px square and always have an accessible label.
 - **Inputs and selects.** Surface fill, 1px border, `md` radius; focus replaces the border with a
-  2px amber outline. Use the native `select` for short choices (text type, units).
+  2px amber outline. Use the native `select` for short choices (text type); inside a row of other controls, the
+  borderless `plain-select` (units, the Random filters).
 - **Cards.** Folder cards are pastel (`card-*`), show an icon, the name in serif and a bare item
   count in the top-right corner (it gives way to the ⋯ button on hover). Recipe cards are white with
   the icon, the title in serif, tags, and a ★ when the recipe is a favourite.
@@ -401,9 +402,13 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   never visible; tables are real grids with cell borders.
 - **Feedback.** Toasts at the bottom, inverted (`text` on `background`), red with white text for
   errors, green with dark text when something was saved. Notices inside a page use the yellow `banner`.
-- **Suggestion.** At the top of the home page: "Suggested for breakfast / lunch / dinner" (by the
-  time of day, from recipes with that tag) as one recipe card, a `button` "Random" with a shuffle
-  icon, and native `select`s (meal, folder) and a checkbox (favourites) that filter the random pick.
+- **Suggestion.** At the top of the home page, "Suggested": a recipe card (a Dinner recipe, shown at
+  once) and beside it, in the same row and on the page itself (no card), the Random controls as a
+  settings-style list: label left in `muted`, value right; Kind (default Dinner), Protein, Folder as
+  plain menus, Favorites as a switch, hairlines between rows, then a `button-primary` "Random".
+- **Plain menus (`plain-select`).** A native `select` without the boxed field: no border or fill,
+  the value in amber ink with the system's arrow. Used for the Random filters and the recipe's
+  US / Metric menu.
 - **Cook mode.** A full-screen view with large checkable ingredient and step lists that keeps the
   screen awake.
 

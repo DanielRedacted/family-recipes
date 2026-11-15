@@ -73,7 +73,7 @@ Freezes well. See [[Pie Crust]].
 
 | Key | Meaning |
 |---|---|
-| `tags` | list, e.g. `[pie, holiday]`; `Breakfast`, `Lunch`, `Dinner` feed the home page's suggestion |
+| `tags` | list, e.g. `[pie, holiday]`; `Breakfast`, `Lunch`, `Dinner`, `Dessert`, `Snack`, `Side`, `Drink`, `Sauce` (kind) and `Chicken`, `Beef`, `Pork`, `Turkey`, `Seafood`, `Eggs`, `Beans` (protein) feed the home page's suggestion (Dinner) and Random filters |
 | `yield`, `servings` | e.g. `8 servings`, `2 loaves`, `2 dozen`; the leading number (a dozen counts as 12) drives the serving scaler. A yield with a second number (`3 small, 2 large or 1 jumbo pizza`) is shown as written and the scaler shows ×N |
 | `prep_time`, `cook_time`, `total_time`, `additional_time` | human text, e.g. `1 hr 20 min` |
 | `source`, `author` | where the recipe came from |
@@ -123,8 +123,8 @@ Unknown keys are kept as they are.
 
 Every measurement unit after an amount is written one way, in lower case: `tsp`, `tbsp`, `cup` / `cups`
 (cups when the amount is more than 1), `oz`, `fl oz`, `lb` (one or many), `pt`, `qt`, `gal`, `g`, `kg`,
-`ml`, `l`. The reader shows the leading amount and unit of each ingredient in bold (the file is not
-changed).
+`ml`, `l`. The reader shows the leading amount and unit of each ingredient in bold, with written fractions as
+glyphs ("1 1/2 cups" reads "**1½ cups**"); the file is not changed.
 Counts stay words (`2 cloves`, `1 can`, `pinch`, `1 stick`). Temperatures with a scale are written
 `350°F` / `175°C`; fractions have no suffix (`1/8`, not `1/8th`). The reader shows any other spelling
 this way too, and the importer writes it this way; `scripts/normalize-units.ts <folder>` rewrites a

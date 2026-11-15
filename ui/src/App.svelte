@@ -83,8 +83,8 @@
       {/if}
     </main>
     <nav class="bottombar no-print" aria-label="Main">
-      <button onclick={() => go('#/')} class:on={app.route.view === 'folder' && !app.route.path}><Icon name="home" size={22} />Home</button>
-      <button onclick={() => (app.sidebar = true)}><Icon name="folder" size={22} />Folders</button>
+      <button onclick={() => (app.sidebar = true)}><Icon name="menu" size={22} />Folders</button>
+      <button onclick={() => go('#/')} class:on={app.route.view === 'folder' && !app.route.path}><Icon name="book" size={22} />Home</button>
       <button onclick={() => (app.switcher = true)}><Icon name="search" size={22} />Search</button>
     </nav>
   </div>

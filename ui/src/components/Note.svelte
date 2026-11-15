@@ -320,7 +320,7 @@
               {/each}
             </div>
           {/if}
-          <select class="field units" bind:value={units} aria-label="Units">
+          <select class="plain-select" bind:value={units} aria-label="Units">
             <option value="us">US</option>
             <option value="metric">Metric</option>
           </select>
@@ -402,7 +402,6 @@
   .chip { border: 1px solid var(--border); background: var(--surface); border-radius: 16px; padding: 4px 12px; min-height: 32px; cursor: pointer; font-size: 14px; }
   .chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
   .chip .mult { margin-left: 2px; color: var(--muted); font-weight: 500; }
-  .units { width: auto; }
   .body { display: block; }
   .split .body { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
   .editpane { display: flex; flex-direction: column; gap: 8px; height: calc(100vh - 110px); position: sticky; top: 60px; }

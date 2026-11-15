@@ -179,7 +179,7 @@ assert.ok((await ingText()).includes('1 ½ cups AP flour'), 'Single amounts show
 assert.equal(await page.locator('.prose table').count(), 0, 'the table is shown as a list');
 await page.click('.portions .chip:has-text("Double")');
 assert.ok((await ingText()).includes('3 cups AP flour'), 'Double amounts shown');
-assert.ok((await ingText()).includes('1 1/2 tsp Salt'), "the family's Double amount, not 2 × 1 tsp");
+assert.ok((await ingText()).includes('1½ tsp Salt'), "the family's Double amount, not 2 × 1 tsp");
 assert.equal((await page.locator('.scaler .qty').textContent()).trim(), '×2');
 await page.screenshot({ path: `${out}/portions.png` });
 await page.click('button:has-text("Cook mode")');
