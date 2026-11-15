@@ -36,15 +36,28 @@ describe('scale', () => {
     expect(scaleLine('½ cup sugar', 2)).toBe('1 cup sugar');
     expect(scaleLine('1-2 cups milk', 2)).toBe('2–4 cups milk');
     expect(scaleLine('1½ tsp salt', 1 / 3)).toBe('½ tsp salt');
-    expect(scaleLine('1 (10.75 ounce) can soup', 2)).toBe('2 (10.75 ounce) can soup');
+    expect(scaleLine('1 (10.75 ounce) can soup', 2)).toBe('2 (10.75 oz) can soup');
     expect(scaleLine('salt to taste', 2)).toBe('salt to taste');
     expect(scaleLine('3 large eggs', 1)).toBe('3 large eggs');
   });
   it('converts units', () => {
     expect(scaleLine('1 cup milk', 1, 'metric')).toBe('237 ml milk');
     expect(scaleLine('2 lb beef', 1, 'metric')).toBe('907 g beef');
-    expect(scaleLine('3 tsp salt', 1, 'us')).toBe('1 tbsp salt');
+    expect(scaleLine('1 Tbsp oil', 1, 'metric')).toBe('15 ml oil');
     expect(scaleLine('3 large eggs', 2, 'metric')).toBe('6 large eggs');
+  });
+  it('US: the recipe\'s own units, tidied when scaling makes them awkward', () => {
+    expect(scaleLine('3 tsp salt', 1, 'us')).toBe('3 tsp salt');
+    expect(scaleLine('1 Tablespoon honey', 1, 'us')).toBe('1 Tbsp honey');
+    expect(scaleLine('16 Tbsp butter', 1, 'us')).toBe('16 Tbsp butter');
+    expect(scaleLine('16 Tbsp butter', 0.5, 'us')).toBe('½ cup butter');
+    expect(scaleLine('1 ½ tsp salt', 2, 'us')).toBe('1 Tbsp salt');
+    expect(scaleLine('1 Tbsp sugar', 0.5, 'us')).toBe('1½ tsp sugar');
+    expect(scaleLine('1 cup flour', 2, 'us')).toBe('2 cups flour');
+    expect(scaleLine('2 cups flour', 0.5, 'us')).toBe('1 cup flour');
+    expect(scaleLine('12 oz cheese', 2, 'us')).toBe('1½ lb cheese');
+    expect(scaleLine('1 qt broth', 2, 'us')).toBe('2 qt broth');
+    expect(scaleLine('1-2 Tbsp water', 4, 'us')).toBe('¼–½ cup water');
   });
   it('reads yields', () => {
     const n = (v: unknown) => parseYield(v)?.n ?? null;
@@ -92,12 +105,12 @@ describe('alternative portions', () => {
     expect(resolvePortion([1, 2], 0, 2)).toEqual({ col: 1, scale: 1 });
     expect(resolvePortion([1, 2], 1, 3)).toEqual({ col: 1, scale: 1.5 });
     expect(resolvePortion([null, null], 1, 2)).toEqual({ col: 1, scale: 2 });
-    const pie = (portion: number, factor: number) => groupLines(fx.pie, portion, factor, 'original').map((l) => l.text);
+    const pie = (portion: number, factor: number) => groupLines(fx.pie, portion, factor, 'us').map((l) => l.text);
     expect(pie(1, 2)[0]).toBe('3 cups AP flour');
     expect(pie(0, 2)[1]).toBe('1 1/2 tsp Salt'); // the Double column as written, not 2 × 1 tsp
     expect(pie(0, 3)[0]).toBe('4½ cups AP flour');
-    const ice = (portion: number) => groupLines(fx.icecream, portion, 1, 'original').map((l) => l.text);
-    expect(ice(1)).toContain('2 oz. Unsweetened baking chocolate');
+    const ice = (portion: number) => groupLines(fx.icecream, portion, 1, 'us').map((l) => l.text);
+    expect(ice(1)).toContain('2 oz Unsweetened baking chocolate');
     expect(ice(0).some((t) => t.includes('chocolate'))).toBe(false);
   });
 });

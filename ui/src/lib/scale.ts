@@ -1,4 +1,5 @@
 // Serving scaler + unit conversion for ingredient lines, working on the text as written.
+import { normalizeUnits } from './units';
 // Unit tables and rounding ported from the old app (recipes/src/frontend/app.js:137-238).
 
 const GLYPH: Record<string, number> = { '½': 1 / 2, '¼': 1 / 4, '¾': 3 / 4, '⅓': 1 / 3, '⅔': 2 / 3, '⅛': 1 / 8, '⅜': 3 / 8, '⅝': 5 / 8, '⅞': 7 / 8 };
@@ -20,7 +21,8 @@ const UNIT_TO_G: Record<string, number> = {
 };
 const UNIT_RX = /^\s*(fl\.? oz|[A-Za-z]+)\.?(?=[\s,)]|$)/;
 
-export type Units = 'original' | 'us' | 'metric';
+/** US: the recipe's own units, tidied when scaling makes an amount awkward; Metric: ml / g. */
+export type Units = 'us' | 'metric';
 
 export function parseNum(s: string): number {
   s = s.trim().replace('⁄', '/');
@@ -47,29 +49,52 @@ export function formatNum(x: number): string {
   return (w > 0 ? String(w) : '') + best[1] || '0';
 }
 
-function convert(val: number, unit: string, to: Units): { val: number; unit: string; metric: boolean } | null {
+/** Metric: millilitres / grams (litres / kilograms from 950 up). */
+function toMetric(val: number, unit: string): { val: number; unit: string } | null {
   const u = unit.toLowerCase().replace(/\.$/, '').replace('fl. oz', 'fl oz');
-  const ml = UNIT_TO_ML[u] !== undefined ? val * UNIT_TO_ML[u] : null;
-  const g = ml === null && UNIT_TO_G[u] !== undefined ? val * UNIT_TO_G[u] : null;
-  if (ml === null && g === null) return null;
-  if (to === 'metric') {
-    if (ml !== null) return ml >= 950 ? { val: ml / 1000, unit: 'L', metric: true } : { val: ml, unit: 'ml', metric: true };
-    return g! >= 950 ? { val: g! / 1000, unit: 'kg', metric: true } : { val: g!, unit: 'g', metric: true };
+  if (UNIT_TO_ML[u] !== undefined) { const ml = val * UNIT_TO_ML[u]; return ml >= 950 ? { val: ml / 1000, unit: 'L' } : { val: ml, unit: 'ml' }; }
+  if (UNIT_TO_G[u] !== undefined) { const g = val * UNIT_TO_G[u]; return g >= 950 ? { val: g / 1000, unit: 'kg' } : { val: g, unit: 'g' }; }
+  return null;
+}
+
+/** US units and the amounts each reads well in; a scaled amount outside its unit's range moves to the next unit. */
+const LADDERS: { unit: string; size: number; from: number; to: number }[][] = [
+  [
+    { unit: 'tsp', size: 4.929, from: 0, to: 3 },
+    { unit: 'Tbsp', size: 14.787, from: 1, to: 4 },
+    { unit: 'cup', size: 236.588, from: 0.25, to: 16 },
+    { unit: 'gal', size: 3785.41, from: 1, to: Infinity },
+  ],
+  [
+    { unit: 'oz', size: 28.3495, from: 0, to: 16 },
+    { unit: 'lb', size: 453.592, from: 0.5, to: Infinity },
+  ],
+];
+
+/**
+ * US, after scaling: the recipe's own unit while the amount reads well in it (⅛ tsp up to 3 tsp,
+ * 1 up to 4 Tbsp, ¼ up to 16 cups, …), else the unit it does read well in ("16 Tbsp" × ½ → "½ cup").
+ * Other units (qt, pt, fl oz, g, ml…) keep their unit.
+ */
+function tidyUS(val: number, unit: string): { val: number; unit: string } | null {
+  for (const ladder of LADDERS) {
+    const own = ladder.find((s) => s.unit === unit);
+    if (!own) continue;
+    if (val >= (own.unit === 'tsp' ? 1 / 8 : own.from) && val < own.to) return null;
+    const base = val * own.size;
+    const fit = ladder.find((s) => base / s.size >= s.from && base / s.size < s.to);
+    return fit && fit.unit !== unit ? { val: base / fit.size, unit: fit.unit } : null;
   }
-  if (ml !== null) {
-    if (ml < 7.5) return { val: ml / 4.929, unit: 'tsp', metric: false };
-    if (ml < 22) return { val: ml / 14.787, unit: 'tbsp', metric: false };
-    if (ml < 2000) return { val: ml / 236.588, unit: 'cup', metric: false };
-    return { val: ml / 3785.41, unit: 'gal', metric: false };
-  }
-  return g! < 340 ? { val: g! / 28.3495, unit: 'oz', metric: false } : { val: g! / 453.592, unit: 'lb', metric: false };
+  return null;
 }
 
 const metricFmt = (v: number, unit: string) => (unit === 'L' || unit === 'kg' ? (Math.round(v * 10) / 10).toString() : String(Math.round(v)));
+const unitName = (unit: string, val: number) => (unit === 'cup' && val > 1 ? 'cups' : unit);
 
-/** Rewrite the leading quantity (and unit, when converting) of an ingredient line. */
-export function scaleLine(text: string, factor: number, units: Units = 'original'): string {
-  if (factor === 1 && units === 'original') return text;
+/** Rewrite the leading quantity (and unit, when converting) of an ingredient line; units in one spelling. */
+export function scaleLine(text: string, factor: number, units: Units = 'us'): string {
+  text = normalizeUnits(text);
+  if (factor === 1 && units === 'us') return text;
   const m = text.match(QTY_RX);
   if (!m) return text;
   const a = parseNum(m[2]);
@@ -78,16 +103,26 @@ export function scaleLine(text: string, factor: number, units: Units = 'original
   let rest = text.slice(m[0].length);
   let fmtA = formatNum(a * factor);
   let fmtB = b !== null ? formatNum(b * factor) : null;
-  if (units !== 'original') {
-    const um = rest.match(UNIT_RX);
-    if (um) {
-      const ca = convert(a * factor, um[1], units);
-      const cb = b !== null ? convert(b * factor, um[1], units) : null;
-      if (ca && ca.unit.toLowerCase() !== um[1].toLowerCase().replace(/s$/, '')) {
-        const f = (c: { val: number; unit: string; metric: boolean }) => (c.metric ? metricFmt(c.val, c.unit) : formatNum(c.val));
-        fmtA = f(ca);
-        fmtB = cb ? f(cb) : null;
+  const um = rest.match(UNIT_RX);
+  if (um) {
+    const unit = um[1].replace(/^cups$/, 'cup');
+    if (units === 'metric') {
+      const ca = toMetric(a * factor, unit);
+      const cb = b !== null ? toMetric(b * factor, unit) : null;
+      if (ca) {
+        fmtA = metricFmt(ca.val, ca.unit);
+        fmtB = cb ? metricFmt(cb.val, ca.unit === cb.unit ? cb.unit : ca.unit) : null;
         rest = ' ' + ca.unit + rest.slice(um[0].length);
+      }
+    } else {
+      const ta = tidyUS(a * factor, unit);
+      if (ta) {
+        const ratio = ta.val / (a * factor);
+        fmtA = formatNum(ta.val);
+        fmtB = b !== null ? formatNum(b * factor * ratio) : null;
+        rest = ' ' + unitName(ta.unit, b !== null ? b * factor * ratio : ta.val) + rest.slice(um[0].length);
+      } else if (unit === 'cup') {
+        rest = ' ' + unitName('cup', (b ?? a) * factor) + rest.slice(um[0].length);
       }
     }
   }

@@ -81,7 +81,7 @@ md.renderer.rules.table_close = () => '</table></div>\n';
  */
 export function scaledRaw(e: Entry, factor: number, units: Units, portion = 0): string {
   const raw = e.raw ?? '';
-  if (!e.recipe || (factor === 1 && units === 'original' && !e.recipe.ingredients.some((g) => g.table))) return raw;
+  if (!e.recipe) return raw;
   const lines = raw.split('\n');
   for (const g of e.recipe.ingredients) {
     if (g.table) {

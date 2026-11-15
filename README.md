@@ -16,7 +16,8 @@ from, edit, import and manage them.
 
 What it does: a folder column that follows the open recipe and cards (with emoji and colours you
 can change), favorites, ⌘K search (recipes, folders, ingredients), a reader with serving scaler (every set of
-ingredients scales; yields such as "2 dozen" count as 24), unit conversion and cook mode, ingredient
+ingredients scales; yields such as "2 dozen" count as 24), US or metric units (units are written one
+way: `docs/FORMAT.md`) and cook mode, ingredient
 tables with alternative portions (Single / Double…: one portion at a time, with its multiplier), a
 formatted editor in the style of Apple Notes (Markdown marks are never shown; text types, lists,
 checklists and real tables with an editor in each cell; the file stays plain

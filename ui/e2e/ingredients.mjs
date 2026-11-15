@@ -30,7 +30,7 @@ await page.waitForSelector('.cm-content');
 await page.locator('.cm-line', { hasText: '15 oz can pumpkin' }).click();
 await page.keyboard.press('End');
 await page.keyboard.type('\n2 tb');
-await page.waitForSelector('.cm-tooltip-autocomplete li:has-text("tbsp")');
+await page.waitForSelector('.cm-tooltip-autocomplete li:has-text("Tbsp")');
 await page.keyboard.press('Enter');
 await page.keyboard.type(' brown su');
 await page.waitForSelector('.cm-tooltip-autocomplete li:has-text("brown sugar")');
@@ -38,7 +38,7 @@ await page.screenshot({ path: `${out}/ingredient-suggest.png` });
 await page.keyboard.press('Enter');
 await page.click('button:has-text("Save")');
 await page.waitForTimeout(800);
-assert.ok(/^- 2 tbsp brown sugar$/m.test(fs.readFileSync(`${vault}/Pies/Pumpkin Pie.md`, 'utf8')), 'completed ingredient line saved');
+assert.ok(/^- 2 Tbsp brown sugar$/m.test(fs.readFileSync(`${vault}/Pies/Pumpkin Pie.md`, 'utf8')), 'completed ingredient line saved');
 
 await browser.close();
 if (errors.length) { console.error(errors.join('\n')); process.exit(1); }

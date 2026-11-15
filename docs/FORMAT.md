@@ -111,6 +111,20 @@ Unknown keys are kept as they are.
 - **Scaling:** only the leading quantity of an ingredient line changes (`1 ½`, `1½`, `1/2`, `1-2`,
   `2.5`); the rest of the line stays as written. Every set of ingredients scales by the same factor.
 
+## Units
+
+Every measurement unit after an amount is written one way: `tsp`, `Tbsp`, `cup` / `cups` (cups when
+the amount is more than 1), `oz`, `fl oz`, `lb` (one or many), `pt`, `qt`, `gal`, `g`, `kg`, `ml`, `L`.
+Counts stay words (`2 cloves`, `1 can`, `pinch`, `1 stick`). Temperatures with a scale are written
+`350°F` / `175°C`; fractions have no suffix (`1/8`, not `1/8th`). The reader shows any other spelling
+this way too, and the importer writes it this way; `scripts/normalize-units.ts <folder>` rewrites a
+whole folder (each changed line is printed).
+
+Scaling, **US** (the default): the recipe's own unit while the scaled amount reads well in it (⅛ up
+to 3 tsp, 1 up to 4 Tbsp, ¼ up to 16 cups, under 16 oz, ½ lb and up), otherwise the unit it does
+read well in ("16 Tbsp" × ½ → "½ cup"); qt, pt, fl oz and metric units keep their unit. **Metric**
+converts to ml / g (L / kg from 950).
+
 ## Ingredient tables
 
 The standard layout: one column per alternative portion (sizes like Single / Double, or versions

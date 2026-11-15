@@ -1,4 +1,5 @@
 import { api } from './api';
+import { normalizeUnits } from './units';
 
 export interface ImageCand { i: number; alt: string; kind: string; step?: string | null; url: string }
 export interface Issue { level: 'warn' | 'info'; message: string }
@@ -175,7 +176,7 @@ async function poll(id: number) {
     const job = s as ImportJob;
     const first = job.images.find((c) => c.kind === 'recipe' || c.kind === 'document') ?? null;
     cur.job = job;
-    cur.review = { md: job.markdown, name: job.title || 'Imported recipe', chosen: first ? { [first.i]: true } : {}, cover: first?.i ?? null, hidden: {}, issues: job.issues };
+    cur.review = { md: normalizeUnits(job.markdown), name: job.title || 'Imported recipe', chosen: first ? { [first.i]: true } : {}, cover: first?.i ?? null, hidden: {}, issues: job.issues };
     cur.status = 'ready';
     if (importer.selected === null) importer.selected = id;
     return;

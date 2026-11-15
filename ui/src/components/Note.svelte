@@ -35,7 +35,8 @@
   let factor = $state(1);
   /** the chosen column of an ingredient table with alternative portions (Single / Double…) */
   let portion = $state(0);
-  let units = $state<Units>((() => { try { return (localStorage.getItem('units') as Units) || 'original'; } catch { return 'original'; } })());
+  // "original" (units as written) is gone: recipes are written in one spelling, shown as US by default
+  let units = $state<Units>((() => { try { return localStorage.getItem('units') === 'metric' ? 'metric' : 'us'; } catch { return 'us'; } })());
   let editor: Editor | undefined = $state();
 
   // start state (the component is re-created for each note)
@@ -320,8 +321,7 @@
             </div>
           {/if}
           <select class="field units" bind:value={units} aria-label="Units">
-            <option value="original">Units as written</option>
-            <option value="us">US units</option>
+            <option value="us">US</option>
             <option value="metric">Metric</option>
           </select>
           <span class="spacer"></span>

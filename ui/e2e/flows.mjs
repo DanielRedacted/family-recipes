@@ -193,7 +193,7 @@ await page.goto(new URL('/#/n/Desserts/Ice%20Cream.md', url).href);
 await page.waitForSelector('.portions');
 assert.ok(!(await ingText()).some((t) => /Unsweetened baking chocolate/.test(t)), 'Vanilla has no chocolate');
 await page.click('.portions .chip:has-text("Chocolate")');
-assert.ok((await ingText()).includes('2 oz. Unsweetened baking chocolate'));
+assert.ok((await ingText()).includes('2 oz Unsweetened baking chocolate'));
 assert.doesNotMatch(await page.locator('.portions').textContent(), /×/);
 // a yield in dozens
 await page.goto(new URL('/#/n/Cookies/Chocolate%20Boiled%20Oatmeal%20Cookies.md', url).href);
@@ -267,6 +267,17 @@ const icX = async (sel) => (await page.locator(sel).first().locator('.ic').bound
 const folderX = await icX('aside .row-item.folder:has-text("Pies")');
 const fileX = await icX('aside .row-item:has-text("Pumpkin Pie"):not(.folder)');
 assert.ok(fileX > folderX + 8, `file icon ${fileX} indented from folder icon ${folderX}`);
+
+// units: one spelling in the files; the menu offers US and Metric; US tidies scaled amounts
+await page.goto(new URL('/#/n/Candy/Caramel%20and%20Sauce.md', url).href);
+await page.waitForSelector('select[aria-label="Units"]');
+assert.deepEqual(await page.locator('select[aria-label="Units"] option').allTextContents(), ['US', 'Metric']);
+assert.ok((await ingText()).includes('16 Tbsp Butter'), 'as written at ×1');
+await page.click('button[aria-label="Fewer"]');
+assert.ok((await ingText()).includes('½ cup Butter'), '16 Tbsp × ½ reads ½ cup: ' + (await ingText()).slice(0, 3));
+await page.selectOption('select[aria-label="Units"]', 'metric');
+assert.ok((await ingText()).some((t) => /^\d+ ml Butter$/.test(t)), 'metric converts');
+await page.selectOption('select[aria-label="Units"]', 'us');
 
 await browser.close();
 if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
