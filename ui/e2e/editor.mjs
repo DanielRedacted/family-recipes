@@ -42,11 +42,16 @@ await page.keyboard.press('End');
 await page.keyboard.type('\nTo serve');
 await page.selectOption('select[aria-label="Text type"]', 'h3');
 await page.waitForSelector('.cm-line.cm-lp-h3');
-// a table: insert, type, Tab between cells, add a column
+// a table (codemirror-markdown-tables: an HTML table with an editor in each cell)
 await page.keyboard.press('End');
 await page.keyboard.press('Enter');
 await page.click('button[aria-label="Insert table"]');
-await page.waitForSelector('.cm-tbl-row');
+await page.waitForSelector('.cm-formatted .tbl-table');
+const cell = (r, c) => page.locator(`.tbl-table .tbl-cell[data-row="${r}"][data-col="${c}"]`);
+// a cell's editor mounts just after the click (a person's pause before typing covers it)
+const settle = () => page.waitForTimeout(300);
+await cell(0, 0).click();
+await settle();
 await page.keyboard.type('Size');
 await page.keyboard.press('Tab');
 await page.keyboard.type('Pie');
@@ -54,16 +59,47 @@ await page.keyboard.press('Tab');
 await page.keyboard.type('9 in');
 await page.keyboard.press('Tab');
 await page.keyboard.type('1');
-await page.click('button[aria-label="Add column"]');
-await page.keyboard.type('note');
-assert.equal(await page.locator('.cm-tbl-row').count(), 2, 'table rows are grids');
-assert.equal(await page.locator('.cm-tbl-row').first().locator('.cm-tbl-cell').count(), 3, 'three columns after Add column');
-assert.ok(!(await page.locator('.cm-tbl-row').allTextContents()).some((t) => t.includes('|')), 'no pipes shown');
+assert.equal((await cell(1, 0).innerText()).trim(), '9 in', 'Tab moves to the next cell');
+// clicking at the end of a cell's text puts the cursor there
+const box = await cell(1, 0).locator('.cm-line, .tbl-cell-view').first().evaluate((el) => {
+  const r = document.createRange(); r.selectNodeContents(el); const b = r.getBoundingClientRect(); return { x: b.right - 1, y: b.top + b.height / 2 };
+});
+await page.mouse.click(box.x, box.y);
+await settle();
+await page.keyboard.type('ch');
+assert.equal((await cell(1, 0).innerText()).trim(), '9 inch', 'click places the cursor where clicked');
+// double-click selects exactly the word under the pointer; typing replaces it
+await cell(0, 1).click();
+await settle();
+await cell(0, 1).locator('.cm-line').first().dblclick();
+await settle();
+assert.ok(await cell(0, 1).locator('.cm-selectionBackground').count() > 0, 'the selection is drawn in the cell');
+await page.keyboard.type('Pies');
+assert.equal((await cell(0, 1).innerText()).trim(), 'Pies', 'double-click selected exactly the word');
+// bold inside a cell: no asterisks shown
+await cell(0, 1).locator('.cm-line').first().dblclick();
+await settle();
+await page.click('button[aria-label="Bold"]');
+assert.equal((await cell(0, 1).innerText()).trim(), 'Pies', 'bold shows no asterisks in a cell');
+// bold whether the cell is being edited or not (then the package draws it as highlighted text)
+const strong = () => cell(0, 1).evaluate((c) => {
+  const el = [...c.querySelectorAll('span')].find((x) => x.textContent === 'Pies' && x.offsetParent);
+  return el && +getComputedStyle(el).fontWeight >= 600 ? 1 : 0;
+});
+assert.equal(await strong(), 1, 'cell text is bold');
+// undo / redo from inside a cell work on the note
+await page.keyboard.press('Meta+z');
+await page.waitForTimeout(300);
+assert.equal(await strong(), 0, 'undo removes the bold');
+await page.keyboard.press('Meta+Shift+z');
+await page.waitForTimeout(300);
+assert.equal(await strong(), 1, 'redo restores it');
+assert.equal((await cell(0, 1).innerText()).trim(), 'Pies', 'no asterisks in a cell that is not being edited');
 await page.screenshot({ path: `${out}/table.png` });
 await page.click('button:has-text("Save")');
 await page.waitForTimeout(800);
 let saved = fs.readFileSync(file, 'utf8');
-assert.equal(saved, original + '\n**serve warm**\n- [x] buy cream\n### To serve\n\n| Size | Pie |  |\n| --- | --- | --- |\n| 9 in | 1 | note |', 'saved text is exactly the Markdown typed');
+assert.equal(saved, original + '\n**serve warm**\n- [x] buy cream\n### To serve\n\n| Size   | **Pies** |\n| ------ | -------- |\n| 9 inch | 1        |\n', 'saved text is exactly the Markdown typed: ' + JSON.stringify(saved.slice(original.length)));
 
 // Backspace at the start of bold text removes both hidden ** marks (no stray asterisks)
 await last.click();
@@ -79,6 +115,12 @@ await page.screenshot({ path: `${out}/formatted-after.png` });
 await page.click('button:has-text("Markdown")');
 assert.equal((await page.locator('.cm-line').filter({ hasText: 'Ingredients' }).first().textContent()).trim(), '## Ingredients');
 await page.click('button:has-text("Formatted")');
+
+// opening a note with tables changes nothing, so it is not marked as edited
+await page.goto(new URL('/#/n/Pies/Pie%20Crust.md?mode=edit', url).href);
+await page.waitForSelector('.tbl-table');
+await page.waitForTimeout(500);
+assert.equal(await page.locator('.save').textContent(), 'Saved', 'opening a table recipe is not an edit');
 
 await browser.close();
 if (errors.length) { console.error(errors.join('\n')); process.exit(1); }

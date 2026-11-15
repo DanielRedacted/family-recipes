@@ -1,12 +1,12 @@
 // Formatted editing, Apple Notes style: the document stays plain Markdown and is saved exactly as
-// typed, but the markup (#, **, >, [ ](url), table pipes…) is never shown. Decorations hide it,
+// typed, but the markup (#, **, >, [ ](url)…) is never shown. Decorations hide it,
 // the cursor steps over it (atomic ranges), and deleting one half of a pair removes the other
 // half too, so formatting is removed cleanly instead of leaving stray symbols. Headings are sized,
-// bullets become dots, task boxes become checkboxes, images show inline, tables are grids.
+// bullets become dots, task boxes become checkboxes, images show inline. Tables are drawn by
+// codemirror-markdown-tables (Editor.svelte), with this extension running inside each cell.
 import { syntaxTree } from '@codemirror/language';
-import { EditorState, Prec, RangeSet, StateField, Transaction, type Range } from '@codemirror/state';
+import { EditorState, RangeSet, Transaction, type Range } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view';
-import type { SyntaxNode } from '@lezer/common';
 
 export interface LivePreviewOptions {
   /** URL for an image reference as written in the note (or null to leave it as text) */
@@ -54,16 +54,6 @@ class Img extends WidgetType {
 class Rule extends WidgetType {
   eq() { return true; }
   toDOM() { const s = document.createElement('span'); s.className = 'cm-lp-hr'; return s; }
-}
-
-class EmptyCell extends WidgetType {
-  eq() { return true; }
-  toDOM() { const s = document.createElement('span'); s.className = 'cm-tbl-cell'; return s; }
-}
-
-class TableSep extends WidgetType {
-  eq() { return true; }
-  toDOM() { const d = document.createElement('div'); d.className = 'cm-tbl-sep'; return d; }
 }
 
 const hide = Decoration.replace({});
@@ -190,71 +180,19 @@ function build(view: EditorView, opts: LivePreviewOptions): { deco: DecorationSe
   return { deco: RangeSet.of(out, true), atomic: RangeSet.of(atomic, true) };
 }
 
-// ---------- tables: rows drawn as grids, pipes and the |---| row hidden ----------
-
-function tableDecos(state: EditorState): { deco: DecorationSet; atomic: DecorationSet } {
-  const out: Range<Decoration>[] = [];
-  const atomic: Range<Decoration>[] = [];
-  const doc = state.doc;
-  const hideR = (a: number, b: number) => { if (b > a) { out.push(hide.range(a, b)); atomic.push(hide.range(a, b)); } };
-  syntaxTree(state).iterate({
-    enter: (n) => {
-      if (n.name !== 'Table') return;
-      let cols = 0;
-      for (let c: SyntaxNode | null = n.node.firstChild; c; c = c.nextSibling) {
-        const l = doc.lineAt(c.from);
-        if (c.name === 'TableDelimiter') { // the |---|---| line
-          const d = Decoration.replace({ widget: new TableSep(), block: true });
-          out.push(d.range(l.from, l.to));
-          atomic.push(d.range(l.from, l.to));
-          continue;
-        }
-        if (c.name !== 'TableHeader' && c.name !== 'TableRow') continue;
-        // a cell is everything between two pipes, padding spaces included, so typing a space
-        // at the end of a cell stays in that cell; only the pipes are hidden
-        const pipes: number[] = [];
-        for (let i = 0; i < l.text.length; i++) if (l.text[i] === '|' && l.text[i - 1] !== '\\') pipes.push(i);
-        const bounds = [-1, ...pipes, l.text.length];
-        const cells: [number, number][] = [];
-        for (let i = 0; i < bounds.length - 1; i++) {
-          const a = bounds[i] + 1, b = bounds[i + 1];
-          if ((i === 0 || i === bounds.length - 2) && !l.text.slice(a, b).trim()) continue; // outside the outer pipes
-          cells.push([l.from + a, l.from + b]);
-        }
-        if (c.name === 'TableHeader') cols = cells.length;
-        out.push(Decoration.line({ class: c.name === 'TableHeader' ? 'cm-tbl-row cm-tbl-head' : 'cm-tbl-row', attributes: { style: `--cols:${Math.max(cols, 1)}` } }).range(l.from));
-        let prev = l.from;
-        for (const [a, b] of cells) {
-          hideR(prev, a);
-          if (b > a) out.push(mark('cm-tbl-cell').range(a, b));
-          else out.push(Decoration.widget({ widget: new EmptyCell(), side: 1 }).range(a));
-          prev = b;
-        }
-        hideR(prev, l.to);
-      }
-      return false;
-    },
-  });
-  return { deco: RangeSet.of(out, true), atomic: RangeSet.of(atomic, true) };
-}
-
-const tables = StateField.define<{ deco: DecorationSet; atomic: DecorationSet }>({
-  create: (s) => tableDecos(s),
-  update: (v, tr) => (tr.docChanged || syntaxTree(tr.startState) !== syntaxTree(tr.state) ? tableDecos(tr.state) : v),
-  provide: (f) => [
-    Prec.high(EditorView.decorations.from(f, (v) => v.deco)),
-    EditorView.atomicRanges.of((view) => view.state.field(f).atomic),
-  ],
-});
-
 // ---------- deleting half of a pair removes the other half ----------
+
+/** codemirror-markdown-tables copying the note's text into a table cell (undo, redo…): not typing */
+// reads the package's private annotation values ("table.edit.undo"…); recheck when upgrading it
+const fromTableSync = (tr: Transaction) =>
+  ((tr as unknown as { annotations?: { value: unknown }[] }).annotations ?? []).some((a) => typeof a.value === 'string' && a.value.startsWith('table.'));
 
 /**
  * After a deletion, a bold/italic/strike/code span, link or [[link]] that lost one of its hidden
  * marks — or all of its text — has its remaining marks removed too.
  */
 function pairCleanup(tr: Transaction) {
-  if (!tr.docChanged || !tr.isUserEvent('delete')) return tr;
+  if (!tr.docChanged || !tr.isUserEvent('delete') || fromTableSync(tr)) return tr;
   const start = tr.startState;
   const extra: { from: number; to: number }[] = [];
   const covers = (a: number, b: number, f: number, t: number) => f <= a && t >= b;
@@ -332,7 +270,7 @@ export function livePreview(opts: LivePreviewOptions) {
       return false;
     },
   });
-  return [plugin, tables, EditorState.transactionFilter.of(pairCleanup), clicks, theme];
+  return [plugin, EditorState.transactionFilter.of(pairCleanup), clicks, theme];
 }
 
 const theme = EditorView.theme({
@@ -356,15 +294,4 @@ const theme = EditorView.theme({
   '.cm-lp-wikilink': { color: 'var(--accent-ink)', textDecoration: 'underline dotted' },
   '.cm-lp-img': { maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', display: 'inline-block', verticalAlign: 'top' },
   '.cm-lp-hr': { display: 'inline-block', width: '100%', borderTop: '1px solid var(--border)', verticalAlign: 'middle' },
-  // each row is its own grid with the header's column count, so the columns line up
-  '.cm-line.cm-tbl-row': {
-    display: 'grid', gridTemplateColumns: 'repeat(var(--cols), minmax(0, 1fr))', borderBottom: '1px solid var(--border)',
-    borderLeft: '1px solid var(--border)', marginLeft: '22px', marginRight: '22px', padding: '0 !important',
-  },
-  '.cm-line.cm-tbl-head': { background: 'var(--sunken)', fontWeight: '650', borderTop: '1px solid var(--border)' },
-  '.cm-tbl-head span': { textDecoration: 'none' },
-  // hidden pipes and CodeMirror's cursor helpers must not take up grid cells
-  '.cm-tbl-row > :not(.cm-tbl-cell)': { position: 'absolute' },
-  '.cm-tbl-cell': { padding: '4px 6px 4px 4px', borderRight: '1px solid var(--border)', minHeight: '1.6em', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' },
-  '.cm-tbl-sep': { height: '0' },
 });

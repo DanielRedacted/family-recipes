@@ -26,6 +26,8 @@
   let draft = $state('');
   let base = $state<string | null>(null); // etag of the text the draft started from
   let dirty = $state(false);
+  /** the draft after the editor only re-spaced tables: not a change worth asking about */
+  let tidied: string | null = null;
   let saving = $state(false);
   let conflict = $state<{ theirs: string; etag: string | null } | null>(null);
   let comparing = $state(false);
@@ -43,6 +45,7 @@
       draft = e?.raw ?? '';
       base = e?.etag ?? null;
       dirty = false;
+      tidied = null;
       conflict = null;
       factor = 1;
     });
@@ -66,9 +69,10 @@
   $effect(() => { try { localStorage.setItem('units', units); } catch {} });
 
   // Nothing is written until Save (or ⌘S). Leaving with unsaved changes asks first.
-  function onEdit(v: string) {
+  function onEdit(v: string, tidy = false) {
     draft = v;
-    dirty = v !== (entry?.raw ?? '') || base !== entry?.etag;
+    if (tidy && !dirty) tidied = v;
+    dirty = (v !== (entry?.raw ?? '') && v !== tidied) || base !== entry?.etag;
   }
 
   async function save(text = draft, etag = base) {

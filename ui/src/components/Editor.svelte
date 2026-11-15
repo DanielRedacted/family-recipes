@@ -3,15 +3,17 @@
   import { EditorView, keymap } from '@codemirror/view';
   import { basicSetup } from 'codemirror';
   import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
+  import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+  import { tags } from '@lezer/highlight';
   import { yamlFrontmatter } from '@codemirror/lang-yaml';
-  import { Compartment, EditorState, Prec, type TransactionSpec } from '@codemirror/state';
-  import { completionStatus } from '@codemirror/autocomplete';
-  import { indentWithTab } from '@codemirror/commands';
+  import { Compartment, EditorState, Transaction, type TransactionSpec } from '@codemirror/state';
+  import { historyKeymap, indentWithTab } from '@codemirror/commands';
+  import { insertEmptyMarkdownTable, markdownTables, TableStyle, TableTheme } from 'codemirror-markdown-tables';
   import Icon from './Icon.svelte';
   import { wikiLinks } from '../lib/complete';
   import { ingredientSuggest, loadIngredients } from '../lib/ingredients.svelte';
   import { livePreview } from '../lib/livePreview';
-  import { insertTable, lineKind, setLines, tableInfo, tableMove, tableOp, toggleLines, toggleWrap, type LineKind } from '../lib/mdCommands';
+  import { lineKind, setLines, toggleLines, toggleWrap, type LineKind } from '../lib/mdCommands';
   import { vaultTarget } from '../lib/markdown';
   import { fileUrl } from '../lib/api';
   import { app, go, noteHash, resolveLink, toast } from '../lib/state.svelte';
@@ -19,7 +21,8 @@
 
   let { value, onchange, onsave, onfiles, readonly = false, notePath = '', toolbar = true }: {
     value: string;
-    onchange: (v: string) => void;
+    /** `tidy`: only table spacing changed (not a user edit) */
+    onchange: (v: string, tidy?: boolean) => void;
     onsave?: () => void;
     onfiles?: (files: File[]) => Promise<string | null>;
     readonly?: boolean;
@@ -33,7 +36,8 @@
   let imgInput: HTMLInputElement | undefined = $state();
   const look = new Compartment();
   let textType = $state<'p' | 'h1' | 'h2' | 'h3'>('p');
-  let inTable = $state(false);
+  /** a table cell's editor has focus (toolbar commands go to it) */
+  let inCell = $state(false);
   let formatted = $state((() => { try { return localStorage.getItem('editorMode') !== 'source'; } catch { return true; } })());
 
   const theme = EditorView.theme({
@@ -48,6 +52,10 @@
     '&.cm-formatted .cm-gutters': { display: 'none' },
     '&.cm-formatted .cm-activeLine': { backgroundColor: 'transparent' },
     '&.cm-formatted .cm-line': { padding: '0 22px' },
+    // table cells: header text is not a Markdown heading
+    '.tbl-header-cell span': { textDecoration: 'none' },
+    '.tbl-cell-view .cm-md-mark': { display: 'none' },
+    '&.cm-formatted .tbl-table-widget': { paddingLeft: '22px', paddingRight: '22px' },
   });
 
   const noteDir = () => (notePath.includes('/') ? notePath.slice(0, notePath.lastIndexOf('/')) : '');
@@ -63,20 +71,45 @@
       else toast(`No recipe called “${t}”`, 'error');
     },
   });
-  // in a table: Tab / Shift-Tab go to the next / previous cell, Enter to the cell below
-  const inCell = (f: (s: EditorState) => TransactionSpec | null) => (v: EditorView) => {
-    if (completionStatus(v.state) === 'active') return false;
-    const spec = f(v.state);
-    if (!spec) return false;
-    v.dispatch(spec, { scrollIntoView: true });
-    return true;
-  };
-  const tableKeys = Prec.high(keymap.of([
-    { key: 'Tab', run: inCell((s) => tableMove(s, 1)) },
-    { key: 'Shift-Tab', run: inCell((s) => tableMove(s, -1)) },
-    { key: 'Enter', run: inCell((s) => tableMove(s, 'down')) },
+  // tables are HTML tables with a small editor in each cell (codemirror-markdown-tables): clicks,
+  // selection and Tab/Enter/arrows work like any table; marks stay hidden inside cells too
+  const wrapKeys = keymap.of([
+    { key: 'Mod-b', run: (v) => apply(toggleWrap(v.state, '**'), v) },
+    { key: 'Mod-i', run: (v) => apply(toggleWrap(v.state, '*'), v) },
+  ]);
+  const tables = markdownTables({
+    extensions: [preview, wrapKeys],
+    globalKeyBindings: historyKeymap,
+    markdownConfig: {},
+    theme: TableTheme.light.with({
+      '--tbl-theme-border-color': 'var(--border)', '--tbl-theme-border-hover-color': 'var(--accent-soft)',
+      '--tbl-theme-border-active-color': 'var(--accent)', '--tbl-theme-outline-color': 'var(--accent)',
+      '--tbl-theme-header-row-background': 'var(--sunken)', '--tbl-theme-row-background': 'var(--surface)',
+      '--tbl-theme-odd-row-background': 'var(--surface)', '--tbl-theme-even-row-background': 'var(--surface)',
+      '--tbl-theme-text-color': 'var(--text)', '--tbl-theme-menu-background': 'var(--surface)',
+      '--tbl-theme-menu-border-color': 'var(--border)', '--tbl-theme-menu-hover-background': 'var(--sunken)',
+      '--tbl-theme-menu-text-color': 'var(--text)', '--tbl-theme-menu-hover-text-color': 'var(--text)',
+      '--tbl-theme-select-all-focus-overlay': 'color-mix(in srgb, var(--accent) 18%, transparent)',
+      '--tbl-theme-select-all-blur-overlay': 'color-mix(in srgb, var(--accent) 8%, transparent)',
+    }),
+    style: TableStyle.default.with({ '--tbl-style-font-family': 'var(--serif)', '--tbl-style-font-size': '16px', '--tbl-style-menu-font-family': 'var(--sans)' }),
+  });
+  // the package lays every table out in one padded style ("table.format") before drawing it; that
+  // is whitespace only, so it is passed on as a tidy-up and doesn't count as an edit
+  // matches the package's private annotation value; recheck when upgrading it
+  const tidyOnly = (tr: Transaction) =>
+    ((tr as unknown as { annotations?: { value: unknown }[] }).annotations ?? []).some((a) => a.value === 'table.format');
+  // …and it stays out of the undo history, so ⌘Z only undoes what was typed
+  const tidyOutOfHistory = EditorState.transactionExtender.of((tr) => (tidyOnly(tr) ? { annotations: Transaction.addToHistory.of(false) } : null));
+  // a cell that isn't being edited is drawn as highlighted text by the package: Markdown marks
+  // (** _ ` [ ]( #) carry the processingInstruction tag there, and are hidden like everywhere else
+  const cellMarks = syntaxHighlighting(HighlightStyle.define([
+    { tag: tags.processingInstruction, class: 'cm-md-mark' },
+    { tag: tags.strong, fontWeight: 'bold' },
+    { tag: tags.emphasis, fontStyle: 'italic' },
+    { tag: tags.strikethrough, textDecoration: 'line-through' },
   ]));
-  const lookExt = (on: boolean) => (on ? [preview, tableKeys, EditorView.editorAttributes.of({ class: 'cm-formatted' })] : []);
+  const lookExt = (on: boolean) => (on ? [preview, tables, tidyOutOfHistory, cellMarks, EditorView.editorAttributes.of({ class: 'cm-formatted' })] : []);
 
   async function dropFiles(files: File[], pos: number) {
     if (!onfiles || !files.length) return false;
@@ -102,12 +135,12 @@
           keymap.of([
             indentWithTab,
             { key: 'Mod-s', preventDefault: true, run: () => { onsave?.(); return true; } },
-            { key: 'Mod-b', run: () => apply(toggleWrap(view.state, '**')) },
-            { key: 'Mod-i', run: () => apply(toggleWrap(view.state, '*')) },
+            { key: 'Mod-b', run: (v) => apply(toggleWrap(v.state, '**'), v) },
+            { key: 'Mod-i', run: (v) => apply(toggleWrap(v.state, '*'), v) },
           ]),
           EditorView.updateListener.of((u) => {
-            if (u.docChanged) onchange(u.state.doc.toString());
-            if (u.docChanged || u.selectionSet) { textType = lineKind(u.state); inTable = !!tableInfo(u.state); }
+            if (u.docChanged) onchange(u.state.doc.toString(), u.transactions.every(tidyOnly));
+            if (u.docChanged || u.selectionSet) textType = lineKind(u.state);
           }),
           EditorView.domEventHandlers({
             drop: (e, v) => {
@@ -146,13 +179,21 @@
     view?.dispatch({ effects: look.reconfigure(lookExt(on)) });
   });
 
-  function apply(spec: TransactionSpec) {
-    view.dispatch(spec, { scrollIntoView: true });
-    view.focus();
+  /** the editor toolbar commands act on: a focused table cell's editor, else the note's */
+  function target(): EditorView {
+    const el = document.activeElement?.closest('.cm-editor');
+    const v = el && host.contains(el) ? EditorView.findFromDOM(el as HTMLElement) : null;
+    return v ?? view;
+  }
+  function apply(spec: TransactionSpec, v = target()) {
+    v.dispatch(spec, { scrollIntoView: true });
+    v.focus();
     return true;
   }
-  const lines = (k: LineKind) => apply(toggleLines(view.state, k));
-  const table = (op: 'row+' | 'row-' | 'col+' | 'col-') => { const spec = tableOp(view.state, op); if (spec) apply(spec); else view.focus(); };
+  const wrap = (m: string) => { const v = target(); apply(toggleWrap(v.state, m), v); };
+  const lines = (k: LineKind) => apply(toggleLines(view.state, k), view);
+  const addTable = () => { insertEmptyMarkdownTable()({ state: view.state, dispatch: (tr) => view.dispatch(tr) }); view.focus(); };
+  const trackCell = () => { const v = target(); inCell = v !== view; };
 
   export function insert(text: string) {
     const pos = view.state.selection.main.head;
@@ -175,35 +216,27 @@
 
 <div class="wrap">
   {#if toolbar && !readonly}
-    <div class="bar" role="toolbar" aria-label="Formatting">
+    <!-- mousedown keeps focus where it was, so B / I apply to the table cell being edited -->
+    <div class="bar" role="toolbar" aria-label="Formatting" tabindex="-1" onmousedown={(e) => { if (!(e.target as HTMLElement).closest('select')) e.preventDefault(); }}>
       <div class="seg" role="group" aria-label="Editor style">
         <button type="button" class="btn small" class:on={formatted} onclick={() => (formatted = true)} title="Formatted: Markdown shown only where you type">Formatted</button>
         <button type="button" class="btn small" class:on={!formatted} onclick={() => (formatted = false)} title="Plain Markdown text">Markdown</button>
       </div>
       <span class="gap"></span>
       <select class="field small ttype" aria-label="Text type" value={textType}
-        onchange={(e) => { apply(setLines(view.state, e.currentTarget.value as 'p' | 'h1' | 'h2' | 'h3')); }}>
+        disabled={inCell} onchange={(e) => { apply(setLines(view.state, e.currentTarget.value as 'p' | 'h1' | 'h2' | 'h3'), view); }}>
         <option value="p">Body</option>
         <option value="h1">Title</option>
         <option value="h2">Heading</option>
         <option value="h3">Subheading</option>
       </select>
-      <button type="button" class="tb" title="Bold (⌘B)" aria-label="Bold" onclick={() => apply(toggleWrap(view.state, '**'))}><Icon name="bold" size={17} /></button>
-      <button type="button" class="tb" title="Italic (⌘I)" aria-label="Italic" onclick={() => apply(toggleWrap(view.state, '*'))}><Icon name="italic" size={17} /></button>
+      <button type="button" class="tb" title="Bold (⌘B)" aria-label="Bold" onclick={() => wrap('**')}><Icon name="bold" size={17} /></button>
+      <button type="button" class="tb" title="Italic (⌘I)" aria-label="Italic" onclick={() => wrap('*')}><Icon name="italic" size={17} /></button>
       <button type="button" class="tb" title="Bulleted list" aria-label="Bulleted list" onclick={() => lines('bullet')}><Icon name="list" size={17} /></button>
       <button type="button" class="tb" title="Numbered list" aria-label="Numbered list" onclick={() => lines('number')}><Icon name="list-ordered" size={17} /></button>
       <button type="button" class="tb" title="Checklist" aria-label="Checklist" onclick={() => lines('task')}><Icon name="check-square" size={17} /></button>
       <button type="button" class="tb" title="Quote" aria-label="Quote" onclick={() => lines('quote')}><Icon name="quote" size={17} /></button>
-      {#if inTable}
-        <span class="tgroup" role="group" aria-label="Table">
-          <button type="button" class="tb" title="Add row below" aria-label="Add row" onclick={() => table('row+')}><Icon name="row-plus" size={17} /></button>
-          <button type="button" class="tb" title="Delete row" aria-label="Delete row" onclick={() => table('row-')}><Icon name="row-minus" size={17} /></button>
-          <button type="button" class="tb" title="Add column to the right" aria-label="Add column" onclick={() => table('col+')}><Icon name="col-plus" size={17} /></button>
-          <button type="button" class="tb" title="Delete column" aria-label="Delete column" onclick={() => table('col-')}><Icon name="col-minus" size={17} /></button>
-        </span>
-      {:else}
-        <button type="button" class="tb" title="Insert table" aria-label="Insert table" onclick={() => apply(insertTable(view.state))}><Icon name="table" size={17} /></button>
-      {/if}
+      <button type="button" class="tb" title="Insert table" aria-label="Insert table" disabled={inCell} onclick={addTable}><Icon name="table" size={17} /></button>
       <button type="button" class="tb" title="Link to another recipe ([[)" aria-label="Link to another recipe" onclick={linkRecipe}><Icon name="link" size={17} /></button>
       {#if onfiles}
         <button type="button" class="tb" title="Insert picture" aria-label="Insert picture" onclick={() => imgInput?.click()}><Icon name="image" size={17} /></button>
@@ -211,7 +244,7 @@
       {/if}
     </div>
   {/if}
-  <div class="editor" bind:this={host}></div>
+  <div class="editor" bind:this={host} onfocusin={trackCell} onfocusout={() => setTimeout(trackCell)}></div>
 </div>
 
 <style>
@@ -225,7 +258,7 @@
   .tb { border: 0; background: none; color: var(--text); width: 32px; height: 30px; border-radius: 6px; display: grid; place-items: center; cursor: pointer; }
   .tb:hover { background: var(--sunken); }
   .ttype { width: auto; min-height: 30px; padding: 2px 6px; font-size: 13px; margin-right: 4px; }
-  .tgroup { display: inline-flex; background: var(--accent-soft); border-radius: 7px; }
+  .tb:disabled { opacity: 0.4; cursor: default; }
   .editor { flex: 1; min-height: 0; }
   .editor :global(.cm-editor) { height: 100%; }
   .editor :global(.cm-scroller) { overflow: auto; }
