@@ -28,16 +28,33 @@
     return root;
   }
 
+  /** Path of the virtual "Favorites" group at the top of the tree (not a real folder). */
+  export const FAV = '\u0000favorites';
+
   const saved = (() => { try { return JSON.parse(localStorage.getItem('expanded') || '[]'); } catch { return []; } })();
   export const expanded = $state<Record<string, boolean>>(Object.fromEntries(saved.map((p: string) => [p, true])));
+  expanded[FAV] = (() => { try { return localStorage.getItem('favOpen') !== '0'; } catch { return true; } })();
   export function persistExpanded() {
-    try { localStorage.setItem('expanded', JSON.stringify(Object.keys(expanded).filter((k) => expanded[k]))); } catch {}
+    try {
+      localStorage.setItem('expanded', JSON.stringify(Object.keys(expanded).filter((k) => expanded[k] && k !== FAV)));
+      localStorage.setItem('favOpen', expanded[FAV] ? '1' : '0');
+    } catch {}
+  }
+
+  /** Expand the folders on the way to `path` (and `path` itself when it is a folder); fold the rest. */
+  export function reveal(path: string, isFolder: boolean) {
+    const parts = path.split('/');
+    const upto = isFolder ? parts.length : parts.length - 1;
+    const keep = new Set(Array.from({ length: upto }, (_, i) => parts.slice(0, i + 1).join('/')));
+    for (const k of Object.keys(expanded)) if (k !== FAV && expanded[k] && !keep.has(k)) expanded[k] = false;
+    for (const k of keep) expanded[k] = true;
+    persistExpanded();
   }
 </script>
 
 <script lang="ts">
   import Tree from './Tree.svelte';
-  import { app, go, noteHash, folderHash, canWrite } from '../lib/state.svelte';
+  import { app, go, noteHash, folderHash, canWrite, dirOf, nameOf } from '../lib/state.svelte';
   import { openMenu } from '../lib/menu.svelte';
   import { moveTo, upload, entryItems } from '../lib/ops';
   import { iconOf } from '../lib/icons';
@@ -54,6 +71,7 @@
   }
 
   function open(n: TreeNode) {
+    if (n.path === FAV) return toggle(n);
     if (n.folder) {
       expanded[n.path] = true;
       persistExpanded();
@@ -79,11 +97,20 @@
   }
 
   const icon = (n: TreeNode) => (n.kind === 'pdf' ? '📄' : n.kind === 'image' ? '🖼' : n.kind === 'other' ? '📎' : '');
+  const folderIcon = (n: TreeNode) => (n.path === FAV ? { emoji: '⭐' } : iconOf(n.name, app.folderMeta[n.path]?.emoji));
+  // same rule as the recipe cards: the note's own icon, else its folder's
+  const noteIcon = (n: TreeNode) => {
+    const e = app.byPath[n.path];
+    const d = dirOf(n.path);
+    return e ? iconOf(e.title, e.frontmatter?.emoji, d ? iconOf(nameOf(d), app.folderMeta[d]?.emoji) : null) : null;
+  };
   const label = (n: TreeNode) => (n.folder ? n.name : n.kind === 'note' ? n.name.replace(/\.md$/i, '') : n.name);
 </script>
 
 {#each node.children as n (n.path)}
-  {@const active = app.route.path === n.path}
+  {@const active = app.route.path === n.path && (n.folder ? app.route.view === 'folder' : app.route.view === 'note')}
+  {@const virtual = n.path === FAV}
+  {@const ic = n.folder ? folderIcon(n) : n.kind === 'note' ? noteIcon(n) : null}
   <div
     class="row-item"
     class:active
@@ -91,28 +118,29 @@
     class:drop={dropOver === n.path}
     class:dim={n.path === 'attachments'}
     style="padding-left:{8 + depth * 14}px"
-    draggable={canWrite()}
+    draggable={canWrite() && !virtual}
     role="treeitem"
     aria-selected={active}
+    aria-current={active ? 'page' : undefined}
     aria-expanded={n.folder ? !!expanded[n.path] : undefined}
     tabindex="0"
     ondragstart={(e) => e.dataTransfer?.setData(DRAG, n.path)}
-    ondragover={(e) => { if (n.folder) { e.preventDefault(); dropOver = n.path; } }}
+    ondragover={(e) => { if (n.folder && !virtual) { e.preventDefault(); dropOver = n.path; } }}
     ondragleave={() => (dropOver = '')}
-    ondrop={(e) => n.folder && onDrop(e, n)}
+    ondrop={(e) => n.folder && !virtual && onDrop(e, n)}
     onclick={() => open(n)}
     onkeydown={(e) => { if (e.key === 'Enter') open(n); if (n.folder && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { expanded[n.path] = e.key === 'ArrowRight'; persistExpanded(); } }}
-    oncontextmenu={(e) => openMenu(e, items(n))}
+    oncontextmenu={(e) => { if (!virtual) openMenu(e, items(n)); }}
   >
     {#if n.folder}
       <button class="chev" class:open={expanded[n.path]} aria-label="Toggle folder" tabindex="-1" onclick={(e) => { e.stopPropagation(); toggle(n); }}>›</button>
-    {:else}
+    {:else if !ic}
       <span class="chev-space">{icon(n)}</span>
     {/if}
-    {#if n.folder}{@const ic = iconOf(n.name, app.folderMeta[n.path]?.emoji)}{#if ic}<CardIcon icon={ic} size={15} />{/if}{/if}
+    {#if ic}<span class="ic"><CardIcon icon={ic} size={15} /></span>{/if}
     <span class="name">{label(n)}</span>
     {#if n.folder}<span class="count">{n.children.filter((c) => !c.folder).length || ''}</span>{/if}
-    <button class="more" aria-label="More actions" tabindex="-1" onclick={(e) => openMenu(e, items(n))}>⋯</button>
+    {#if !virtual}<button class="more" aria-label="More actions" tabindex="-1" onclick={(e) => openMenu(e, items(n))}>⋯</button>{/if}
   </div>
   {#if n.folder && expanded[n.path]}
     <Tree node={n} depth={depth + 1} />
@@ -133,6 +161,8 @@
   .chev { border: 0; background: none; width: 18px; padding: 0; cursor: pointer; color: var(--muted); font-size: 16px; transition: transform 0.1s; }
   .chev.open { transform: rotate(90deg); }
   .chev-space { width: 18px; font-size: 11px; text-align: center; }
+  .ic { display: inline-flex; width: 18px; justify-content: center; flex: none; }
+  .folder .ic { width: auto; }
   .count { color: var(--muted); font-size: 12px; }
   .more { border: 0; background: none; color: var(--muted); padding: 0 4px; cursor: pointer; opacity: 0; }
   .row-item:hover .more, .row-item.active .more { opacity: 1; }

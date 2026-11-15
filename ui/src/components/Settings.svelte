@@ -1,10 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { app, toast, loadSession, loadVault, canWrite, noteHash, dirOf } from '../lib/state.svelte';
+  import { app, toast, loadSession, loadVault, noteHash, dirOf } from '../lib/state.svelte';
   import { api } from '../lib/api';
   import { shell } from '../lib/ops';
   import { confirmIt } from '../lib/dialog.svelte';
   import Network from './Network.svelte';
+  import Trash from './Trash.svelte';
+  import SettingsNav, { settingsSections, currentSection } from './SettingsNav.svelte';
+
+  // one page per section (#/settings/<section>); an unknown or hidden section shows General
+  const sec = $derived(settingsSections().some((x) => x.id === currentSection()) ? currentSection() : 'general');
+  const title = $derived(settingsSections().find((x) => x.id === sec)?.label ?? 'Settings');
 
   let theme = $state((() => { try { return localStorage.getItem('theme') || 'system'; } catch { return 'system'; } })());
   let s = $state<any>(null);
@@ -59,8 +65,6 @@
     for (const f of app.files) counts.set(bucket(f.mtime), (counts.get(bucket(f.mtime)) ?? 0) + 1);
     return app.files.filter((f) => f.kind === 'note' && (counts.get(bucket(f.mtime)) ?? 0) <= 20).sort((a, b) => b.mtime - a.mtime).slice(0, 10);
   });
-  let trashCount = $state<number | null>(null);
-  $effect(() => { if (canWrite() && trashCount === null) api('GET', '/api/trash').then((t: any[]) => (trashCount = t.length)).catch(() => (trashCount = 0)); });
   const ago = (t: number) => {
     const m = Math.round((Date.now() / 1000 - t) / 60);
     return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : new Date(t * 1000).toLocaleDateString();
@@ -69,9 +73,14 @@
   async function lockDevice() { await api('DELETE', '/api/session'); await loadSession(); toast('This device is read-only again'); }
 </script>
 
+<div class="mnav"><SettingsNav compact /></div>
+{#if sec === 'trash'}
+  <Trash />
+{:else}
 <div class="page">
-  <h1>Settings</h1>
+  <h1>{title}</h1>
 
+  {#if sec === 'general'}
   <section class="card">
     <h2>Appearance</h2>
     <label class="row">Theme
@@ -94,9 +103,20 @@
         <p>Read-only. To allow editing from this device, set a PIN in the Recipes app on the Mac.</p>
       {/if}
     </section>
-  {:else if s}
+  {/if}
+  <p class="muted small">Recipes {app.session.version} · {app.files.filter((f) => f.kind === 'note').length} notes</p>
+  {:else if sec === 'recent'}
+  <section class="card">
+    {#if recent.length}
+      <ul class="recent">
+        {#each recent as f (f.path)}<li><a href={noteHash(f.path)}>{f.title}</a> <span class="muted small">{dirOf(f.path)} · {ago(f.mtime)}</span></li>{/each}
+      </ul>
+    {:else}<p class="muted small">Nothing has been changed since the recipes were added.</p>{/if}
+  </section>
+  {:else if !s}
+    <p class="muted">Loading…</p>
+  {:else if sec === 'folder'}
     <section class="card">
-      <h2>Recipes folder</h2>
       <p class="mono">{s.vault}</p>
       <p class="muted small">Every recipe is a plain text (Markdown) file in this folder. You can also open and edit them with any text editor or Obsidian; changes show up here instantly.</p>
       <div class="row">
@@ -104,20 +124,16 @@
           <button class="btn" onclick={() => shell('reveal', { path: '' })}>Show in Finder</button>
           <button class="btn" onclick={chooseVault}>Use a different folder…</button>
         {/if}
-        <a class="btn" href="/api/download">Download everything (zip)</a>
       </div>
     </section>
-
-    {#if app.session.shell}
+  {:else if sec === 'app'}
       <section class="card">
-        <h2>Desktop app</h2>
         <label class="row toggle"><input type="checkbox" checked={!!s.autostart} onchange={async (e) => { const r = await shell('autostart', { enabled: e.currentTarget.checked }); if (r) s.autostart = r.enabled; }} /> Open Recipes at login</label>
         <p class="muted small">Closing the window keeps Recipes running in the menu bar, so phones and tablets can still reach it. Quit from the menu-bar icon.</p>
       </section>
-    {/if}
-
+  {:else if sec === 'devices'}
     <section class="card">
-      <h2>Phones, tablets and other computers</h2>
+      <p class="muted small">Phones, tablets and other computers on the same Wi-Fi can open the recipes.</p>
       <Network status={s.network} lan={s.lan} keepAwake={s.keep_awake} onchange={put} />
       <h3>Editing PIN</h3>
       <p class="muted small">Other devices can always read recipes. With the PIN they can also edit, import and delete. {s.pin_set ? 'A PIN is set.' : 'No PIN is set, so other devices are read-only.'}</p>
@@ -127,9 +143,8 @@
         {#if s.pin_set}<button type="button" class="btn danger" onclick={() => savePin(true)}>Remove PIN</button>{/if}
       </form>
     </section>
-
+  {:else if sec === 'ai'}
     <section class="card">
-      <h2>AI assistant <span class="muted small">(optional)</span></h2>
       <label class="row toggle"><input type="checkbox" checked={s.ai.enabled} onchange={(e) => put({ ai: { ...s.ai, enabled: e.currentTarget.checked } })} /> Enable AI features</label>
       <p class="muted small">Off by default. When on, AI can help fix imported recipes and answer questions about a recipe — always as a suggestion you accept or reject. Uses your own API key; nothing runs on this Mac.</p>
       {#if s.ai.enabled}
@@ -157,29 +172,9 @@
         </div>
       {/if}
     </section>
-  {:else}
-    <p class="muted">Loading…</p>
   {/if}
-
-  <section class="card">
-    <h2>Recent changes</h2>
-    {#if recent.length}
-      <ul class="recent">
-        {#each recent as f (f.path)}<li><a href={noteHash(f.path)}>{f.title}</a> <span class="muted small">{dirOf(f.path)} · {ago(f.mtime)}</span></li>{/each}
-      </ul>
-    {:else}<p class="muted small">Nothing has been changed since the recipes were added.</p>{/if}
-  </section>
-
-  {#if canWrite()}
-    <section class="card">
-      <h2>Trash</h2>
-      <p class="muted small">Deleted recipes and earlier versions of edited ones are kept here until the trash is emptied.</p>
-      <div><a class="btn" href="#/trash">Open trash{trashCount ? ` (${trashCount})` : ''}</a></div>
-    </section>
-  {/if}
-
-  <p class="muted small">Recipes {app.session.version} · {app.files.filter((f) => f.kind === 'note').length} notes</p>
 </div>
+{/if}
 
 <style>
   .page { padding: 16px 28px 80px; max-width: 760px; display: grid; gap: 16px; }
@@ -196,5 +191,6 @@
   .keyrow { display: flex; gap: 8px; align-items: end; }
   .keyrow label { flex: 1; }
   .recent { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
-  @media (max-width: 899px) { .page { padding: 8px 14px 96px; } }
+  .mnav { display: none; }
+  @media (max-width: 899px) { .page { padding: 8px 14px 96px; } .mnav { display: block; padding: 10px 14px 0; } }
 </style>

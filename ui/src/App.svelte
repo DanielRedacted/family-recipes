@@ -7,7 +7,7 @@
   import Folder from './components/Folder.svelte';
   import Note from './components/Note.svelte';
   import Settings from './components/Settings.svelte';
-  import Trash from './components/Trash.svelte';
+  import SettingsNav from './components/SettingsNav.svelte';
   import Import from './components/Import.svelte';
   import Ingredients from './components/Ingredients.svelte';
   import Switcher from './components/Switcher.svelte';
@@ -32,7 +32,9 @@
 <svelte:window onkeydown={key} />
 
 <div class="app" class:open={app.sidebar}>
-  <aside class="sidebar no-print" aria-label="Recipes folder"><Sidebar /></aside>
+  <aside class="sidebar no-print" aria-label={app.route.view === 'settings' ? 'Settings' : 'Recipes folder'}>
+    {#if app.route.view === 'settings'}<SettingsNav />{:else}<Sidebar />{/if}
+  </aside>
   <div class="scrim no-print" role="presentation" onclick={() => (app.sidebar = false)}></div>
   <div class="main-col">
     <header class="mobilebar no-print">
@@ -44,7 +46,6 @@
       {#if app.route.view === 'note'}
         {#key app.route.path}<Note path={app.route.path} mode={app.route.mode} />{/key}
       {:else if app.route.view === 'settings'}<Settings />
-      {:else if app.route.view === 'trash'}<Trash />
       {:else if app.route.view === 'import'}<Import />
       {:else if app.route.view === 'ingredients'}<Ingredients query={app.route.path} />
       {:else}{#key app.route.path}<Folder path={app.route.path} />{/key}
@@ -64,9 +65,10 @@
 <Overlays />
 
 <style>
-  .app { display: grid; grid-template-columns: var(--sidebar) 1fr; height: 100vh; height: 100dvh; }
-  .sidebar { border-right: 1px solid var(--border); background: var(--sunken); overflow: hidden; padding-top: env(safe-area-inset-top); }
-  .main-col { display: flex; flex-direction: column; min-width: 0; height: 100%; }
+  .app { display: grid; grid-template-columns: var(--sidebar) 1fr; grid-template-rows: minmax(0, 1fr); height: 100vh; height: 100dvh; overflow: hidden; }
+  /* both columns are exactly one window tall; only their insides scroll */
+  .sidebar { border-right: 1px solid var(--border); background: var(--sunken); overflow: hidden; min-height: 0; max-height: 100dvh; padding-top: env(safe-area-inset-top); }
+  .main-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; }
   main { flex: 1; overflow-y: auto; min-width: 0; }
   .mobilebar, .bottombar, .scrim { display: none; }
   @media (max-width: 899px) {

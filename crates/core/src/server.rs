@@ -267,7 +267,6 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/folders", put(folder_meta_put))
         .route("/api/trash", get(trash_list).delete(trash_empty))
         .route("/api/trash/restore", post(trash_restore))
-        .route("/api/download", get(download))
         .route("/api/settings", get(settings_get).put(settings_put))
         .route("/api/settings/pin", put(settings_pin))
         .route("/api/shell/{action}", post(shell_action))
@@ -608,58 +607,6 @@ async fn trash_empty(State(s): St, caller: Caller) -> Res {
         std::fs::remove_dir_all(&dir).map_err(bad)?;
     }
     Ok(StatusCode::NO_CONTENT.into_response())
-}
-
-#[derive(Deserialize)]
-struct DownloadQ {
-    path: Option<String>,
-}
-
-async fn download(State(s): St, Query(q): Query<DownloadQ>) -> Res {
-    let (abs, name) = match q.path.as_deref().filter(|p| !p.is_empty()) {
-        Some(raw) => {
-            let p = vp(raw)?;
-            (s.abs(&p, true)?, p.name().to_string())
-        }
-        None => (s.root.clone(), "Recipes".to_string()),
-    };
-    if abs.is_file() {
-        let bytes = tokio::fs::read(&abs).await.map_err(bad)?;
-        let disp = format!("attachment; filename*=UTF-8''{}", urlencode(&name));
-        return Ok(([(header::CONTENT_DISPOSITION, disp)], bytes).into_response());
-    }
-    let root = s.root.clone();
-    let bytes = tokio::task::spawn_blocking(move || zip_dir(&root, &abs))
-        .await
-        .unwrap()
-        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
-    let disp = format!("attachment; filename*=UTF-8''{}.zip", urlencode(&name));
-    Ok(([(header::CONTENT_TYPE, "application/zip".to_string()), (header::CONTENT_DISPOSITION, disp)], bytes).into_response())
-}
-
-fn zip_dir(root: &Path, dir: &Path) -> Result<Vec<u8>> {
-    use std::io::Write;
-    let mut buf = std::io::Cursor::new(Vec::new());
-    {
-        let mut z = zip::ZipWriter::new(&mut buf);
-        let opts = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-        let base = dir.parent().unwrap_or(root);
-        let base = if dir == root { root } else { base };
-        for e in walkdir::WalkDir::new(dir)
-            .follow_links(false)
-            .into_iter()
-            .filter_entry(|e| e.depth() == 0 || !e.file_name().to_string_lossy().starts_with('.'))
-            .filter_map(Result::ok)
-        {
-            if e.file_type().is_file() {
-                let rel = e.path().strip_prefix(base)?.to_string_lossy().to_string();
-                z.start_file(rel, opts)?;
-                z.write_all(&std::fs::read(e.path())?)?;
-            }
-        }
-        z.finish()?;
-    }
-    Ok(buf.into_inner())
 }
 
 // ---------- settings (desktop only) ----------

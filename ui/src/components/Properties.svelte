@@ -1,11 +1,11 @@
 <script lang="ts" module>
   import { parseDocument } from 'yaml';
 
-  export const KNOWN = ['tags', 'yield', 'servings', 'prep_time', 'cook_time', 'total_time', 'source', 'author', 'original', 'needs_review', 'emoji', 'color', 'nutrition'];
+  export const KNOWN = ['tags', 'yield', 'servings', 'prep_time', 'cook_time', 'total_time', 'source', 'author', 'original', 'needs_review', 'emoji', 'color', 'nutrition', 'favorite', 'note', 'aliases'];
   export const LABELS: Record<string, string> = {
     tags: 'Tags', yield: 'Yield', servings: 'Servings', prep_time: 'Prep', cook_time: 'Cook', total_time: 'Total',
     source: 'Source', author: 'Author', original: 'Original file', needs_review: 'Needs review', created: 'Created',
-    emoji: 'Icon', color: 'Card colour', nutrition: 'Nutrition',
+    emoji: 'Icon', color: 'Card colour', nutrition: 'Nutrition', favorite: 'Favorite', note: 'Note', aliases: 'Also called',
   };
 
   /** Split raw text into [yaml, body]; yaml is '' when there is no frontmatter. */
@@ -39,15 +39,15 @@
   const fm = $derived(entry.frontmatter ?? {});
   const keys = $derived(Object.keys(fm));
   // shown elsewhere: tags as chips, nutrition as its own table, icon/colour on the cards
-  const HIDDEN = ['tags', 'needs_review', 'original', 'nutrition', 'emoji', 'color'];
+  const HIDDEN = ['tags', 'needs_review', 'original', 'nutrition', 'emoji', 'color', 'favorite'];
   // maps (nutrition) are edited in the file itself
   const editableKeys = $derived(keys.filter((k) => !(fm[k] && typeof fm[k] === 'object' && !Array.isArray(fm[k]))));
   const fmtVal = (v: unknown) => (Array.isArray(v) ? v.join(', ') : v === true ? 'yes' : v === false ? 'no' : v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
   function update(key: string, text: string) {
     let v: unknown = text.trim();
-    if (key === 'tags') v = text.split(',').map((s) => s.trim()).filter(Boolean);
-    else if (key === 'needs_review') v = text.trim() ? true : undefined;
+    if (key === 'tags' || key === 'aliases') v = text.split(',').map((s) => s.trim()).filter(Boolean);
+    else if (key === 'needs_review' || key === 'favorite') v = text.trim() && !/^(no|false)$/i.test(text.trim()) ? true : undefined;
     else if (/^\d+(\.\d+)?$/.test(text.trim())) v = Number(text.trim());
     onchange(setProp(entry.raw ?? '', key, v));
   }
@@ -55,7 +55,7 @@
   function add() {
     const k = newKey.trim().toLowerCase().replace(/\s+/g, '_');
     if (!k || k in fm) return;
-    onchange(setProp(entry.raw ?? '', k, k === 'tags' ? ['recipe'] : 'TBD'));
+    onchange(setProp(entry.raw ?? '', k, k === 'tags' ? ['recipe'] : k === 'favorite' ? true : 'TBD'));
     newKey = '';
   }
 
@@ -66,6 +66,7 @@
   <section class="props" aria-label="Properties">
     {#if !editing}
       <div class="chips">
+        {#if fm.favorite === true}<span class="chip fav">★ Favorite</span>{/if}
         {#each keys.filter((k) => !HIDDEN.includes(k)) as k}
           <span class="chip"><span class="k">{LABELS[k] ?? k}</span>
             {#if k === 'source' && /^https?:/.test(String(fm[k]))}
@@ -108,6 +109,7 @@
   .chip { background: var(--sunken); border-radius: 14px; padding: 3px 10px; text-decoration: none; color: var(--text); }
   .chip .k { color: var(--muted); margin-right: 5px; }
   .chip.tag { color: var(--accent-ink); background: var(--accent-soft); }
+  .chip.fav { background: var(--p-yellow); }
   table { border-collapse: collapse; width: 100%; max-width: 640px; margin-bottom: 8px; }
   th { text-align: left; font-weight: 500; color: var(--muted); padding: 3px 8px 3px 0; width: 140px; }
   td { padding: 3px 0; }

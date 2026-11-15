@@ -4,13 +4,14 @@
   import { basicSetup } from 'codemirror';
   import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
   import { yamlFrontmatter } from '@codemirror/lang-yaml';
-  import { Compartment, EditorState, type TransactionSpec } from '@codemirror/state';
+  import { Compartment, EditorState, Prec, type TransactionSpec } from '@codemirror/state';
+  import { completionStatus } from '@codemirror/autocomplete';
   import { indentWithTab } from '@codemirror/commands';
   import Icon from './Icon.svelte';
   import { wikiLinks } from '../lib/complete';
   import { ingredientSuggest, loadIngredients } from '../lib/ingredients.svelte';
   import { livePreview } from '../lib/livePreview';
-  import { toggleLines, toggleWrap, type LineKind } from '../lib/mdCommands';
+  import { insertTable, lineKind, setLines, tableInfo, tableMove, tableOp, toggleLines, toggleWrap, type LineKind } from '../lib/mdCommands';
   import { vaultTarget } from '../lib/markdown';
   import { fileUrl } from '../lib/api';
   import { app, go, noteHash, resolveLink, toast } from '../lib/state.svelte';
@@ -31,6 +32,8 @@
   let view: EditorView;
   let imgInput: HTMLInputElement | undefined = $state();
   const look = new Compartment();
+  let textType = $state<'p' | 'h1' | 'h2' | 'h3'>('p');
+  let inTable = $state(false);
   let formatted = $state((() => { try { return localStorage.getItem('editorMode') !== 'source'; } catch { return true; } })());
 
   const theme = EditorView.theme({
@@ -60,7 +63,20 @@
       else toast(`No recipe called “${t}”`, 'error');
     },
   });
-  const lookExt = (on: boolean) => (on ? [preview, EditorView.editorAttributes.of({ class: 'cm-formatted' })] : []);
+  // in a table: Tab / Shift-Tab go to the next / previous cell, Enter to the cell below
+  const inCell = (f: (s: EditorState) => TransactionSpec | null) => (v: EditorView) => {
+    if (completionStatus(v.state) === 'active') return false;
+    const spec = f(v.state);
+    if (!spec) return false;
+    v.dispatch(spec, { scrollIntoView: true });
+    return true;
+  };
+  const tableKeys = Prec.high(keymap.of([
+    { key: 'Tab', run: inCell((s) => tableMove(s, 1)) },
+    { key: 'Shift-Tab', run: inCell((s) => tableMove(s, -1)) },
+    { key: 'Enter', run: inCell((s) => tableMove(s, 'down')) },
+  ]));
+  const lookExt = (on: boolean) => (on ? [preview, tableKeys, EditorView.editorAttributes.of({ class: 'cm-formatted' })] : []);
 
   async function dropFiles(files: File[], pos: number) {
     if (!onfiles || !files.length) return false;
@@ -89,7 +105,10 @@
             { key: 'Mod-b', run: () => apply(toggleWrap(view.state, '**')) },
             { key: 'Mod-i', run: () => apply(toggleWrap(view.state, '*')) },
           ]),
-          EditorView.updateListener.of((u) => { if (u.docChanged) onchange(u.state.doc.toString()); }),
+          EditorView.updateListener.of((u) => {
+            if (u.docChanged) onchange(u.state.doc.toString());
+            if (u.docChanged || u.selectionSet) { textType = lineKind(u.state); inTable = !!tableInfo(u.state); }
+          }),
           EditorView.domEventHandlers({
             drop: (e, v) => {
               const files = Array.from(e.dataTransfer?.files ?? []).filter((f) => f.type.startsWith('image/'));
@@ -133,6 +152,7 @@
     return true;
   }
   const lines = (k: LineKind) => apply(toggleLines(view.state, k));
+  const table = (op: 'row+' | 'row-' | 'col+' | 'col-') => { const spec = tableOp(view.state, op); if (spec) apply(spec); else view.focus(); };
 
   export function insert(text: string) {
     const pos = view.state.selection.main.head;
@@ -161,13 +181,29 @@
         <button type="button" class="btn small" class:on={!formatted} onclick={() => (formatted = false)} title="Plain Markdown text">Markdown</button>
       </div>
       <span class="gap"></span>
-      <button type="button" class="tb" title="Section heading" aria-label="Section heading" onclick={() => lines('h2')}><Icon name="heading" size={17} /></button>
+      <select class="field small ttype" aria-label="Text type" value={textType}
+        onchange={(e) => { apply(setLines(view.state, e.currentTarget.value as 'p' | 'h1' | 'h2' | 'h3')); }}>
+        <option value="p">Body</option>
+        <option value="h1">Title</option>
+        <option value="h2">Heading</option>
+        <option value="h3">Subheading</option>
+      </select>
       <button type="button" class="tb" title="Bold (⌘B)" aria-label="Bold" onclick={() => apply(toggleWrap(view.state, '**'))}><Icon name="bold" size={17} /></button>
       <button type="button" class="tb" title="Italic (⌘I)" aria-label="Italic" onclick={() => apply(toggleWrap(view.state, '*'))}><Icon name="italic" size={17} /></button>
       <button type="button" class="tb" title="Bulleted list" aria-label="Bulleted list" onclick={() => lines('bullet')}><Icon name="list" size={17} /></button>
       <button type="button" class="tb" title="Numbered list" aria-label="Numbered list" onclick={() => lines('number')}><Icon name="list-ordered" size={17} /></button>
       <button type="button" class="tb" title="Checklist" aria-label="Checklist" onclick={() => lines('task')}><Icon name="check-square" size={17} /></button>
       <button type="button" class="tb" title="Quote" aria-label="Quote" onclick={() => lines('quote')}><Icon name="quote" size={17} /></button>
+      {#if inTable}
+        <span class="tgroup" role="group" aria-label="Table">
+          <button type="button" class="tb" title="Add row below" aria-label="Add row" onclick={() => table('row+')}><Icon name="row-plus" size={17} /></button>
+          <button type="button" class="tb" title="Delete row" aria-label="Delete row" onclick={() => table('row-')}><Icon name="row-minus" size={17} /></button>
+          <button type="button" class="tb" title="Add column to the right" aria-label="Add column" onclick={() => table('col+')}><Icon name="col-plus" size={17} /></button>
+          <button type="button" class="tb" title="Delete column" aria-label="Delete column" onclick={() => table('col-')}><Icon name="col-minus" size={17} /></button>
+        </span>
+      {:else}
+        <button type="button" class="tb" title="Insert table" aria-label="Insert table" onclick={() => apply(insertTable(view.state))}><Icon name="table" size={17} /></button>
+      {/if}
       <button type="button" class="tb" title="Link to another recipe ([[)" aria-label="Link to another recipe" onclick={linkRecipe}><Icon name="link" size={17} /></button>
       {#if onfiles}
         <button type="button" class="tb" title="Insert picture" aria-label="Insert picture" onclick={() => imgInput?.click()}><Icon name="image" size={17} /></button>
@@ -188,6 +224,8 @@
   .seg .btn:last-child { border-radius: 0 7px 7px 0; border-left: 0; }
   .tb { border: 0; background: none; color: var(--text); width: 32px; height: 30px; border-radius: 6px; display: grid; place-items: center; cursor: pointer; }
   .tb:hover { background: var(--sunken); }
+  .ttype { width: auto; min-height: 30px; padding: 2px 6px; font-size: 13px; margin-right: 4px; }
+  .tgroup { display: inline-flex; background: var(--accent-soft); border-radius: 7px; }
   .editor { flex: 1; min-height: 0; }
   .editor :global(.cm-editor) { height: 100%; }
   .editor :global(.cm-scroller) { overflow: auto; }

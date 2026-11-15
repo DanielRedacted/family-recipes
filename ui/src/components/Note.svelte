@@ -2,7 +2,8 @@
   import Icon from './Icon.svelte';
   import { onMount, untrack } from 'svelte';
   import { app, canWrite, go, folderHash, noteHash, dirOf, nameOf, toast, loadVault, setLeaveGuard, clearLeaveGuard, resolveLink } from '../lib/state.svelte';
-  import { fileUrl, saveFile, ApiError, downloadUrl, api } from '../lib/api';
+  import { fileUrl, saveFile, ApiError, api } from '../lib/api';
+  import Crumbs from './Crumbs.svelte';
   import { renderMarkdown, scaledRaw, bodyOf, vaultTarget } from '../lib/markdown';
   import { yieldNumber, type Units } from '../lib/scale';
   import { openMenu, type MenuItem } from '../lib/menu.svelte';
@@ -253,9 +254,7 @@
 {:else}
   <div class="page" class:split={mode === 'split'} class:editing={mode !== 'read'}>
     <header class="toolbar row no-print">
-      <nav class="crumbs" aria-label="Breadcrumb">
-        <a href={folderHash(dirOf(path))}>{dirOf(path) || 'All recipes'}</a><span class="sep">›</span><span>{nameOf(path)}</span>
-      </nav>
+      <Crumbs dir={dirOf(path)} leaf={entry.kind === 'note' ? entry.title : nameOf(path)} />
       <span class="spacer"></span>
       {#if entry.kind === 'note' && mode !== 'read'}
         <span class="save small muted" aria-live="polite">{saving ? 'Saving…' : dirty ? 'Unsaved changes' : 'Saved'}</span>
@@ -343,7 +342,7 @@
     {:else}
       <h1 class="ftitle">{nameOf(path)}</h1>
       <p class="muted">This file can’t be shown here.</p>
-      <a class="btn" href={downloadUrl(path)}>Download</a>
+      {#if app.session.shell}<button class="btn" onclick={() => shell('reveal', { path })}>Show in Finder</button>{/if}
     {/if}
   </div>
 
@@ -363,9 +362,6 @@
 <style>
   .page { padding: 16px 28px 64px; }
   .toolbar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 6px 0 10px; }
-  .crumbs { display: flex; gap: 6px; min-width: 0; color: var(--muted); }
-  .crumbs a { color: var(--muted); text-decoration: none; }
-  .crumbs > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
   .mentions { margin: 28px 0 0; padding-top: 12px; border-top: 1px solid var(--border); max-width: 760px; }
   .mentions h2 { font: 600 14px var(--sans); color: var(--muted); margin: 0 0 6px; }
   .mentions ul { margin: 0; padding-left: 18px; }
@@ -387,7 +383,6 @@
   .full { max-width: 100%; border-radius: var(--radius); }
   @media (max-width: 899px) {
     .page { padding: 6px 14px 96px; }
-    .crumbs { display: none; }
     .editpane { height: calc(100vh - 170px); top: 52px; }
     .recipebar .spacer { display: none; }
     .recipebar .btn.primary { width: 100%; justify-content: center; }

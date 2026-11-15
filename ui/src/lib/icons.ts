@@ -89,6 +89,90 @@ export function guessIcon(name: string): CardIcon {
   return null;
 }
 
+/**
+ * Ingredient icons. First match wins, so specific phrases come before the words they contain
+ * ("peanut butter" before "butter"); an empty icon means "no fitting picture" and stops the search
+ * ("black pepper" is not a chili).
+ */
+const INGREDIENT: [string, string][] = [
+  ['black pepper|white pepper|peppercorn|cream of tartar|baking powder|baking soda|vanilla|yeast|sugar|molasses|cornstarch|gelatin|sprinkles|vinegar|extract|rice syrup|corn syrup|tapioca syrup', ''],
+  ['peanut butter|peanut', '🥜'],
+  ['coconut milk|coconut cream|coconut oil|coconut flour|coconut', '🥥'],
+  ['ice cream', '🍨'],
+  ['cream cheese|cheese|parmesan|cheddar|mozzarella|ricotta|romano|monterey jack|feta|gruyere|swiss', '🧀'],
+  ['buttermilk|milk|heavy cream|whipping cream|half and half|cream', '🥛'],
+  ['butter|ghee', '🧈'],
+  ['yogurt|yoghurt', '🥣'],
+  ['egg|egg white|egg yolk|yolk', '🥚'],
+  ['chicken broth|beef broth|broth|stock|bouillon', '🍲'],
+  ['chicken|turkey', '🍗'],
+  ['bacon', '🥓'],
+  ['ham|pork|sausage|chorizo|pepperoni', '🍖'],
+  ['beef|steak|ground chuck|chuck|brisket|short rib|tri tip', '🥩'],
+  ['shrimp|prawn', '🦐'],
+  ['crab|crab meat', '🦀'],
+  ['lobster', '🦞'],
+  ['clam|oyster|mussel', '🦪'],
+  ['fish|salmon|cod|tuna|mahi mahi|mahi|tilapia|halibut|anchovy', '🐟'],
+  ['green bean|edamame|snap pea|pea pod', '🫛'],
+  ['bean|black bean|pinto bean|lentil|chickpea|garbanzo|split pea', '🫘'],
+  ['sweet potato|yam', '🍠'],
+  ['potato|potato flakes', '🥔'],
+  ['tomato|tomato sauce|tomato paste|salsa', '🍅'],
+  ['bell pepper', '🫑'],
+  ['jalapeño|jalapeno|chili|chile|chilies|chiles|chipotle|cayenne|tabasco|hot sauce|red pepper flakes|pepper flakes|green chili|serrano|poblano|paprika|chili powder', '🌶️'],
+  ['carrot', '🥕'],
+  ['broccoli', '🥦'],
+  ['corn tortilla|flour tortilla|tortilla', '🫓'],
+  ['popcorn', '🍿'],
+  ['corn|sweet corn', '🌽'],
+  ['cucumber|pickle|zucchini', '🥒'],
+  ['lettuce|spinach|kale|cabbage|greens|bok choy|chard', '🥬'],
+  ['basil|parsley|cilantro|thyme|rosemary|oregano|herb|herbs|mint|dill|sage|bay leaf|bay leaves|italian seasoning|chive', '🌿'],
+  ['mushroom', '🍄'],
+  ['onion|shallot|scallion|green onion|leek|onion powder', '🧅'],
+  ['garlic|garlic powder|granulated garlic', '🧄'],
+  ['ginger', '🫚'],
+  ['avocado', '🥑'],
+  ['olive|olive oil', '🫒'],
+  ['lemon|lime|lemon juice|lime juice|lemon zest', '🍋'],
+  ['orange|orange juice|mandarin', '🍊'],
+  ['apple|applesauce', '🍎'],
+  ['banana', '🍌'],
+  ['strawberry|strawberries', '🍓'],
+  ['blueberry|blueberries|blackberry|blackberries', '🫐'],
+  ['cherry|cherries', '🍒'],
+  ['peach', '🍑'],
+  ['pineapple', '🍍'],
+  ['raisin|grape', '🍇'],
+  ['pumpkin|pumpkin puree|squash', '🎃'],
+  ['almond|walnut|pecan|hazelnut|pistachio|cashew|nut|macadamia', '🌰'],
+  ['chocolate|chocolate chip|cocoa|cacao|cocoa powder', '🍫'],
+  ['coffee|espresso', '☕'],
+  ['tea', '🍵'],
+  ['wine|marsala|sherry', '🍷'],
+  ['beer', '🍺'],
+  ['rum|vodka|tequila|whiskey|bourbon|brandy|liqueur|triple sec', '🥃'],
+  ['flour|wheat|oat|oats|rolled oats|spelt|barley|einkorn|buckwheat|grain|bran|quinoa|millet', '🌾'],
+  ['rice', '🍚'],
+  ['pasta|noodle|macaroni|spaghetti|penne|fettuccine|lasagna', '🍝'],
+  ['bread|breadcrumb|bread crumb|panko|bun|crouton', '🍞'],
+  ['honey', '🍯'],
+  ['maple syrup|maple', '🍁'],
+  ['salt|sea salt|kosher salt', '🧂'],
+  ['water', '💧'],
+  ['ice', '🧊'],
+  ['oil|vegetable oil|canola oil|shortening', '🫗'],
+];
+const INGREDIENT_RX = compile(INGREDIENT);
+
+/** Picture for an ingredient name, or null when none fits. */
+export function ingredientIcon(name: string): CardIcon {
+  const n = name.replace(/[_-]+/g, ' ');
+  for (const [rx, e] of INGREDIENT_RX) if (rx.test(n)) return e ? { emoji: e } : null;
+  return null;
+}
+
 /** Up to `n` distinct emoji suggestions for a name (best first), padded with common food emoji. */
 export function suggestEmoji(name: string, n = 24): string[] {
   const n2 = name.replace(/[_-]+/g, ' ');

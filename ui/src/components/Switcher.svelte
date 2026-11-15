@@ -2,6 +2,7 @@
   import { app, go, noteHash, folderHash } from '../lib/state.svelte';
   import { search } from '../lib/search';
   import { catalog, loadIngredients } from '../lib/ingredients.svelte';
+  import { ingredientIcon } from '../lib/icons';
 
   const dir = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
   let q = $state('');
@@ -9,7 +10,8 @@
   let input: HTMLInputElement | undefined = $state();
 
   const folderHits = $derived(q.trim() ? app.folders.filter((f) => f.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 5) : []);
-  const hits = $derived(q.trim() ? search(q, 40) : [...app.files].filter((f) => f.kind === 'note').sort((a, b) => b.mtime - a.mtime).slice(0, 10).map((f) => ({ path: f.path, title: f.title })));
+  const hits = $derived(q.trim() ? search(q, 40) : [...app.files].filter((f) => f.kind === 'note')
+    .sort((a, b) => Number(b.frontmatter?.favorite === true) - Number(a.frontmatter?.favorite === true) || b.mtime - a.mtime).slice(0, 10).map((f) => ({ path: f.path, title: f.title })));
   const ingHits = $derived(q.trim().length >= 2 ? catalog.items.filter((i) => i.name.toLowerCase().includes(q.trim().toLowerCase())).sort((a, b) => b.count - a.count).slice(0, 3) : []);
   const all = $derived([
     ...folderHits.map((f) => ({ path: f, title: f, folder: true, ing: false, sub: '' })),
@@ -50,7 +52,7 @@
         {#each all as h, i (h.path + h.folder + h.ing)}
           <li role="option" aria-selected={i === sel}>
             <button class:sel={i === sel} onmouseenter={() => (sel = i)} onclick={() => pick(i)}>
-              <span>{h.folder ? '🗀 ' : h.ing ? '🥕 ' : ''}{h.title}</span>
+              <span>{h.folder ? '🗀 ' : h.ing ? ((ingredientIcon(h.title) as { emoji?: string } | null)?.emoji ?? '🥕') + ' ' : ''}{h.title}</span>
               {#if !h.folder}<span class="muted small">{h.sub}</span>{/if}
             </button>
           </li>

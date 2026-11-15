@@ -1,10 +1,12 @@
-// Formatted ("live preview") editing, Obsidian style: the document stays plain Markdown and is
-// saved exactly as typed. Decorations only change how it looks: markup is hidden except on the
-// line(s) the cursor is in, headings are sized, bullets become dots, task boxes become
-// checkboxes, images show inline, and [[links]] look like links.
+// Formatted editing, Apple Notes style: the document stays plain Markdown and is saved exactly as
+// typed, but the markup (#, **, >, [ ](url), table pipes…) is never shown. Decorations hide it,
+// the cursor steps over it (atomic ranges), and deleting one half of a pair removes the other
+// half too, so formatting is removed cleanly instead of leaving stray symbols. Headings are sized,
+// bullets become dots, task boxes become checkboxes, images show inline, tables are grids.
 import { syntaxTree } from '@codemirror/language';
-import { RangeSet, type EditorState, type Range } from '@codemirror/state';
+import { EditorState, Prec, RangeSet, StateField, Transaction, type Range } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view';
+import type { SyntaxNode } from '@lezer/common';
 
 export interface LivePreviewOptions {
   /** URL for an image reference as written in the note (or null to leave it as text) */
@@ -54,45 +56,62 @@ class Rule extends WidgetType {
   toDOM() { const s = document.createElement('span'); s.className = 'cm-lp-hr'; return s; }
 }
 
+class EmptyCell extends WidgetType {
+  eq() { return true; }
+  toDOM() { const s = document.createElement('span'); s.className = 'cm-tbl-cell'; return s; }
+}
+
+class TableSep extends WidgetType {
+  eq() { return true; }
+  toDOM() { const d = document.createElement('div'); d.className = 'cm-tbl-sep'; return d; }
+}
+
 const hide = Decoration.replace({});
 const bullet = Decoration.replace({ widget: new Bullet() });
 const rule = Decoration.replace({ widget: new Rule() });
 const mark = (cls: string) => Decoration.mark({ class: cls });
 const line = (cls: string) => Decoration.line({ class: cls });
 const WIKI = /\[\[([^\]\n]+)\]\]/g;
+const PAIRS = /^(StrongEmphasis|Emphasis|Strikethrough|InlineCode)$/;
+const PAIR_MARK: Record<string, string> = { StrongEmphasis: 'EmphasisMark', Emphasis: 'EmphasisMark', Strikethrough: 'StrikethroughMark', InlineCode: 'CodeMark' };
 
-/** Is any selection range on the lines spanned by [from, to]? */
-function touches(state: EditorState, from: number, to: number) {
-  const a = state.doc.lineAt(from).from;
-  const b = state.doc.lineAt(to).to;
-  return state.selection.ranges.some((r) => r.to >= a && r.from <= b);
-}
+const isReplace = (d: Decoration) => (d.spec as { widget?: unknown; block?: boolean }).widget !== undefined || d === hide;
 
-function build(view: EditorView, opts: LivePreviewOptions): DecorationSet {
+// ---------- inline markup ----------
+
+function build(view: EditorView, opts: LivePreviewOptions): { deco: DecorationSet; atomic: DecorationSet } {
   const { state } = view;
   const out: Range<Decoration>[] = [];
+  const atomic: Range<Decoration>[] = [];
   const doc = state.doc;
+  const push = (d: Decoration, from: number, to = from) => {
+    if (to < from || (to === from && isReplace(d) && d === hide)) return;
+    out.push(d.range(from, to));
+    if (isReplace(d) && to > from) atomic.push(d.range(from, to));
+  };
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(state).iterate({
       from,
       to,
       enter: (n) => {
         const name = n.name;
-        const active = touches(state, n.from, n.to);
         const h = /^(ATX|Setext)Heading(\d)$/.exec(name);
         if (h) { out.push(line(`cm-lp-h${h[2]}`).range(doc.lineAt(n.from).from)); return; }
         switch (name) {
           case 'Frontmatter':
             for (let l = doc.lineAt(n.from).number; l <= doc.lineAt(n.to).number; l++) out.push(line('cm-lp-fm').range(doc.line(l).from));
             return false;
-          case 'HeaderMark':
-            if (!active && n.to < doc.lineAt(n.from).to) out.push(hide.range(n.from, Math.min(n.to + 1, doc.lineAt(n.from).to)));
-            else if (!active) out.push(hide.range(n.from, n.to));
+          case 'HeaderMark': {
+            const end = doc.lineAt(n.from).to;
+            // the "## " before a heading, or the closing "##" / setext underline
+            if (n.to < end && n.from === doc.lineAt(n.from).from + (doc.lineAt(n.from).text.length - doc.lineAt(n.from).text.trimStart().length)) push(hide, n.from, Math.min(n.to + 1, end));
+            else push(hide, n.from, n.to);
             return;
+          }
           case 'EmphasisMark':
           case 'CodeMark':
           case 'StrikethroughMark':
-            if (!active && n.node.parent?.name !== 'FencedCode') out.push(hide.range(n.from, n.to));
+            if (n.node.parent?.name !== 'FencedCode') push(hide, n.from, n.to);
             return;
           case 'StrongEmphasis': out.push(mark('cm-lp-strong').range(n.from, n.to)); return;
           case 'Emphasis': out.push(mark('cm-lp-em').range(n.from, n.to)); return;
@@ -101,50 +120,49 @@ function build(view: EditorView, opts: LivePreviewOptions): DecorationSet {
           case 'FencedCode':
             for (let l = doc.lineAt(n.from).number; l <= doc.lineAt(n.to).number; l++) out.push(line('cm-lp-codeblock').range(doc.line(l).from));
             return;
-          case 'Table':
-            for (let l = doc.lineAt(n.from).number; l <= doc.lineAt(n.to).number; l++) out.push(line('cm-lp-table').range(doc.line(l).from));
-            return false;
           case 'Blockquote':
             for (let l = doc.lineAt(n.from).number; l <= doc.lineAt(n.to).number; l++) out.push(line('cm-lp-quote').range(doc.line(l).from));
             return;
           case 'QuoteMark':
-            if (!active) out.push(hide.range(n.from, Math.min(n.to + (doc.sliceString(n.to, n.to + 1) === ' ' ? 1 : 0), doc.lineAt(n.from).to)));
+            push(hide, n.from, Math.min(n.to + (doc.sliceString(n.to, n.to + 1) === ' ' ? 1 : 0), doc.lineAt(n.from).to));
             return;
           case 'HorizontalRule':
-            if (!active) out.push(rule.range(n.from, n.to));
+            push(rule, n.from, n.to);
             return;
           case 'ListMark': {
             const text = doc.sliceString(n.from, n.to);
-            const task = n.node.parent?.getChild('Task');
-            if (/^[-*+]$/.test(text) && !active && !task) out.push(bullet.range(n.from, n.to));
-            else if (/^[-*+]$/.test(text) && !active && task) out.push(hide.range(n.from, Math.min(n.to + 1, task.from)));
+            if (n.node.parent?.getChild('Task')) return; // the checkbox covers it
+            const space = doc.sliceString(n.to, n.to + 1) === ' ' ? 1 : 0;
+            if (/^[-*+]$/.test(text)) push(bullet, n.from, n.to + space);
             else out.push(mark('cm-lp-listmark').range(n.from, n.to));
             return;
           }
           case 'TaskMarker': {
             const checked = /x/i.test(doc.sliceString(n.from, n.to));
-            if (!active) out.push(Decoration.replace({ widget: new Checkbox(checked, n.from) }).range(n.from, n.to));
-            if (checked) out.push(mark('cm-lp-done').range(n.to, doc.lineAt(n.to).to));
+            const lm = n.node.parent?.parent?.getChild('ListMark');
+            const start = lm ? lm.from : n.from;
+            const end = Math.min(n.to + (doc.sliceString(n.to, n.to + 1) === ' ' ? 1 : 0), doc.lineAt(n.to).to);
+            push(Decoration.replace({ widget: new Checkbox(checked, n.from) }), start, end);
+            if (checked && end < doc.lineAt(n.to).to) out.push(mark('cm-lp-done').range(end, doc.lineAt(n.to).to));
             return;
           }
           case 'Image': {
             const url = n.node.getChild('URL');
-            if (!url || active) return;
+            if (!url) return;
             const src = opts.imageUrl(doc.sliceString(url.from, url.to).replace(/^<|>$/g, ''));
             const alt = doc.sliceString(n.from + 2, doc.sliceString(n.from, n.to).indexOf(']') + n.from);
-            if (src) out.push(Decoration.replace({ widget: new Img(src, alt) }).range(n.from, n.to));
+            if (src) push(Decoration.replace({ widget: new Img(src, alt) }), n.from, n.to);
             return false;
           }
           case 'Link': {
             out.push(mark('cm-lp-link').range(n.from, n.to));
-            if (active) return false;
             // hide "[" and "](url)" — keep the text
             const marks = n.node.getChildren('LinkMark');
             if (marks.length >= 2) {
-              out.push(hide.range(marks[0].from, marks[0].to));
-              out.push(hide.range(marks[1].from, n.to));
+              push(hide, marks[0].from, marks[0].to);
+              push(hide, marks[1].from, n.to);
             }
-            return false;
+            return;
           }
         }
       },
@@ -155,28 +173,147 @@ function build(view: EditorView, opts: LivePreviewOptions): DecorationSet {
       const a = from + m.index!;
       const b = a + m[0].length;
       out.push(mark('cm-lp-wikilink').range(a, b));
-      if (!touches(state, a, b)) {
-        const bar = m[1].indexOf('|');
-        out.push(hide.range(a, a + 2 + (bar >= 0 ? bar + 1 : 0)));
-        out.push(hide.range(b - 2, b));
-      }
+      const bar = m[1].indexOf('|');
+      push(hide, a, a + 2 + (bar >= 0 ? bar + 1 : 0));
+      push(hide, b - 2, b);
     }
   }
-  return RangeSet.of(out, true);
+  // an empty pair just made by the B / I buttons ("**|**"): hide it while the cursor is inside
+  for (const r of state.selection.ranges) {
+    if (!r.empty) continue;
+    const p = r.head;
+    for (const w of [2, 1]) {
+      const pair = doc.sliceString(p - w, p + w);
+      if (pair === '*'.repeat(2 * w) || pair === '~'.repeat(2 * w)) { out.push(hide.range(p - w, p), hide.range(p, p + w)); break; }
+    }
+  }
+  return { deco: RangeSet.of(out, true), atomic: RangeSet.of(atomic, true) };
+}
+
+// ---------- tables: rows drawn as grids, pipes and the |---| row hidden ----------
+
+function tableDecos(state: EditorState): { deco: DecorationSet; atomic: DecorationSet } {
+  const out: Range<Decoration>[] = [];
+  const atomic: Range<Decoration>[] = [];
+  const doc = state.doc;
+  const hideR = (a: number, b: number) => { if (b > a) { out.push(hide.range(a, b)); atomic.push(hide.range(a, b)); } };
+  syntaxTree(state).iterate({
+    enter: (n) => {
+      if (n.name !== 'Table') return;
+      let cols = 0;
+      for (let c: SyntaxNode | null = n.node.firstChild; c; c = c.nextSibling) {
+        const l = doc.lineAt(c.from);
+        if (c.name === 'TableDelimiter') { // the |---|---| line
+          const d = Decoration.replace({ widget: new TableSep(), block: true });
+          out.push(d.range(l.from, l.to));
+          atomic.push(d.range(l.from, l.to));
+          continue;
+        }
+        if (c.name !== 'TableHeader' && c.name !== 'TableRow') continue;
+        // a cell is everything between two pipes, padding spaces included, so typing a space
+        // at the end of a cell stays in that cell; only the pipes are hidden
+        const pipes: number[] = [];
+        for (let i = 0; i < l.text.length; i++) if (l.text[i] === '|' && l.text[i - 1] !== '\\') pipes.push(i);
+        const bounds = [-1, ...pipes, l.text.length];
+        const cells: [number, number][] = [];
+        for (let i = 0; i < bounds.length - 1; i++) {
+          const a = bounds[i] + 1, b = bounds[i + 1];
+          if ((i === 0 || i === bounds.length - 2) && !l.text.slice(a, b).trim()) continue; // outside the outer pipes
+          cells.push([l.from + a, l.from + b]);
+        }
+        if (c.name === 'TableHeader') cols = cells.length;
+        out.push(Decoration.line({ class: c.name === 'TableHeader' ? 'cm-tbl-row cm-tbl-head' : 'cm-tbl-row', attributes: { style: `--cols:${Math.max(cols, 1)}` } }).range(l.from));
+        let prev = l.from;
+        for (const [a, b] of cells) {
+          hideR(prev, a);
+          if (b > a) out.push(mark('cm-tbl-cell').range(a, b));
+          else out.push(Decoration.widget({ widget: new EmptyCell(), side: 1 }).range(a));
+          prev = b;
+        }
+        hideR(prev, l.to);
+      }
+      return false;
+    },
+  });
+  return { deco: RangeSet.of(out, true), atomic: RangeSet.of(atomic, true) };
+}
+
+const tables = StateField.define<{ deco: DecorationSet; atomic: DecorationSet }>({
+  create: (s) => tableDecos(s),
+  update: (v, tr) => (tr.docChanged || syntaxTree(tr.startState) !== syntaxTree(tr.state) ? tableDecos(tr.state) : v),
+  provide: (f) => [
+    Prec.high(EditorView.decorations.from(f, (v) => v.deco)),
+    EditorView.atomicRanges.of((view) => view.state.field(f).atomic),
+  ],
+});
+
+// ---------- deleting half of a pair removes the other half ----------
+
+/**
+ * After a deletion, a bold/italic/strike/code span, link or [[link]] that lost one of its hidden
+ * marks — or all of its text — has its remaining marks removed too.
+ */
+function pairCleanup(tr: Transaction) {
+  if (!tr.docChanged || !tr.isUserEvent('delete')) return tr;
+  const start = tr.startState;
+  const extra: { from: number; to: number }[] = [];
+  const covers = (a: number, b: number, f: number, t: number) => f <= a && t >= b;
+  tr.changes.iterChangedRanges((fA, tA) => {
+    if (tA <= fA) return;
+    syntaxTree(start).iterate({
+      from: fA, to: tA,
+      enter: (n) => {
+        let head: { from: number; to: number } | null = null;
+        let tail: { from: number; to: number } | null = null;
+        if (PAIRS.test(n.name)) {
+          const ms = n.node.getChildren(PAIR_MARK[n.name]);
+          if (ms.length < 2) return;
+          head = { from: ms[0].from, to: ms[0].to };
+          tail = { from: ms[ms.length - 1].from, to: ms[ms.length - 1].to };
+        } else if (n.name === 'Link') {
+          const ms = n.node.getChildren('LinkMark');
+          if (ms.length < 2) return;
+          head = { from: ms[0].from, to: ms[0].to };
+          tail = { from: ms[1].from, to: n.to };
+        } else return;
+        const hd = covers(head.from, head.to, fA, tA), tl = covers(tail.from, tail.to, fA, tA);
+        const textGone = fA <= head.to && tA >= tail.from;
+        if (hd && !tl) extra.push(tail);
+        else if (tl && !hd) extra.push(head);
+        else if (!hd && !tl && textGone) extra.push(head, tail);
+      },
+    });
+    const l = start.doc.lineAt(fA);
+    for (const m of l.text.matchAll(WIKI)) {
+      const a = l.from + m.index!, b = a + m[0].length;
+      const bar = m[1].indexOf('|');
+      const head = { from: a, to: a + 2 + (bar >= 0 ? bar + 1 : 0) }, tail = { from: b - 2, to: b };
+      const hd = covers(head.from, head.to, fA, tA), tl = covers(tail.from, tail.to, fA, tA);
+      if (hd && !tl) extra.push(tail);
+      else if (tl && !hd) extra.push(head);
+    }
+  });
+  if (!extra.length) return tr;
+  const changes = extra
+    .filter((r, i, all) => all.findIndex((x) => x.from === r.from && x.to === r.to) === i)
+    .map((r) => ({ from: tr.changes.mapPos(r.from, 1), to: tr.changes.mapPos(r.to, -1) }))
+    .filter((r) => r.to > r.from);
+  return changes.length ? [tr, { changes, sequential: true, userEvent: tr.annotation(Transaction.userEvent) }] : tr;
 }
 
 export function livePreview(opts: LivePreviewOptions) {
   const plugin = ViewPlugin.fromClass(
     class {
-      decorations: DecorationSet;
-      constructor(view: EditorView) { this.decorations = build(view, opts); }
+      deco: DecorationSet;
+      atomic: DecorationSet;
+      constructor(view: EditorView) { ({ deco: this.deco, atomic: this.atomic } = build(view, opts)); }
       update(u: ViewUpdate) {
         if (u.docChanged || u.selectionSet || u.viewportChanged || syntaxTree(u.startState) !== syntaxTree(u.state)) {
-          this.decorations = build(u.view, opts);
+          ({ deco: this.deco, atomic: this.atomic } = build(u.view, opts));
         }
       }
     },
-    { decorations: (v) => v.decorations },
+    { decorations: (v) => v.deco, provide: (p) => EditorView.atomicRanges.of((view) => view.plugin(p)?.atomic ?? Decoration.none) },
   );
   const clicks = EditorView.domEventHandlers({
     mousedown: (e, view) => {
@@ -195,7 +332,7 @@ export function livePreview(opts: LivePreviewOptions) {
       return false;
     },
   });
-  return [plugin, clicks, theme];
+  return [plugin, tables, EditorState.transactionFilter.of(pairCleanup), clicks, theme];
 }
 
 const theme = EditorView.theme({
@@ -210,14 +347,24 @@ const theme = EditorView.theme({
   '.cm-lp-strike, .cm-lp-done': { textDecoration: 'line-through', color: 'var(--muted)' },
   '.cm-lp-code': { fontFamily: 'var(--mono)', fontSize: '0.88em', background: 'var(--sunken)', borderRadius: '4px', padding: '0 3px' },
   '.cm-lp-codeblock': { fontFamily: 'var(--mono)', fontSize: '0.88em', background: 'var(--sunken)' },
-  '.cm-lp-table': { fontFamily: 'var(--mono)', fontSize: '0.85em' },
   '.cm-lp-quote': { borderLeft: '3px solid var(--accent-soft)', paddingLeft: '14px !important', color: 'var(--muted)' },
   '.cm-lp-fm': { fontFamily: 'var(--mono)', fontSize: '0.8em', color: 'var(--muted)', background: 'var(--sunken)' },
-  '.cm-lp-bullet': { color: 'var(--accent)', fontWeight: '700', padding: '0 2px' },
+  '.cm-lp-bullet': { color: 'var(--accent)', fontWeight: '700', padding: '0 8px 0 2px' },
   '.cm-lp-listmark': { color: 'var(--accent-ink)' },
-  '.cm-lp-task': { margin: '0 6px 0 0', verticalAlign: 'middle', width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer' },
+  '.cm-lp-task': { margin: '0 8px 0 0', verticalAlign: 'middle', width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer' },
   '.cm-lp-link': { color: 'var(--accent-ink)', textDecoration: 'underline', textDecorationColor: 'var(--accent-soft)' },
   '.cm-lp-wikilink': { color: 'var(--accent-ink)', textDecoration: 'underline dotted' },
   '.cm-lp-img': { maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', display: 'inline-block', verticalAlign: 'top' },
   '.cm-lp-hr': { display: 'inline-block', width: '100%', borderTop: '1px solid var(--border)', verticalAlign: 'middle' },
+  // each row is its own grid with the header's column count, so the columns line up
+  '.cm-line.cm-tbl-row': {
+    display: 'grid', gridTemplateColumns: 'repeat(var(--cols), minmax(0, 1fr))', borderBottom: '1px solid var(--border)',
+    borderLeft: '1px solid var(--border)', marginLeft: '22px', marginRight: '22px', padding: '0 !important',
+  },
+  '.cm-line.cm-tbl-head': { background: 'var(--sunken)', fontWeight: '650', borderTop: '1px solid var(--border)' },
+  '.cm-tbl-head span': { textDecoration: 'none' },
+  // hidden pipes and CodeMirror's cursor helpers must not take up grid cells
+  '.cm-tbl-row > :not(.cm-tbl-cell)': { position: 'absolute' },
+  '.cm-tbl-cell': { padding: '4px 6px 4px 4px', borderRight: '1px solid var(--border)', minHeight: '1.6em', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' },
+  '.cm-tbl-sep': { height: '0' },
 });

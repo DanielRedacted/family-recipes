@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import { app, noteHash, dirOf } from '../lib/state.svelte';
   import { catalog, loadIngredients } from '../lib/ingredients.svelte';
+  import { ingredientIcon } from '../lib/icons';
+  import CardIcon from './CardIcon.svelte';
 
   let { query = '' }: { query?: string } = $props();
   let q = $state('');
@@ -36,7 +38,7 @@
       {#each rows as i (i.key)}
         <li class:open={open === i.key}>
           <button class="head" onclick={() => (open = open === i.key ? null : i.key)} aria-expanded={open === i.key}>
-            <span class="name">{i.name}</span>
+            <span class="name"><span class="ic"><CardIcon icon={ingredientIcon(i.name)} size={17} /></span>{i.name}</span>
             <span class="muted small">{i.count} recipe{i.count === 1 ? '' : 's'}</span>
           </button>
           {#if open === i.key}
@@ -61,7 +63,8 @@
   .list > li { border-bottom: 1px solid var(--border); }
   .head { width: 100%; display: flex; justify-content: space-between; gap: 12px; padding: 9px 4px; background: none; border: 0; cursor: pointer; text-align: left; color: var(--text); }
   .head:hover { background: var(--sunken); }
-  .name { font-family: var(--serif); font-size: 16px; }
+  .name { font-family: var(--serif); font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .ic { display: inline-flex; width: 20px; justify-content: center; flex: none; }
   .more { padding: 0 8px 12px; }
   .more p { margin: 0 0 6px; }
   .more ul { margin: 0; padding-left: 18px; columns: 2 240px; }

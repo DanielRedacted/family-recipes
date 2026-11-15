@@ -25,7 +25,6 @@
 </script>
 
 <div class="page">
-  <a class="back" href="#/settings">‹ Settings</a>
   <div class="row"><h1>Trash</h1><span class="spacer"></span>
     {#if app.session.role === 'admin' && items?.length}<button class="btn danger" onclick={empty}>Empty trash</button>{/if}
   </div>
@@ -48,7 +47,6 @@
 <style>
   .page { padding: 16px 28px 80px; max-width: 820px; }
   ul { list-style: none; padding: 0; }
-  .back { color: var(--muted); text-decoration: none; font-size: 14px; }
   li { padding: 8px 0; border-bottom: 1px solid var(--border); }
   .grow { flex: 1; overflow-wrap: anywhere; }
   @media (max-width: 899px) { .page { padding: 8px 14px 96px; } }

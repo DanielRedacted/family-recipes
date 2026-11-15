@@ -1,6 +1,7 @@
 // File-manager actions shared by the tree, folder view and note toolbar.
 import { parseDocument } from 'yaml';
-import { api, saveFile, downloadUrl } from './api';
+import { api, saveFile } from './api';
+import { setProp } from '../components/Properties.svelte';
 import { ask, choose, confirmIt } from './dialog.svelte';
 import { app, dirOf, go, loadVault, nameOf, noteHash, folderHash, toast, canWrite, type FolderMeta } from './state.svelte';
 import { openMenu, type MenuItem } from './menu.svelte';
@@ -148,11 +149,25 @@ export function entryItems(path: string, isFolder: boolean): MenuItem[] {
   const it: MenuItem[] = [];
   if (w && isFolder) it.push({ label: 'New recipe here', run: () => newNote(path) }, { label: 'New folder here', run: () => newFolder(path) });
   if (w && (isFolder || path.endsWith('.md'))) it.push({ label: 'Icon & colour…', run: () => openPicker(path, isFolder), sep: isFolder });
+  if (w && path.endsWith('.md')) it.push({ label: isFavorite(path) ? 'Remove from favorites' : 'Add to favorites', run: () => toggleFavorite(path) });
   if (w) it.push({ label: 'Rename…', run: () => rename(path, isFolder) }, { label: 'Move to…', run: () => moveDialog(path, isFolder) });
-  if (!isFolder) it.push({ label: 'Download', run: () => (location.href = downloadUrl(path)) });
   if (app.session.shell) it.push({ label: 'Show in Finder', run: () => shell('reveal', { path }) });
   if (w) it.push({ label: 'Move to trash', run: () => remove(path, isFolder), danger: true, sep: true });
   return it;
+}
+
+// ---------- favorites (`favorite: true` in the recipe's properties) ----------
+
+export const isFavorite = (path: string) => app.byPath[path]?.frontmatter?.favorite === true;
+
+export async function toggleFavorite(path: string) {
+  if (!requireWrite()) return;
+  const e = app.byPath[path];
+  if (!e || e.kind !== 'note') return;
+  try {
+    await saveFile(path, setProp(e.raw ?? '', 'favorite', isFavorite(path) ? undefined : true), e.etag);
+    await loadVault();
+  } catch (err: any) { toast(err.message, 'error'); }
 }
 
 // ---------- icons and colours ----------

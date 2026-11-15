@@ -121,11 +121,47 @@ await page.screenshot({ path: `${out}/plus-menu.png` });
 await menuItem('From a web address');
 await page.waitForSelector('textarea[aria-label="Recipe web addresses"]:focus');
 
-// recent changes and trash live in Settings
+// the navigation column: no "+", recipe icons, follows the open page, one window tall
+assert.equal(await page.locator('aside button[aria-label="Add"]').count(), 0, 'no + in the nav column');
+await page.goto(new URL('/#/n/Soups%20%26%20Chili/Gumbo.md', url).href);
+await page.waitForSelector('aside [aria-current="page"]:has-text("Gumbo")');
+assert.ok(await page.locator('aside [aria-current="page"] .emoji').count(), 'recipe icon in the tree');
+assert.equal(await page.locator('aside .row-item.folder:has-text("Pies")').getAttribute('aria-expanded'), 'false', 'folders off the path fold up');
+await page.click('aside .row-item.folder:has-text("Breads") >> nth=0 >> .chev');
+await page.waitForTimeout(300);
+assert.equal(await page.locator('aside .row-item.folder:has-text("Breads") >> nth=0').getAttribute('aria-expanded'), 'true', 'a folder opened by hand stays open');
+assert.deepEqual(await page.locator('.crumbs > *').allTextContents(), ['All recipes', '›', 'Soups & Chili', '›', 'Gumbo']);
+const [asideH, winH] = await page.evaluate(() => [document.querySelector('aside').getBoundingClientRect().height, innerHeight]);
+assert.equal(asideH, winH, 'nav column is one window tall');
+// folder cards show only the count, in the corner
+await page.goto(new URL('/#/', url).href);
+assert.match((await page.locator('a.folder:has-text("Pies") .count').textContent()).trim(), /^\d+$/);
+assert.equal(await page.locator('a.folder:has-text("items")').count(), 0);
+
+// favorites: from the ⋯ menu, stored as a property, shown on the home page and in the tree
+await page.goto(new URL('/#/n/Pies/Pumpkin%20Pie.md', url).href);
+await page.waitForSelector('.prose h1');
+await page.click('header button[aria-label="More"]');
+assert.equal(await page.locator('.menu button:has-text("Download")').count(), 0, 'no Download');
+await menuItem('Add to favorites');
+await page.waitForTimeout(800);
+assert.ok(fs.readFileSync(pie, 'utf8').includes('favorite: true'), 'favorite saved as a property');
+await page.goto(new URL('/#/', url).href);
+await page.waitForSelector('h2:has-text("Favorites") + .grid .recipe:has-text("Pumpkin Pie")');
+await page.waitForSelector('aside .row-item:has-text("Favorites")');
+await page.screenshot({ path: `${out}/favorites.png` });
+
+// Settings has its own navigation column; recent changes and trash are pages in it
 await page.goto(new URL('/#/settings', url).href);
-await page.waitForSelector('h2:has-text("Recent changes")');
-assert.ok(await page.locator('.recent a:has-text("Pumpkin Pie")').count());
-assert.ok(await page.locator('a:has-text("Open trash")').count());
+await page.waitForSelector('aside nav[aria-label="Settings"]');
+await page.click('aside a:has-text("Recent changes")');
+await page.waitForSelector('.recent a:has-text("Pumpkin Pie")');
+await page.click('aside a:has-text("Trash")');
+await page.waitForSelector('h1:has-text("Trash")');
+assert.equal(await page.locator('text=Download everything').count(), 0);
+await page.click('aside a:has-text("Recipes")');
+await page.waitForSelector('aside .tree');
+assert.equal((await page.request.get(new URL('/api/download', url).href)).status() >= 400 || !(await page.request.get(new URL('/api/download', url).href)).headers()['content-type']?.includes('zip'), true, 'download route gone');
 
 await browser.close();
 if (errors.length) { console.error(errors.join('\n')); process.exit(1); }

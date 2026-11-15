@@ -1,6 +1,6 @@
 import { api } from './api';
 import type { Entry, Session } from './types';
-import { buildIndex } from './search';
+import { buildIndex, aliasesOf } from './search';
 import { parse as parseYaml } from 'yaml';
 
 export interface FolderMeta { emoji?: string; color?: string }
@@ -43,7 +43,8 @@ export function parseRoute(): Route {
     return { view: 'note', path: p, mode: new URLSearchParams(mode || '').get('mode') || undefined };
   }
   if (view === 'f') return { view: 'folder', path };
-  if (['settings', 'trash', 'import', 'search', 'ingredients'].includes(view)) return { view, path };
+  if (view === 'trash') return { view: 'settings', path: 'trash' };
+  if (['settings', 'import', 'search', 'ingredients'].includes(view)) return { view, path };
   return { view: 'folder', path: '' };
 }
 
@@ -118,10 +119,11 @@ export const dirOf = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf(
 export const nameOf = (p: string) => p.slice(p.lastIndexOf('/') + 1);
 export const stemOf = (p: string) => nameOf(p).replace(/\.[^.]+$/, '');
 
-/** Resolve a [[wiki link]] by filename stem, then by title. */
+/** Resolve a [[wiki link]] by filename stem, then title, then `aliases`. */
 export function resolveLink(target: string): Entry | undefined {
   const t = target.trim().toLowerCase();
   return app.files.find((f) => f.kind === 'note' && stemOf(f.path).toLowerCase() === t)
     ?? app.files.find((f) => f.title.toLowerCase() === t)
+    ?? app.files.find((f) => f.kind === 'note' && aliasesOf(f).some((a) => a.toLowerCase() === t))
     ?? app.files.find((f) => f.path.toLowerCase() === t || f.path.toLowerCase() === t + '.md');
 }

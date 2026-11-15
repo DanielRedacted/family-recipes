@@ -1,25 +1,45 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import Tree, { buildTree } from './Tree.svelte';
+  import Tree, { buildTree, FAV, reveal } from './Tree.svelte';
   import { app, go, canWrite } from '../lib/state.svelte';
-  import { upload, moveTo, plusMenu } from '../lib/ops';
+  import { upload, moveTo } from '../lib/ops';
+  import { tick, untrack } from 'svelte';
 
-  const tree = $derived(buildTree(app.folders, app.files));
-  const currentDir = $derived(app.route.view === 'folder' ? app.route.path : app.route.path.includes('/') ? app.route.path.slice(0, app.route.path.lastIndexOf('/')) : '');
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+  const tree = $derived.by(() => {
+    const t = buildTree(app.folders, app.files);
+    const favs = app.files.filter((f) => f.kind === 'note' && f.frontmatter?.favorite === true)
+      .sort((a, b) => collator.compare(a.title, b.title))
+      .map((f) => ({ name: f.path.slice(f.path.lastIndexOf('/') + 1), path: f.path, folder: false, children: [], kind: f.kind }));
+    if (favs.length) t.children.unshift({ name: 'Favorites', path: FAV, folder: true, children: favs });
+    return t;
+  });
   let dropRoot = $state(false);
+  let treeEl: HTMLDivElement;
+
+  // follow the page being shown: open its folders and scroll its row into view
+  $effect(() => {
+    const { view, path } = app.route;
+    if (!app.loaded || (view !== 'note' && view !== 'folder')) return;
+    untrack(() => reveal(path, view === 'folder')); // only on navigation, not when a folder is toggled
+    tick().then(() => {
+      const rows = treeEl?.querySelectorAll<HTMLElement>('[aria-current="page"]');
+      // the last match is the row in the folder tree (an earlier one may be in Favorites)
+      rows?.[rows.length - 1]?.scrollIntoView({ block: 'nearest' });
+    });
+  });
 </script>
 
 <div class="side">
   <div class="brand row">
     <a href="#/" class="logo" onclick={() => (app.sidebar = false)}><img src="/icon.svg" alt="" width="24" height="24" /> Recipes</a>
-    <span class="spacer"></span>
-    {#if canWrite()}<button class="btn ghost icon" title="Add a recipe, files or a folder (⌘N new recipe)" aria-label="Add" onclick={(e) => plusMenu(e, currentDir)}><Icon name="plus" /></button>{/if}
   </div>
   <button class="search btn" onclick={() => (app.switcher = true)}>
     <Icon name="search" size={16} /><span>Search recipes</span><span class="spacer"></span><kbd>⌘K</kbd>
   </button>
   <div
     class="tree"
+    bind:this={treeEl}
     class:drop={dropRoot}
     role="tree"
     tabindex="-1"
@@ -47,7 +67,7 @@
 
 <style>
   .side { display: flex; flex-direction: column; height: 100%; gap: 8px; padding: 10px 8px calc(8px + env(safe-area-inset-bottom)); }
-  .brand { padding: 2px 4px; flex-wrap: nowrap; }
+  .brand { padding: 2px 4px; flex-wrap: nowrap; min-height: 36px; }
   .logo { display: flex; align-items: center; gap: 8px; font-family: var(--serif); font-weight: 700; font-size: 19px; text-decoration: none; color: var(--text); }
   .search { justify-content: flex-start; color: var(--muted); background: var(--surface); }
   kbd { font: 11px var(--mono); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }

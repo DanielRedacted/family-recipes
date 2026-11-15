@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import { app, go, noteHash, folderHash, canWrite, nameOf } from '../lib/state.svelte';
+  import { app, noteHash, folderHash, canWrite, nameOf, dirOf } from '../lib/state.svelte';
+  import Crumbs from './Crumbs.svelte';
   import CardIcon from './CardIcon.svelte';
   import { fileUrl } from '../lib/api';
   import { vaultTarget } from '../lib/markdown';
@@ -19,10 +20,11 @@
   const files = $derived(app.files.filter((f) => (f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : '') === path)
     .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })));
   const folderIcon = (dir: string) => iconOf(nameOf(dir), app.folderMeta[dir]?.emoji);
-  const noteIcon = (f: Entry) => (f.kind === 'note' ? iconOf(f.title, f.frontmatter?.emoji, folderIcon(path)) : null);
+  const noteIcon = (f: Entry) => (f.kind === 'note' ? iconOf(f.title, f.frontmatter?.emoji, dirOf(f.path) ? folderIcon(dirOf(f.path)) : null) : null);
+  const favorites = $derived(path ? [] : app.files.filter((f) => f.kind === 'note' && f.frontmatter?.favorite === true)
+    .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })));
   const menuFor = (p: string, folder: boolean) => (e: MouseEvent) => openMenu(e, entryItems(p, folder));
   const countIn = (dir: string) => app.files.filter((f) => f.path.startsWith(dir + '/')).length;
-  const crumbs = $derived(path ? path.split('/').map((seg, i, a) => ({ name: seg, path: a.slice(0, i + 1).join('/') })) : []);
 
   function cover(f: Entry): string | null {
     if (f.kind === 'image') return fileUrl(f.path);
@@ -36,12 +38,33 @@
   const badge = (f: Entry) => (f.kind === 'pdf' ? 'PDF' : f.kind === 'image' ? 'Image' : f.kind === 'other' ? nameOf(f.path).split('.').pop()?.toUpperCase() : f.recipe ? '' : 'Note');
 </script>
 
+{#snippet card(f: Entry)}
+  {@const img = cover(f)}
+  {@const ic = noteIcon(f)}
+  <div class="wrap">
+  <a class="recipe card" href={noteHash(f.path)} oncontextmenu={menuFor(f.path, false)}>
+    {#if img}
+      <img src={img} alt="" loading="lazy" />
+    {:else}
+      <div class="ph" style="background:{cardColor(f.title, f.frontmatter?.color)}"><CardIcon icon={ic} size={44} /></div>
+    {/if}
+    <div class="info">
+      <span class="rtitle">{#if img && ic}<CardIcon icon={ic} size={16} /> {/if}{f.title}{#if f.frontmatter?.favorite === true}<span class="star" title="Favorite" aria-label="Favorite"> ★</span>{/if}</span>
+      <span class="muted small">{meta(f)}</span>
+      <span class="tags">
+        {#if badge(f)}<span class="tag badge">{badge(f)}</span>{/if}
+        {#each tagsOf(f).slice(0, 3) as t}<span class="tag">{t}</span>{/each}
+        {#if f.frontmatter?.needs_review}<span class="tag warn">needs review</span>{/if}
+      </span>
+    </div>
+  </a>
+  <button class="more" aria-label="Actions for {f.title}" onclick={menuFor(f.path, false)}>⋯</button>
+  </div>
+{/snippet}
+
 <div class="page">
   <header class="toolbar row">
-    <nav class="crumbs" aria-label="Breadcrumb">
-      <a href="#/">All recipes</a>
-      {#each crumbs as c}<span class="sep">›</span><a href={folderHash(c.path)}>{c.name}</a>{/each}
-    </nav>
+    <Crumbs dir={path} />
     <span class="spacer"></span>
     {#if canWrite()}
       <button class="btn primary add" aria-label="Add" title="Add a recipe, files or a folder" onclick={(e) => plusMenu(e, path)}><Icon name="plus" /></button>
@@ -64,6 +87,14 @@
       <h1 class="title">{nameOf(path)}</h1>
     {/if}
 
+    {#if favorites.length}
+      <h2 class="sub first">Favorites</h2>
+      <div class="grid">
+        {#each favorites as f (f.path)}{@render card(f)}{/each}
+      </div>
+      {#if subfolders.length}<h2 class="sub">Folders</h2>{/if}
+    {/if}
+
     {#if subfolders.length}
       <div class="folders">
         {#each subfolders as f}
@@ -71,7 +102,7 @@
             <a class="folder card" href={folderHash(f)} style="background:{cardColor(nameOf(f), app.folderMeta[f]?.color)}" oncontextmenu={menuFor(f, true)}>
               <CardIcon icon={folderIcon(f)} size={26} />
               <span class="fname">{nameOf(f)}</span>
-              <span class="muted small">{countIn(f)} item{countIn(f) === 1 ? '' : 's'}</span>
+              <span class="count" aria-label="{countIn(f)} item{countIn(f) === 1 ? '' : 's'}">{countIn(f)}</span>
             </a>
             <button class="more" aria-label="Actions for {nameOf(f)}" onclick={menuFor(f, true)}>⋯</button>
           </div>
@@ -83,28 +114,7 @@
       {#if path}<h2 class="sub">{files.length} item{files.length === 1 ? '' : 's'}</h2>{/if}
       {#if view === 'cards'}
         <div class="grid">
-          {#each files as f (f.path)}
-            {@const img = cover(f)}
-            {@const ic = noteIcon(f)}
-            <div class="wrap">
-            <a class="recipe card" href={noteHash(f.path)} oncontextmenu={menuFor(f.path, false)}>
-              {#if img}
-                <img src={img} alt="" loading="lazy" />
-              {:else}
-                <div class="ph" style="background:{cardColor(f.title, f.frontmatter?.color)}"><CardIcon icon={ic} size={44} /></div>
-              {/if}
-              <div class="info">
-                <span class="rtitle">{#if img && ic}<CardIcon icon={ic} size={16} /> {/if}{f.title}</span>
-                <span class="muted small">{meta(f)}</span>
-                <span class="tags">
-                  {#if badge(f)}<span class="tag badge">{badge(f)}</span>{/if}
-                  {#each tagsOf(f).slice(0, 3) as t}<span class="tag">{t}</span>{/each}
-                  {#if f.frontmatter?.needs_review}<span class="tag warn">needs review</span>{/if}
-                </span>
-              </div>
-            </a>
-            <button class="more" aria-label="Actions for {f.title}" onclick={menuFor(f.path, false)}>⋯</button>
-            </div>
+          {#each files as f (f.path)}{@render card(f)}
           {/each}
         </div>
       {:else}
@@ -113,7 +123,7 @@
           <tbody>
             {#each files as f (f.path)}
               <tr oncontextmenu={menuFor(f.path, false)}>
-                <td><CardIcon icon={noteIcon(f)} size={16} /> <a href={noteHash(f.path)}>{f.title}</a> {#if badge(f)}<span class="tag badge">{badge(f)}</span>{/if}</td>
+                <td><CardIcon icon={noteIcon(f)} size={16} /> <a href={noteHash(f.path)}>{f.title}</a>{#if f.frontmatter?.favorite === true}<span class="star" aria-label="Favorite"> ★</span>{/if} {#if badge(f)}<span class="tag badge">{badge(f)}</span>{/if}</td>
                 <td>{f.frontmatter?.yield ?? f.frontmatter?.servings ?? ''}</td>
                 <td>{f.frontmatter?.total_time ?? f.frontmatter?.cook_time ?? ''}</td>
                 <td>{tagsOf(f).join(', ')}</td>
@@ -132,10 +142,6 @@
 <style>
   .page { padding: 16px 24px 48px; max-width: 1200px; }
   .toolbar { position: sticky; top: 0; background: var(--bg); padding: 6px 0 10px; z-index: 5; }
-  .crumbs { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .crumbs a { color: var(--muted); text-decoration: none; }
-  .crumbs a:last-child { color: var(--text); }
-  .sep { color: var(--muted); }
   .seg { display: flex; }
   .seg .btn { border-radius: 0; }
   .seg .btn:first-child { border-radius: 8px 0 0 8px; }
@@ -147,9 +153,15 @@
   .more { position: absolute; top: 6px; right: 6px; border: 0; border-radius: 6px; background: var(--surface); color: var(--muted); padding: 0 7px; font-size: 16px; line-height: 24px; cursor: pointer; opacity: 0; box-shadow: var(--shadow); }
   .wrap:hover .more, .more:focus-visible { opacity: 1; }
   @media (hover: none) { .more { opacity: 0.85; } }
-  .folder { display: grid; gap: 2px; padding: 14px 16px; text-decoration: none; color: var(--text); border: 0; justify-items: start; }
+  .folder { position: relative; display: grid; gap: 2px; padding: 14px 16px; text-decoration: none; color: var(--text); border: 0; justify-items: start; }
   .folder:hover { box-shadow: var(--shadow-md); }
-  .fname { font-family: var(--serif); font-size: 17px; font-weight: 600; }
+  .fname { font-family: var(--serif); font-size: 17px; font-weight: 600; padding-right: 22px; }
+  /* item count in the corner; it gives way to the ⋯ button, which shares the corner on hover */
+  .folder .count { position: absolute; top: 9px; right: 12px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; transition: opacity 0.1s; }
+  .wrap:hover .folder .count, .wrap:focus-within .folder .count { opacity: 0; }
+  @media (hover: none) { .folder .count { right: 42px; } .wrap:hover .folder .count { opacity: 1; } }
+  .star { color: #d4a017; margin-left: 4px; }
+  .sub.first { margin-top: 0; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
   .recipe { display: flex; flex-direction: column; text-decoration: none; color: var(--text); overflow: hidden; }
   .recipe:hover { box-shadow: var(--shadow-md); border-color: var(--accent); }
@@ -170,7 +182,6 @@
     .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
     .toolbar .btn { min-height: 40px; }
     .toolbar .add { display: none; } /* the bottom bar has "Add" */
-    .crumbs { display: none; }
     .tbl th:nth-child(3), .tbl td:nth-child(3), .tbl th:nth-child(4), .tbl td:nth-child(4) { display: none; }
   }
 </style>

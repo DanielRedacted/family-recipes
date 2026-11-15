@@ -29,10 +29,6 @@ export function fileUrl(path: string): string {
   return '/api/files/' + path.split('/').map(encodeURIComponent).join('/');
 }
 
-export function downloadUrl(path = ''): string {
-  return '/api/download' + (path ? '?path=' + encodeURIComponent(path) : '');
-}
-
 /** Save a note (or any file). `etag` null = create only. Returns the new etag and final path. */
 export async function saveFile(path: string, body: string | Blob, etag: string | null, unique = false) {
   const headers: Record<string, string> = etag ? { 'If-Match': `"${etag}"` } : { 'If-None-Match': '*' };
