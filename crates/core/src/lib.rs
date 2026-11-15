@@ -2,6 +2,7 @@ pub mod ai;
 pub mod auth;
 pub mod extract;
 pub mod fetch;
+pub mod git;
 pub mod import;
 pub mod ingredient;
 pub mod lan;
@@ -25,11 +26,12 @@ pub struct Extensions {
     pub app: OnceLock<Router>,
     pub jobs: import::Jobs,
     pub ingredients: ingredient::Cache,
+    pub git: git::Sync,
 }
 
 impl Default for Extensions {
     fn default() -> Self {
-        Self { lan: Default::default(), app: OnceLock::new(), jobs: import::Jobs::new(), ingredients: Default::default() }
+        Self { lan: Default::default(), app: OnceLock::new(), jobs: import::Jobs::new(), ingredients: Default::default(), git: Default::default() }
     }
 }
 
@@ -40,6 +42,7 @@ pub fn extra_routes() -> Router<Arc<AppState>> {
         .route("/api/ingredients", get(ingredient::route))
         .merge(import::routes())
         .merge(ai::routes())
+        .merge(git::routes())
 }
 
 async fn trust_local(State(s): State<Arc<AppState>>, caller: Caller) -> Result<Response, Response> {
@@ -84,11 +87,12 @@ pub fn settings_changed(s: &Arc<AppState>) {
     }
 }
 
-/// Build the router once and start network sharing (if enabled) plus the IP watcher.
+/// Build the router once and start network sharing (if enabled), the IP watcher and GitHub sync.
 pub async fn start_network(state: Arc<AppState>) -> Router {
     let app = server::router(state.clone());
     let _ = state.ext.app.set(app.clone());
     lan::start(state.clone(), app.clone()).await;
-    lan::spawn_ip_watch(state);
+    lan::spawn_ip_watch(state.clone());
+    git::spawn(state);
     app
 }

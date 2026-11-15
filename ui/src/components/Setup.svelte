@@ -5,6 +5,7 @@
   import { app, loadSession, toast } from '../lib/state.svelte';
   import { shell } from '../lib/ops';
   import Network from './Network.svelte';
+  import GitHub from './GitHub.svelte';
 
   let s = $state<any>(null);
   let pin = $state('');
@@ -42,7 +43,7 @@
 
 <div class="setup" role="dialog" aria-modal="true" aria-labelledby="setup-title">
   <div class="box">
-    <h1 id="setup-title">Welcome to Recipes</h1>
+    <h1 id="setup-title">Set up Recipes</h1>
     <p class="muted">A few settings to start with. You can change all of them later in Settings.</p>
     {#if !s}
       <p class="muted">Loading…</p>
@@ -52,6 +53,14 @@
         <p class="mono">{folder || s.vault}</p>
         <p class="muted small">Every recipe is a plain text (Markdown) file in this folder, one subfolder per category. Choose the folder that holds your recipes, or keep this one and add recipes later.</p>
         {#if app.session.shell}<div class="row"><button class="btn" onclick={chooseFolder}>Use a different folder…</button></div>{/if}
+      </section>
+      <section class="card">
+        <h2>Recipes from GitHub</h2>
+        {#if folder}
+          <p class="muted small">After the restart, connect the new folder in Settings → Recipes folder.</p>
+        {:else}
+          <GitHub status={s.git} onchange={(g) => (s.git = g)} />
+        {/if}
       </section>
       {#if app.session.shell}
         <section class="card">
@@ -82,9 +91,9 @@
   .box { max-width: 640px; margin: 0 auto; display: grid; gap: 16px; }
   h1 { margin: 0; }
   p { margin: 0; }
-  section { padding: 16px 18px; display: grid; gap: 10px; }
+  section { padding: 16px 20px; display: grid; gap: 12px; }
   section h2 { margin: 0; font-size: 1.15rem; }
   .mono { font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
-  .toggle { gap: 10px; font-weight: 500; }
+  .toggle { gap: 8px; font-weight: 500; }
   .finish { justify-content: flex-end; }
 </style>

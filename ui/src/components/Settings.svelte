@@ -6,6 +6,7 @@
   import { confirmIt } from '../lib/dialog.svelte';
   import { checkForUpdate } from '../lib/update.svelte';
   import Network from './Network.svelte';
+  import GitHub from './GitHub.svelte';
   import Trash from './Trash.svelte';
   import SettingsNav, { settingsSections, currentSection } from './SettingsNav.svelte';
 
@@ -127,6 +128,10 @@
         {/if}
       </div>
     </section>
+    <section class="card">
+      <h2>GitHub</h2>
+      <GitHub status={s.git} onchange={(g) => (s.git = g)} />
+    </section>
   {:else if sec === 'app'}
       <section class="card">
         <label class="row toggle"><input type="checkbox" checked={!!s.autostart} onchange={async (e) => { const r = await shell('autostart', { enabled: e.currentTarget.checked }); if (r) s.autostart = r.enabled; }} /> Open Recipes at login</label>
@@ -184,19 +189,19 @@
 
 <style>
   .page { padding: 16px 28px 80px; max-width: 760px; display: grid; gap: 16px; }
-  h1 { margin: 6px 0 0; }
-  section { padding: 16px 18px; display: grid; gap: 10px; }
+  h1 { margin: 8px 0 0; }
+  section { padding: 16px 20px; display: grid; gap: 12px; }
   section h2 { margin: 0; font-size: 1.15rem; }
-  section h3 { margin: 10px 0 0; font-size: 1rem; }
+  section h3 { margin: 12px 0 0; font-size: 1rem; }
   p { margin: 0; }
   .w { width: auto; min-width: 220px; }
   .mono { font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
-  .toggle { gap: 10px; font-weight: 500; }
-  .grid2 { display: grid; gap: 10px; }
+  .toggle { gap: 8px; font-weight: 500; }
+  .grid2 { display: grid; gap: 12px; }
   .grid2 label { display: grid; gap: 4px; font-size: 14px; }
   .keyrow { display: flex; gap: 8px; align-items: end; }
   .keyrow label { flex: 1; }
-  .recent { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+  .recent { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
   .mnav { display: none; }
-  @media (max-width: 899px) { .page { padding: 8px 14px 96px; } .mnav { display: block; padding: 10px 14px 0; } }
+  @media (max-width: 899px) { .page { padding: 8px 16px 96px; } .mnav { display: block; padding: 12px 16px 0; } }
 </style>

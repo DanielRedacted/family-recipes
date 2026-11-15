@@ -68,6 +68,9 @@ pub struct Settings {
     /// The first-start setup was finished (a settings file from before it existed counts as finished).
     #[serde(default = "yes")]
     pub setup_done: bool,
+    /// Sync the recipes folder with its GitHub repository (see git.rs).
+    #[serde(default)]
+    pub git_sync: bool,
 }
 fn yes() -> bool {
     true
@@ -260,6 +263,7 @@ fn spawn_watcher(state: Arc<AppState>) -> Result<()> {
             while rx.try_recv().is_ok() {}
             let s = state.clone();
             let _ = tokio::task::spawn_blocking(move || s.rescan()).await;
+            crate::git::changed(&state);
         }
     });
     Ok(())
@@ -597,6 +601,7 @@ async fn settings_get(State(s): St, caller: Caller) -> Res {
         "keep_awake": st.keep_awake,
         "network": lan,
         "autostart": s.shell.as_ref().map(|sh| sh.autostart(None)),
+        "git": crate::git::status(&s),
     }))
     .into_response())
 }

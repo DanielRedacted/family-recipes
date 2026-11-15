@@ -11,6 +11,8 @@ from, edit, import and manage them.
   Mac is entered.
 - **The files:** `~/Recipes` (changeable in Settings). Markdown, one file per recipe, folder = category.
   See [docs/FORMAT.md](docs/FORMAT.md).
+- **Sync:** optional, with a private GitHub repository: every save is uploaded, other Macs' changes
+  are downloaded (see below).
 - **AI:** optional, off by default, your own Anthropic or OpenAI-compatible API key (stored in the
   macOS Keychain), or a model running on the Mac (Ollama, LM Studio at `http://localhost:…/v1`, no
   key). Only ever proposes changes you accept.
@@ -31,7 +33,17 @@ each with a step log.
 ## The recipes are not in this repository
 
 The app ships empty and works on whatever folder of recipes you give it. The family recipes live in
-a private repository of their own (`home-recipes`), and on the Mac `~/Recipes` is a clone of it:
+a private repository of their own (`home-recipes`), and on the Mac `~/Recipes` is a clone of it.
+
+**GitHub sync (in the app):** in the first-start setup or Settings → Recipes folder → GitHub, enter
+the repository (`owner/name`) and a fine-grained token (only that repository, *Contents: Read and
+write*; kept in the Keychain). An empty recipes folder is filled from GitHub; a folder that is already
+a clone of it is reused. After that every save is committed and pushed (kept and retried while
+offline), other Macs' changes are pulled when the app opens, every 5 minutes and on **Sync now**.
+When two Macs change the same file before syncing, nothing is lost: the other version is saved
+beside it as `Name (from other Mac).md`. Git is built into the app (libgit2); nothing to install.
+
+Without the app, the same by hand:
 
 ```sh
 git clone https://github.com/DanielRedacted/home-recipes.git ~/Recipes   # first time, on a new Mac
