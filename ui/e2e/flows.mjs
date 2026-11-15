@@ -145,7 +145,7 @@ await page.click('header button[aria-label="More"]');
 assert.equal(await page.locator('.menu button:has-text("Download")').count(), 0, 'no Download');
 await menuItem('Add to favorites');
 await page.waitForTimeout(800);
-assert.ok(fs.readFileSync(pie, 'utf8').includes('favorite: true'), 'favorite saved as a property');
+assert.match(fs.readFileSync(pie, 'utf8'), /^---\n(?:.*\n)*favorite: true\n(?:.*\n)*---\n/, 'favorite saved as a property (block style)');
 await page.goto(new URL('/#/', url).href);
 await page.waitForSelector('h2:has-text("Favorites") + .grid .recipe:has-text("Pumpkin Pie")');
 await page.waitForSelector('aside .row-item:has-text("Favorites")');

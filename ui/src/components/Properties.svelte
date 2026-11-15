@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import { parseDocument } from 'yaml';
+  import { Document, parseDocument } from 'yaml';
 
   export const KNOWN = ['tags', 'yield', 'servings', 'prep_time', 'cook_time', 'total_time', 'additional_time', 'source', 'author', 'original', 'needs_review', 'emoji', 'color', 'nutrition', 'favorite', 'note', 'aliases'];
   export const LABELS: Record<string, string> = {
@@ -17,7 +17,8 @@
   /** Set (or with value===undefined delete) one frontmatter key, keeping comments and order. */
   export function setProp(raw: string, key: string, value: unknown): string {
     const [yaml, body] = splitRaw(raw);
-    const doc = parseDocument(yaml || '{}');
+    // a new block-style map for a note without properties ("favorite: true", not "{ favorite: true }")
+    const doc = yaml.trim() ? parseDocument(yaml) : new Document({});
     if (value === undefined || value === '' || (Array.isArray(value) && !value.length)) doc.delete(key);
     else doc.set(key, value);
     const out = doc.contents && (doc.contents as any).items?.length ? String(doc) : '';
