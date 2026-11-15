@@ -152,7 +152,7 @@
   {:else if sec === 'ai'}
     <section class="card">
       <label class="row toggle"><input type="checkbox" checked={s.ai.enabled} onchange={(e) => put({ ai: { ...s.ai, enabled: e.currentTarget.checked } })} /> Enable AI features</label>
-      <p class="muted small">Off by default. When on, AI can help fix imported recipes and answer questions about a recipe — always as a suggestion you accept or reject. Uses your own API key; nothing runs on this Mac.</p>
+      <p class="muted small">Off by default. When on, AI can help fix imported recipes and answer questions about a recipe — always as a suggestion you accept or reject. Uses your own API key, or a model running on this Mac (Ollama, LM Studio): choose OpenAI-compatible and enter its address, e.g. <code>http://localhost:11434/v1</code>; no key needed.</p>
       {#if s.ai.enabled}
         <div class="grid2">
           <label>Provider
@@ -166,7 +166,7 @@
           </label>
           {#if s.ai.provider === 'openai'}
             <label>API base URL
-              <input class="field" value={s.ai.base_url} placeholder="https://api.openai.com/v1" onchange={(e) => put({ ai: { ...s.ai, base_url: e.currentTarget.value } })} />
+              <input class="field" value={s.ai.base_url} placeholder="https://api.openai.com/v1 or http://localhost:11434/v1" onchange={(e) => put({ ai: { ...s.ai, base_url: e.currentTarget.value } })} />
             </label>
           {/if}
           <form class="keyrow" onsubmit={(e) => { e.preventDefault(); saveKey(); }}>

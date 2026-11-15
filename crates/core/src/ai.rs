@@ -1,4 +1,5 @@
-//! Optional AI assistant (off by default). External API key only, kept in the macOS Keychain.
+//! Optional AI assistant (off by default). An API key kept in the macOS Keychain, or a model
+//! running on this machine (Ollama, LM Studio) through its OpenAI-compatible http://localhost address.
 //! Every result is a proposal the user reviews; nothing here writes to the vault.
 //!
 //! Anthropic: raw HTTP to the Messages API (no official Rust SDK). OpenAI-compatible
@@ -160,7 +161,13 @@ async fn complete(s: &AppState, system: &str, user: &str, effort: &str) -> Resul
     if !ai.enabled {
         bail!("AI features are turned off (Settings on the Mac)");
     }
-    let key = tokio::task::spawn_blocking(|| entry().and_then(|e| Ok(e.get_password()?))).await?.map_err(|_| anyhow!("no API key saved — add one in Settings on the Mac"))?;
+    let key = tokio::task::spawn_blocking(|| entry().and_then(|e| Ok(e.get_password()?))).await?;
+    // a model on this Mac needs no key
+    let key = match key {
+        Ok(k) => k,
+        Err(_) if ai.provider == "openai" && local_http(&ai.base_url) => String::new(),
+        Err(_) => bail!("no API key saved — add one in Settings on the Mac"),
+    };
     match ai.provider.as_str() {
         "openai" => openai(&ai.base_url, &ai.model, &key, system, user).await,
         _ => anthropic(if ai.model.trim().is_empty() { DEFAULT_ANTHROPIC_MODEL } else { ai.model.trim() }, &key, system, user, effort).await,
@@ -207,16 +214,33 @@ async fn anthropic(model: &str, key: &str, system: &str, user: &str, effort: &st
     Ok(text)
 }
 
+/// A model served on this machine (Ollama, LM Studio) over plain http: loopback addresses only.
+fn local_http(base: &str) -> bool {
+    use url::{Host, Url};
+    let Ok(u) = Url::parse(base.trim()) else { return false };
+    u.scheme() == "http"
+        && match u.host() {
+            Some(Host::Domain(d)) => d.eq_ignore_ascii_case("localhost"),
+            Some(Host::Ipv4(ip)) => ip.is_loopback(),
+            Some(Host::Ipv6(ip)) => ip.is_loopback(),
+            None => false,
+        }
+}
+
 async fn openai(base: &str, model: &str, key: &str, system: &str, user: &str) -> Result<String> {
     let base = if base.trim().is_empty() { "https://api.openai.com/v1" } else { base.trim().trim_end_matches('/') };
-    if !base.starts_with("https://") {
-        bail!("the API base URL must start with https://");
+    if !base.starts_with("https://") && !local_http(base) {
+        bail!("the API base URL must start with https:// (or be http://localhost… for a model on this Mac)");
     }
     if model.trim().is_empty() {
         bail!("choose a model in Settings");
     }
     let body = json!({ "model": model.trim(), "messages": [{ "role": "system", "content": system }, { "role": "user", "content": user }] });
-    let res = HTTP.post(format!("{base}/chat/completions")).bearer_auth(key).json(&body).send().await.map_err(|e| anyhow!("could not reach {base}: {e}"))?;
+    let mut req = HTTP.post(format!("{base}/chat/completions")).json(&body);
+    if !key.is_empty() {
+        req = req.bearer_auth(key);
+    }
+    let res = req.send().await.map_err(|e| anyhow!("could not reach {base}: {e}"))?;
     let status = res.status();
     let v: Value = res.json().await.unwrap_or(Value::Null);
     if !status.is_success() {
@@ -227,6 +251,16 @@ async fn openai(base: &str, model: &str, key: &str, system: &str, user: &str) ->
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn local_model_addresses() {
+        for ok in ["http://localhost:11434/v1", "http://LOCALHOST:1234/v1", "http://127.0.0.1:11434/v1", "http://[::1]:8080/v1"] {
+            assert!(super::local_http(ok), "{ok}");
+        }
+        for no in ["http://192.168.1.5:11434/v1", "http://localhost.evil.com/v1", "http://evil.com/localhost", "https://localhost/v1", "ftp://localhost/", "localhost:11434"] {
+            assert!(!super::local_http(no), "{no}");
+        }
+    }
+
     #[test]
     fn fences_stripped() {
         assert_eq!(super::strip_fences("```markdown\n# A\n```"), "# A\n");

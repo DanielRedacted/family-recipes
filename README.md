@@ -12,7 +12,8 @@ from, edit, import and manage them.
 - **The files:** `~/Recipes` (changeable in Settings). Markdown, one file per recipe, folder = category.
   See [docs/FORMAT.md](docs/FORMAT.md).
 - **AI:** optional, off by default, your own Anthropic or OpenAI-compatible API key (stored in the
-  macOS Keychain). Only ever proposes changes you accept.
+  macOS Keychain), or a model running on the Mac (Ollama, LM Studio at `http://localhost:…/v1`, no
+  key). Only ever proposes changes you accept.
 
 What it does: a folder column that follows the open recipe and cards (with emoji and colours you
 can change), favorites, ⌘K search (recipes, folders, ingredients), a reader with serving scaler (every set of

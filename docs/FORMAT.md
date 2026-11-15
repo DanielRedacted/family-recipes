@@ -110,6 +110,10 @@ Unknown keys are kept as they are.
   tools).
 - **Scaling:** only the leading quantity of an ingredient line changes (`1 ½`, `1½`, `1/2`, `1-2`,
   `2.5`); the rest of the line stays as written. Every set of ingredients scales by the same factor.
+  Scaled amounts round to kitchen fractions and never below ⅛. Eggs, yolks, whites, cloves, cans,
+  slices, pieces, heads, packages, bunches, sprigs and stalks round to a whole number, at least 1
+  ("3 large eggs" × ½ → "2 large eggs"), and the word follows the number ("1 egg"), unless the
+  recipe itself writes part of one ("½ head cabbage" keeps its fractions).
 
 ## Units
 
@@ -123,7 +127,7 @@ whole folder (each changed line is printed).
 Scaling, **US** (the default): the recipe's own unit while the scaled amount reads well in it (⅛ up
 to 3 tsp, 1 up to 4 Tbsp, ¼ up to 16 cups, under 16 oz, ½ lb and up), otherwise the unit it does
 read well in ("16 Tbsp" × ½ → "½ cup"); qt, pt, fl oz and metric units keep their unit. **Metric**
-converts to ml / g (L / kg from 950).
+converts to ml / g (L / kg from 950; one decimal under 1, e.g. "0.3 ml").
 
 ## Ingredient tables
 

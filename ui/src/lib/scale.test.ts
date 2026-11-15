@@ -30,13 +30,45 @@ describe('scale', () => {
     expect(formatNum(1 / 3)).toBe('⅓');
     expect(formatNum(2)).toBe('2');
     expect(formatNum(0.99)).toBe('1');
+    expect(formatNum(1 / 16)).toBe('⅛'); // never 0
+    expect(formatNum(0.01)).toBe('⅛');
+  });
+  it('never scales an amount to 0', () => {
+    expect(scaleLine('⅛ tsp salt', 0.5)).toBe('⅛ tsp salt');
+    expect(scaleLine('1/8 tsp Salt', 1 / 3)).toBe('⅛ tsp Salt');
+    expect(scaleLine('⅛ tsp salt', 0.5, 'metric')).toBe('0.3 ml salt');
+    expect(scaleLine('1 pinch salt', 0.1)).toBe('⅛ pinch salt'); // not a count: a fraction
+  });
+  it('rounds things you can\'t split to whole numbers', () => {
+    expect(scaleLine('3 large eggs', 0.5)).toBe('2 large eggs');
+    expect(scaleLine('1 egg', 1 / 3)).toBe('1 egg');
+    expect(scaleLine('3 eggs', 1 / 3)).toBe('1 egg');
+    expect(scaleLine('1 egg', 1.5)).toBe('2 eggs');
+    expect(scaleLine('2 cloves garlic, minced', 0.5)).toBe('1 clove garlic, minced');
+    expect(scaleLine('3 egg yolks', 0.5)).toBe('2 egg yolks');
+    expect(scaleLine('1 (15 oz) can black beans', 1.5)).toBe('2 (15 oz) cans black beans');
+    expect(scaleLine('1 bunch cilantro', 2)).toBe('2 bunches cilantro');
+    expect(scaleLine('2-3 eggs', 0.5)).toBe('1–2 eggs');
+    expect(scaleLine('**3** eggs', 0.5)).toBe('**2** eggs');
+    expect(scaleLine('3 large eggs', 1)).toBe('3 large eggs'); // unscaled: as written
+    expect(scaleLine('2 EGGS', 1.5)).toBe('3 EGGS');
+    expect(scaleLine('2 garlic cloves, roasted', 0.5)).toBe('1 garlic clove, roasted');
+    expect(scaleLine('1 garlic clove', 0.5)).toBe('1 garlic clove');
+    // the recipe already uses part of one: fractions stay
+    expect(scaleLine('**1⁄2** head red cabbage', 0.5)).toBe('**¼** head red cabbage');
+    expect(scaleLine('½ package cream cheese (4 oz)', 1.5)).toBe('¾ package cream cheese (4 oz)');
+    // real amounts keep their fractions
+    expect(scaleLine('½ onion, diced', 1.5)).toBe('¾ onion, diced');
+    expect(scaleLine('1 stick butter', 1.5)).toBe('1½ stick butter');
+    expect(scaleLine('1 eggplant', 1.5)).toBe('1½ eggplant');
+    expect(scaleLine('2 Tbsp canola oil', 0.5)).toBe('1 Tbsp canola oil');
   });
   it('scales lines as written', () => {
     expect(scaleLine('1 1/4 cups sugar', 2)).toBe('2½ cups sugar');
     expect(scaleLine('½ cup sugar', 2)).toBe('1 cup sugar');
     expect(scaleLine('1-2 cups milk', 2)).toBe('2–4 cups milk');
     expect(scaleLine('1½ tsp salt', 1 / 3)).toBe('½ tsp salt');
-    expect(scaleLine('1 (10.75 ounce) can soup', 2)).toBe('2 (10.75 oz) can soup');
+    expect(scaleLine('1 (10.75 ounce) can soup', 2)).toBe('2 (10.75 oz) cans soup');
     expect(scaleLine('salt to taste', 2)).toBe('salt to taste');
     expect(scaleLine('3 large eggs', 1)).toBe('3 large eggs');
   });

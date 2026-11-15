@@ -1,6 +1,6 @@
 // Serving scaler + unit conversion for ingredient lines, working on the text as written.
 import { normalizeUnits } from './units';
-// Unit tables and rounding ported from the old app (recipes/src/frontend/app.js:137-238).
+// Unit tables and rounding first ported from the earlier `recipes` app's frontend.
 
 const GLYPH: Record<string, number> = { '½': 1 / 2, '¼': 1 / 4, '¾': 3 / 4, '⅓': 1 / 3, '⅔': 2 / 3, '⅛': 1 / 8, '⅜': 3 / 8, '⅝': 5 / 8, '⅞': 7 / 8 };
 const G = '½¼¾⅓⅔⅛⅜⅝⅞';
@@ -46,7 +46,23 @@ export function formatNum(x: number): string {
   for (const o of opts) if (Math.abs(o[0] - frac) < Math.abs(best[0] - frac)) best = o;
   const w = best[0] === 1 ? whole + 1 : whole;
   if (x >= 10 && best[1] && best[1] !== '½') return String(Math.round(x)); // no ⅛ precision above 10
-  return (w > 0 ? String(w) : '') + best[1] || '0';
+  return (w > 0 ? String(w) : '') + best[1] || '⅛'; // a nonzero amount never reads as 0
+}
+
+/**
+ * Things you can't measure part of: after scaling, a whole number, at least 1 ("3 large eggs" × ½ →
+ * "2 large eggs"), but only when the recipe writes whole ones: "½ head cabbage" stays a fraction.
+ * Deliberately a short list: "½ onion" or "1½ sticks butter" are real amounts.
+ * Groups: 1 what comes before the noun (bold marks, "(15 oz)", size words), 2 the noun, 3 its plural ending.
+ */
+const COUNT_RX = /^([*_]{0,2}\s*(?:\([^)]*\)\s*)?(?:(?:extra[- ]large|large|medium|small|jumbo|whole|garlic)\s+)*)(egg\s+yolk|egg\s+white|yolk|egg|clove|can|slice|piece|head|package|bunch|sprig|stalk)(s|es)?\b/i;
+const roundCount = (x: number) => String(Math.max(1, Math.round(x)));
+/** The noun agrees with the rounded count: "1 eggs" → "1 egg", "2 clove" → "2 cloves", "3 EGGS". */
+function countNoun(rest: string, n: number): string {
+  const m = rest.match(COUNT_RX)!;
+  let plural = n > 1 ? (/ch$/i.test(m[2]) ? 'es' : 's') : '';
+  if (m[2] === m[2].toUpperCase()) plural = plural.toUpperCase();
+  return m[1] + m[2] + plural + rest.slice(m[0].length);
 }
 
 /** Metric: millilitres / grams (litres / kilograms from 950 up). */
@@ -88,7 +104,9 @@ function tidyUS(val: number, unit: string): { val: number; unit: string } | null
   return null;
 }
 
-const metricFmt = (v: number, unit: string) => (unit === 'L' || unit === 'kg' ? (Math.round(v * 10) / 10).toString() : String(Math.round(v)));
+/** Whole ml / g; one decimal for litres, kilograms and anything under 1 (never "0 ml"). */
+const metricFmt = (v: number, unit: string) =>
+  unit === 'L' || unit === 'kg' || v < 1 ? String(Math.max(0.1, Math.round(v * 10) / 10)) : String(Math.round(v));
 const unitName = (unit: string, val: number) => (unit === 'cup' && val > 1 ? 'cups' : unit);
 
 /** Rewrite the leading quantity (and unit, when converting) of an ingredient line; units in one spelling. */
@@ -125,6 +143,11 @@ export function scaleLine(text: string, factor: number, units: Units = 'us'): st
         rest = ' ' + unitName('cup', (b ?? a) * factor) + rest.slice(um[0].length);
       }
     }
+  }
+  if (factor !== 1 && Number.isInteger(a) && (b === null || Number.isInteger(b)) && COUNT_RX.test(rest)) {
+    fmtA = roundCount(a * factor);
+    fmtB = b !== null ? roundCount(b * factor) : null;
+    rest = countNoun(rest, +(fmtB ?? fmtA));
   }
   const sep = b !== null ? (m[0].includes('to') ? ' to ' : '–') : '';
   return m[1] + fmtA + (fmtB !== null ? sep + fmtB : '') + rest;
