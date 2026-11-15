@@ -351,9 +351,12 @@ mod tests {
         assert_eq!(key("pure vanilla extract").as_deref(), Some("vanilla"));
     }
 
+    /// `VAULT=~/Recipes cargo test -p recipes-core -- --ignored`
     #[test]
-    fn seed_catalogue() {
-        let root = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../vault-seed"));
+    #[ignore = "needs VAULT"]
+    fn vault_catalogue() {
+        let path = std::env::var("VAULT").expect("set VAULT to a recipes folder, e.g. VAULT=~/Recipes");
+        let root = std::path::Path::new(&path);
         let idx = crate::vault::scan(root, None, None);
         let cat = catalogue(&idx);
         let egg = cat.iter().find(|i| i.key == "egg").expect("egg");

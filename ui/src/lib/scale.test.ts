@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { formatNum, groupLines, parseNum, parseYield, portionMultipliers, resolvePortion, scaleLine, yieldLabel } from './scale';
-import fx from './portions.fixture.json';
+
+// Ingredient tables with one column per portion, as the parser hands them over (row = the line's alternatives).
+const table = (portions: string[], ...rows: string[][]) =>
+  ({ portions, items: rows.map((alts, i) => ({ line: i + 4, text: alts[0], alts })) });
+const fx = {
+  pie: table(['Single', 'Double'], ['1 ½ cups AP flour', '3 cups AP flour'], ['1 tsp Salt', '1 1/2 tsp Salt'], ['½ cup Cold butter', '1 cup Cold butter'], ['1 Tbsp Sugar', '2 Tbsp Sugar']),
+  eggnog: table(['', ''], ['8 Eggs', '12 Eggs'], ['2 cups Cream', '3 cups Cream'], ['¾ cup Sugar', '1 1/8 cup Sugar']),
+  hoisin: table(['', '', ''], ['2 Tbsp. Soy Sauce', '¼ cup Soy Sauce', '½ cup Soy Sauce'], ['1 ½ tsp. Molasses', '1 Tbsp. Molasses', '2 Tbsp. Molasses'], ['1 tsp. Vinegar', '2 tsp. Vinegar', '4 tsp. Vinegar']),
+  quiche: table(['9” Quiche', '10” Quiche'], ['One pie shell', 'One pie shell'], ['1 cup Swiss cheese', '1 ½ cup Swiss cheese'], ['1/3 cup Onion', '½ cup Onion'], ['4 Eggs', '6 Eggs']),
+  pizza: table(['SMALL', 'LARGE'], ['9 oz Water', '12 oz Water'], ['3 Tbsp Olive oil', '¼ cup Olive oil'], ['¾ tsp salt', '1 tsp salt']),
+  honeycomb: table(['Small', 'Double Batch'], ['1 ½ cup Sugar', '2 cups Sugar'], ['1 ½ cup Syrup', '2 cups Syrup'], ['1 ½ Tablespoon vinegar', '2 Tablespoon vinegar']),
+  fajita: table(['Small batch', 'Large batch'], ['1 Tbsp salt', '¼ cup salt'], ['2 Tbsp chili powder', '1/2 cup chili powder'], ['1 tsp cumin', '4 tsp cumin']),
+  icecream: table(['VANILLA', 'CHOCOLATE'], ['3 egg yolks', '3 egg yolks'], ['½ cup Sugar', '1 cup Sugar'], ['1 cup Milk', '1 cup Milk'], ['¼ tsp Salt', '¼ tsp Salt'], ['', '2 oz. Unsweetened baking chocolate']),
+  cocoa: table(['ALL SUGAR', '75% SUGAR', '66% SUGAR', '50% SUGAR'], ['2 cups cocoa powder', '2 cups cocoa powder', '2 cups cocoa powder', '2 cups cocoa powder'], ['4 ½ cups sugar', '3 ¼ cups sugar', '3 cups sugar', '2 cups sugar'], ['1/8 tsp Salt', '1/8 tsp Salt', '1/8 tsp Salt', '1/8 tsp Salt']),
+};
 
 describe('scale', () => {
   it('parses quantity forms', () => {

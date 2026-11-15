@@ -880,14 +880,19 @@ mod tests {
         assert_eq!(p.title.as_deref(), Some("T"));
     }
 
-    /// `DUMP=/path/out.json cargo test -p recipes-core dump_seed -- --ignored`: every seed note's
-    /// ingredients and steps, for reviewing parser changes across the whole seed.
+    /// The recipes folder for the tests below (they run with `--ignored`; the recipes are not in this repo).
+    fn vault() -> String {
+        std::env::var("VAULT").expect("set VAULT to a recipes folder, e.g. VAULT=~/Recipes")
+    }
+
+    /// `VAULT=~/Recipes DUMP=/path/out.json cargo test -p recipes-core dump_vault -- --ignored`: every
+    /// note's ingredients and steps, for reviewing parser changes across a whole recipes folder.
     #[test]
-    #[ignore]
-    fn dump_seed() {
-        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../vault-seed");
+    #[ignore = "needs VAULT and DUMP"]
+    fn dump_vault() {
+        let root = &vault();
         let mut out = std::collections::BTreeMap::new();
-        for e in walkdir::WalkDir::new(root).into_iter().filter_map(Result::ok) {
+        for e in walkdir::WalkDir::new(root).into_iter().filter_entry(|e| e.depth() == 0 || !e.file_name().to_string_lossy().starts_with('.')).filter_map(Result::ok) {
             if e.path().extension().is_some_and(|x| x == "md") {
                 let rel = e.path().strip_prefix(root).unwrap().to_string_lossy().into_owned();
                 out.insert(rel, parse(&std::fs::read_to_string(e.path()).unwrap()).recipe);
@@ -896,18 +901,21 @@ mod tests {
         std::fs::write(std::env::var("DUMP").unwrap(), serde_json::to_string_pretty(&out).unwrap()).unwrap();
     }
 
+    /// `VAULT=~/Recipes cargo test -p recipes-core -- --ignored`: every note in a real recipes folder
+    /// parses and every recipe is detected (pages listed in `.tools/techniques.txt` are exempt).
     #[test]
-    fn whole_seed_vault_parses() {
-        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../vault-seed");
+    #[ignore = "needs VAULT"]
+    fn whole_vault_parses() {
+        let root = &vault();
         let (mut n, mut recipes) = (0, 0);
-        let techniques: Vec<String> = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tools/techniques.txt"))
-            .unwrap()
+        let techniques: Vec<String> = std::fs::read_to_string(std::path::Path::new(root).join(".tools/techniques.txt"))
+            .unwrap_or_default()
             .lines()
             .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
             .map(str::to_string)
             .collect();
         let (mut missed, mut charts, mut steps_qty) = (vec![], vec![], vec![]);
-        for e in walkdir::WalkDir::new(root).into_iter().filter_map(Result::ok) {
+        for e in walkdir::WalkDir::new(root).into_iter().filter_entry(|e| e.depth() == 0 || !e.file_name().to_string_lossy().starts_with('.')).filter_map(Result::ok) {
             if e.path().extension().is_some_and(|x| x == "md") {
                 let text = std::fs::read_to_string(e.path()).unwrap();
                 let p = parse(&text);
@@ -939,8 +947,7 @@ mod tests {
                 }
             }
         }
-        assert_eq!(n, 257); // 259 originals, two exact duplicates left out (tools/names.tsv)
-        eprintln!("{recipes}/{n} seed notes detected as recipes");
+        eprintln!("{recipes}/{n} notes detected as recipes");
         assert!(missed.is_empty(), "not detected as recipes: {missed:?}");
         assert!(charts.is_empty(), "reference pages read as recipes: {charts:?}");
         assert!(steps_qty.is_empty(), "ingredient lines read as steps: {steps_qty:?}");
