@@ -250,7 +250,7 @@
     items.push(...rest.filter((i) => i.label !== 'Move to trash'));
     items.push({ label: 'Print', run: doPrint });
     if (app.session.ai && canWrite() && isNote) {
-      items.push({ label: '✨ Tidy formatting with AI…', run: aiTidy, sep: true }, { label: '✨ Ask AI about this recipe…', run: () => { asking = true; } });
+      items.push({ label: 'Tidy formatting with AI…', run: aiTidy, sep: true }, { label: 'Ask AI about this recipe…', run: () => { asking = true; } });
     }
     const trash = rest.find((i) => i.label === 'Move to trash');
     if (trash) items.push(trash);
@@ -389,17 +389,17 @@
 {/if}
 
 <style>
-  .page { padding: 16px 28px 64px; }
-  .toolbar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 6px 0 10px; }
-  .mentions { margin: 28px 0 0; padding-top: 12px; border-top: 1px solid var(--border); max-width: 760px; }
-  .mentions h2 { font: 600 14px var(--sans); color: var(--muted); margin: 0 0 6px; }
-  .mentions ul { margin: 0; padding-left: 18px; }
-  .banner { background: var(--p-yellow); border-radius: var(--radius); padding: 10px 14px; margin: 4px 0 14px; font-size: 14px; max-width: 760px; }
+  .page { padding: 16px 24px 64px; }
+  .toolbar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0 12px; }
+  .mentions { margin: 32px 0 0; padding-top: 12px; border-top: 1px solid var(--border); max-width: 760px; }
+  .mentions h2 { font: 600 14px var(--sans); color: var(--muted); margin: 0 0 8px; }
+  .mentions ul { margin: 0; padding-left: 20px; }
+  .banner { background: var(--p-yellow); border-radius: var(--radius); padding: 12px 16px; margin: 4px 0 16px; font-size: 14px; max-width: 760px; }
   .banner.warn { background: var(--p-red); max-width: none; }
-  .recipebar { margin: 0 0 16px; max-width: 760px; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  .recipebar { margin: 0 0 16px; max-width: 760px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
   .scaler .qty { min-width: 90px; text-align: center; font-weight: 600; }
   .portions { gap: 4px; }
-  .chip { border: 1px solid var(--border); background: var(--surface); border-radius: 14px; padding: 3px 11px; min-height: 30px; cursor: pointer; font-size: 14px; }
+  .chip { border: 1px solid var(--border); background: var(--surface); border-radius: 16px; padding: 4px 12px; min-height: 32px; cursor: pointer; font-size: 14px; }
   .chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
   .chip .mult { margin-left: 2px; color: var(--muted); font-weight: 500; }
   .units { width: auto; }
@@ -408,14 +408,14 @@
   .editpane { display: flex; flex-direction: column; gap: 8px; height: calc(100vh - 110px); position: sticky; top: 60px; }
   .editing:not(.split) .editpane { height: calc(100vh - 110px); max-width: 880px; }
   .split .reader { max-height: calc(100vh - 110px); overflow-y: auto; padding-right: 8px; }
-  .ftitle { margin: 6px 0 14px; }
-  .ask { padding: 10px 12px; margin-bottom: 16px; max-width: 760px; display: grid; gap: 8px; }
+  .ftitle { margin: 8px 0 16px; }
+  .ask { padding: 12px; margin-bottom: 16px; max-width: 760px; display: grid; gap: 8px; }
   .ask .grow { flex: 1; min-width: 200px; }
   .answer { font-size: 15px; }
   .busy { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.25); display: grid; place-items: center; color: #fff; font-size: 18px; z-index: 70; }
   .full { max-width: 100%; border-radius: var(--radius); }
   @media (max-width: 899px) {
-    .page { padding: 6px 14px 96px; }
+    .page { padding: 8px 16px 96px; }
     .editpane { height: calc(100vh - 170px); top: 52px; }
     .recipebar .spacer { display: none; }
     .recipebar .btn.primary { width: 100%; justify-content: center; }

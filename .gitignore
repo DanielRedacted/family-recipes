@@ -5,3 +5,4 @@ ui/dist/*
 .DS_Store
 *.log
 ui/test-results/
+.agents/skills/

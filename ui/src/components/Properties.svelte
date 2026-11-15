@@ -32,6 +32,7 @@
   import { tagsOf } from '../lib/search';
   import { vaultTarget } from '../lib/markdown';
   import { noteHash } from '../lib/state.svelte';
+  import Icon from './Icon.svelte';
 
   let { entry, editable, onchange }: { entry: Entry; editable: boolean; onchange: (raw: string) => void } = $props();
   let editing = $state(false);
@@ -95,12 +96,12 @@
                 onblur={(e) => addValue(k, e.currentTarget.value)} />
             </span>
           {:else}
-            <button class="chip missing" aria-label="Add {LABELS[k]}" onclick={() => (adding = k)}><span class="k">{LABELS[k]}</span>＋</button>
+            <button class="chip missing" aria-label="Add {LABELS[k]}" onclick={() => (adding = k)}><span class="k">{LABELS[k]}</span><Icon name="plus" size={14} /></button>
           {/if}
         {/each}
         {#each tagsOf(entry) as t}<span class="chip tag">#{t}</span>{/each}
-        {#if orig}<a class="chip" href={noteHash(orig)}>📎 Original file</a>{/if}
-        {#if editable}<button class="btn ghost small" onclick={() => (editing = true)}>{keys.length ? 'Edit properties' : '＋ Add properties'}</button>{/if}
+        {#if orig}<a class="chip" href={noteHash(orig)}><Icon name="paperclip" size={14} /> Original file</a>{/if}
+        {#if editable}<button class="btn ghost small" onclick={() => (editing = true)}>{#if !keys.length}<Icon name="plus" size={14} />{/if}{keys.length ? 'Edit properties' : 'Add properties'}</button>{/if}
       </div>
       {#if entry.frontmatter_error}<p class="warn small">Properties block could not be read: {entry.frontmatter_error}</p>{/if}
     {:else}
@@ -110,7 +111,7 @@
             <tr>
               <th>{LABELS[k] ?? k}</th>
               <td><input class="field" value={fmtVal(fm[k])} onchange={(e) => update(k, e.currentTarget.value)} aria-label={LABELS[k] ?? k} /></td>
-              <td><button class="btn ghost icon" aria-label="Remove {k}" onclick={() => update(k, '')}>✕</button></td>
+              <td><button class="btn ghost icon" aria-label="Remove {k}" onclick={() => update(k, '')}><Icon name="x" size={16} /></button></td>
             </tr>
           {/each}
           <tr>
@@ -128,19 +129,19 @@
 {/if}
 
 <style>
-  .props { margin: 0 0 18px; font-size: 14px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .chip { background: var(--sunken); border-radius: 14px; padding: 3px 10px; text-decoration: none; color: var(--text); }
-  .chip .k { color: var(--muted); margin-right: 5px; }
+  .props { margin: 0 0 16px; font-size: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; background: var(--sunken); border-radius: 16px; padding: 4px 12px; text-decoration: none; color: var(--text); }
+  .chip .k { color: var(--muted); }
   .chip.tag { color: var(--accent-ink); background: var(--accent-soft); }
   .chip.fav { background: var(--p-yellow); }
   .chip.missing { border: 1px dashed var(--border); background: none; color: var(--muted); cursor: pointer; font: inherit; }
   .chip.missing:hover { border-color: var(--accent); color: var(--accent-ink); }
   .chip.adding { display: inline-flex; align-items: center; }
-  .inline { border: 0; background: var(--surface); border-radius: 8px; padding: 1px 6px; width: 9em; font: inherit; }
+  .inline { border: 0; background: var(--surface); border-radius: 8px; padding: 2px 8px; width: 9em; font: inherit; }
   .inline:focus { outline: 2px solid var(--accent); }
   table { border-collapse: collapse; width: 100%; max-width: 640px; margin-bottom: 8px; }
-  th { text-align: left; font-weight: 500; color: var(--muted); padding: 3px 8px 3px 0; width: 140px; }
-  td { padding: 3px 0; }
+  th { text-align: left; font-weight: 500; color: var(--muted); padding: 4px 8px 4px 0; width: 140px; }
+  td { padding: 4px 0; }
   .warn { color: var(--danger); }
 </style>

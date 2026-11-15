@@ -21,10 +21,10 @@
 {/if}
 
 <style>
-  .nutrition { max-width: 420px; margin: 18px 0; }
-  h2 { font-size: 1.15rem; margin: 0 0 6px; }
+  .nutrition { max-width: 420px; margin: 24px 0; }
+  h2 { font-size: 1.15rem; margin: 0 0 8px; }
   table { border-collapse: collapse; width: 100%; font-size: 14px; }
-  th { text-align: left; font-weight: 500; color: var(--muted); padding: 3px 12px 3px 0; }
-  td { text-align: right; padding: 3px 0; font-variant-numeric: tabular-nums; }
+  th { text-align: left; font-weight: 500; color: var(--muted); padding: 4px 12px 4px 0; }
+  td { text-align: right; padding: 4px 0; font-variant-numeric: tabular-nums; }
   tr + tr { border-top: 1px solid var(--border); }
 </style>

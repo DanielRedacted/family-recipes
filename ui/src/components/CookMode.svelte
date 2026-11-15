@@ -72,22 +72,22 @@
 
 <style>
   .cook { position: fixed; inset: 0; z-index: 60; background: var(--bg); overflow-y: auto; padding: calc(12px + env(safe-area-inset-top)) 24px 40px; font-family: var(--serif); }
-  header { position: sticky; top: 0; background: var(--bg); padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  header { position: sticky; top: 0; background: var(--bg); padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   h1 { margin: 0; font-size: 1.7rem; }
-  .pill { background: var(--accent-soft); color: var(--accent-ink); padding: 2px 10px; border-radius: 12px; font-family: var(--sans); }
+  .pill { background: var(--accent-soft); color: var(--accent-ink); padding: 2px 12px; border-radius: 12px; font-family: var(--sans); }
   .cols { display: grid; grid-template-columns: minmax(260px, 1fr) 2fr; gap: 40px; margin-top: 16px; }
-  h2 { font-size: 1.2rem; color: var(--muted); font-family: var(--sans); text-transform: uppercase; letter-spacing: 0.06em; }
-  h3 { color: var(--accent-ink); margin: 18px 0 6px; }
+  h2 { font-size: 1.2rem; color: var(--muted); font-family: var(--sans); font-weight: 500; }
+  h3 { color: var(--accent-ink); margin: 20px 0 8px; }
   ul, ol { list-style: none; padding: 0; margin: 0; }
-  li { font-size: 22px; line-height: 1.45; padding: 8px 6px; border-radius: 8px; }
+  li { font-size: 22px; line-height: 1.45; padding: 8px; border-radius: 8px; }
   li label { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
   li input { width: 24px; height: 24px; margin-top: 4px; accent-color: var(--accent); flex: none; }
   li.done span { opacity: 0.4; text-decoration: line-through; }
   li.current { background: var(--accent-soft); }
   .steps li { font-size: 24px; }
-  .tabs { display: none; margin-top: 10px; }
+  .tabs { display: none; margin-top: 12px; }
   @media (max-width: 899px) {
-    .cook { padding: calc(10px + env(safe-area-inset-top)) 14px 40px; }
+    .cook { padding: calc(12px + env(safe-area-inset-top)) 16px 40px; }
     .cols { grid-template-columns: 1fr; gap: 0; }
     .tabs { display: flex; }
     .hide { display: none; }

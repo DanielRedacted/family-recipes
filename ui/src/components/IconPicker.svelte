@@ -87,17 +87,17 @@
 
 <style>
   .modal-back { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); display: grid; place-items: center; z-index: 100; padding: 16px; }
-  .modal { width: min(480px, calc(100vw - 32px)); padding: 18px 20px; display: grid; gap: 12px; max-height: 90vh; overflow: auto; }
+  .modal { width: min(480px, calc(100vw - 32px)); padding: 20px; display: grid; gap: 12px; max-height: 90vh; overflow: auto; }
   h3 { margin: 0; }
   .preview { height: 72px; border-radius: var(--radius); display: grid; place-items: center; }
   fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
-  legend { font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+  legend { font-weight: 600; margin-bottom: 8px; font-size: 14px; }
   .own { flex: 1; min-width: 140px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 4px; }
   .emo { font-size: 22px; background: none; border: 1px solid transparent; border-radius: 8px; padding: 4px; cursor: pointer; }
   .emo:hover { background: var(--sunken); }
   .emo.on { border-color: var(--accent); background: var(--accent-soft); }
-  .sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; }
+  .sw { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; }
   .sw.on { border-color: var(--accent-ink); box-shadow: 0 0 0 2px var(--accent-soft); }
   .end { justify-content: flex-end; }
   p { margin: 0; }

@@ -46,7 +46,7 @@
 <style>
   .back { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); z-index: 100; display: grid; place-items: center; padding: 16px; }
   .box { width: min(1200px, 100%); height: min(86vh, 900px); display: flex; flex-direction: column; overflow: hidden; }
-  .head, .foot { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .head, .foot { padding: 12px 16px; border-bottom: 1px solid var(--border); }
   .foot { border-top: 1px solid var(--border); border-bottom: 0; }
   .half { flex: 1; }
   .merge { flex: 1; overflow: auto; font-size: 14px; }

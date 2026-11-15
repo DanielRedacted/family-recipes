@@ -44,7 +44,7 @@
   const theme = EditorView.theme({
     '&': { height: '100%', fontSize: '15px', backgroundColor: 'var(--surface)', color: 'var(--text)' },
     '.cm-content': { fontFamily: 'var(--mono)', padding: '16px 0', caretColor: 'var(--accent)' },
-    '.cm-line': { padding: '0 18px' },
+    '.cm-line': { padding: '0 16px' },
     '.cm-gutters': { backgroundColor: 'var(--surface)', borderRight: '1px solid var(--border)', color: 'var(--muted)' },
     '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'var(--sunken)' },
     '&.cm-focused': { outline: 'none' },
@@ -52,7 +52,7 @@
     '.cm-cursor': { borderLeftColor: 'var(--accent)' },
     '&.cm-formatted .cm-gutters': { display: 'none' },
     '&.cm-formatted .cm-activeLine': { backgroundColor: 'transparent' },
-    '&.cm-formatted .cm-line': { padding: '0 22px' },
+    '&.cm-formatted .cm-line': { padding: '0 24px' },
     // table cells: header text is not a Markdown heading
     '.tbl-header-cell span': { textDecoration: 'none' },
     '.tbl-cell-view .cm-md-mark': { display: 'none' },
@@ -255,15 +255,15 @@
 
 <style>
   .wrap { height: 100%; min-height: 300px; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
-  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 5px 8px; border-bottom: 1px solid var(--border); background: var(--bg); }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 4px 8px; border-bottom: 1px solid var(--border); background: var(--bg); }
   .gap { width: 8px; }
   .seg { display: flex; }
   .seg .btn { border-radius: 0; }
   .seg .btn:first-child { border-radius: 7px 0 0 7px; }
   .seg .btn:last-child { border-radius: 0 7px 7px 0; border-left: 0; }
-  .tb { border: 0; background: none; color: var(--text); width: 32px; height: 30px; border-radius: 6px; display: grid; place-items: center; cursor: pointer; }
+  .tb { border: 0; background: none; color: var(--text); width: 32px; height: 32px; border-radius: 6px; display: grid; place-items: center; cursor: pointer; }
   .tb:hover { background: var(--sunken); }
-  .ttype { width: auto; min-height: 30px; padding: 2px 6px; font-size: 13px; margin-right: 4px; }
+  .ttype { width: auto; min-height: 32px; padding: 2px 8px; font-size: 13px; margin-right: 4px; }
   .tb:disabled { opacity: 0.4; cursor: default; }
   .editor { flex: 1; min-height: 0; }
   .editor :global(.cm-editor) { height: 100%; }

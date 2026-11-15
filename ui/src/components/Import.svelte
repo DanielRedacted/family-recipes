@@ -168,7 +168,7 @@
       <input class="field title" bind:value={rv.name} aria-label="Recipe name" />
       <select class="field w" bind:value={folder} aria-label="Folder">{#each folders as f}<option value={f}>{f || 'Top level'}</option>{/each}</select>
       <span class="spacer"></span>
-      {#if app.session.ai}<button class="btn" disabled={aiBusy} onclick={fixWithAi}>{aiBusy ? 'Asking AI…' : '✨ Fix with AI'}</button>{/if}
+      {#if app.session.ai}<button class="btn" disabled={aiBusy} onclick={fixWithAi}>{aiBusy ? 'Asking AI…' : 'Fix with AI'}</button>{/if}
       <button class="btn" onclick={discard}>Discard</button>
       <button class="btn primary" disabled={!!busy || !rv.name.trim()} onclick={save}>Save recipe</button>
     </header>
@@ -329,48 +329,48 @@
 
 <style>
   .page { padding: 16px 28px 80px; }
-  h1 { margin: 6px 0 14px; }
+  h1 { margin: 8px 0 16px; }
   h2 { margin: 0 0 8px; font-size: 1.1rem; }
   h3 { margin: 0 0 8px; font-size: 1rem; font-family: var(--sans); display: inline; }
-  .block { padding: 16px 18px; margin-bottom: 14px; display: grid; gap: 10px; max-width: 820px; }
+  .block { padding: 16px 20px; margin-bottom: 16px; display: grid; gap: 12px; max-width: 820px; }
   .block p { margin: 0; }
   .grid1 { display: grid; gap: 8px; }
   .w { width: auto; }
-  .dest { margin-bottom: 14px; }
+  .dest { margin-bottom: 16px; }
   .drop.dragging { outline: 2px dashed var(--accent); background: var(--accent-soft); }
   .queue ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-  .qi { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--bg); }
+  .qi { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; background: var(--bg); }
   .qi .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; max-width: 60%; font-weight: 500; }
-  .qi .status { margin: 2px 0 0 18px; color: var(--muted); }
+  .qi .status { margin: 2px 0 0 16px; color: var(--muted); }
   .qi.failed .status { color: var(--danger); }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
   .qi.running .dot { background: var(--accent); animation: pulse 1s infinite alternate; }
   .qi.ready .dot { background: var(--ok); }
   .qi.failed .dot { background: var(--danger); }
   .qi.choose .dot { background: var(--accent-ink); }
   @keyframes pulse { to { opacity: 0.3; } }
-  .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin: 8px 0 2px 18px; }
-  .choice { display: grid; gap: 6px; align-content: start; }
+  .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 8px 0 0 16px; }
+  .choice { display: grid; gap: 8px; align-content: start; }
   .choice .field { flex: 1; min-width: 120px; }
-  .tag { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-ink); font-family: var(--sans); }
-  .log { margin: 6px 0 0 18px; padding-left: 16px; font-size: 13px; display: grid; gap: 3px; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-ink); font-family: var(--sans); }
+  .log { margin: 8px 0 0 16px; padding-left: 16px; font-size: 13px; display: grid; gap: 4px; }
   .log code { font-size: 12px; background: var(--sunken); padding: 0 4px; border-radius: 4px; }
   .log li.bad { color: var(--muted); }
   .log li.bad::marker { color: var(--danger); }
   details summary { cursor: pointer; }
-  .rev { position: sticky; top: 0; background: var(--bg); z-index: 5; padding: 6px 0 10px; }
+  .rev { position: sticky; top: 0; background: var(--bg); z-index: 5; padding: 8px 0 12px; }
   .title { flex: 1; min-width: 200px; font: 600 18px var(--serif); }
   .banner { background: var(--p-yellow); padding: 8px 12px; border-radius: 8px; margin-bottom: 8px; }
-  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
   .tabs { margin-bottom: 8px; gap: 4px; }
   .pane { height: calc(100vh - 230px); min-height: 360px; }
   .hide { display: none; }
-  .scroll { overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 18px; background: var(--surface); }
+  .scroll { overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; background: var(--surface); }
   .src { white-space: pre-wrap; font: 13px/1.5 var(--mono); margin: 0; }
   .side { display: grid; gap: 0; position: sticky; top: 64px; max-height: calc(100vh - 90px); overflow: auto; }
   .side .block { max-width: none; }
   .side .log { margin-left: 0; }
-  .issues { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 6px; }
+  .issues { margin: 0; padding-left: 20px; font-size: 14px; display: grid; gap: 8px; }
   .issues li.warn::marker { color: var(--danger); }
   .issues li.info { color: var(--muted); }
   .imgs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -378,14 +378,14 @@
   figure.sel { border-color: var(--accent); }
   figure label { display: block; position: relative; cursor: pointer; }
   figure img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
-  .tick { position: absolute; top: 6px; left: 6px; background: rgba(255, 255, 255, 0.85); border-radius: 4px; padding: 2px 4px; }
+  .tick { position: absolute; top: 8px; left: 8px; background: var(--surface); border-radius: 4px; padding: 2px 4px; }
   .tick input { width: 18px; height: 18px; accent-color: var(--accent); }
-  figcaption { padding: 4px 6px; justify-content: space-between; }
+  figcaption { padding: 4px 8px; justify-content: space-between; }
   .busy { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.25); display: grid; place-items: center; color: #fff; font-size: 18px; z-index: 70; }
   @media (max-width: 999px) {
     .grid { grid-template-columns: 1fr; }
     .side { position: static; max-height: none; }
     .pane { height: 60vh; }
   }
-  @media (max-width: 899px) { .page { padding: 8px 14px 96px; } .qi .label { max-width: 45%; } }
+  @media (max-width: 899px) { .page { padding: 8px 16px 96px; } .qi .label { max-width: 45%; } }
 </style>

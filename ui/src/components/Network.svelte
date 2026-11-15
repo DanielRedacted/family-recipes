@@ -42,9 +42,9 @@
   .share { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
   .qr { width: 180px; height: 180px; background: #fff; border-radius: 8px; padding: 4px; flex: none; }
   .qr :global(svg) { width: 100%; height: 100%; }
-  .how { flex: 1; min-width: 220px; display: grid; gap: 6px; }
+  .how { flex: 1; min-width: 220px; display: grid; gap: 8px; }
   .how p { margin: 0; }
   .mono { font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
   .err { color: var(--danger); }
-  details p { margin: 6px 0; }
+  details p { margin: 8px 0; }
 </style>

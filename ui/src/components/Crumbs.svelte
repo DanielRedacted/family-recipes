@@ -15,7 +15,7 @@
 </nav>
 
 <style>
-  .crumbs { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; color: var(--muted); }
+  .crumbs { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; color: var(--muted); }
   .crumbs a { color: var(--muted); text-decoration: none; }
   .crumbs a:hover { color: var(--text); }
   .crumbs > :last-child { color: var(--text); }

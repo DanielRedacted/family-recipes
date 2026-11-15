@@ -41,12 +41,12 @@
   .snav { display: flex; flex-direction: column; gap: 2px; height: 100%; overflow-y: auto; padding: 12px 8px calc(8px + env(safe-area-inset-bottom)); }
   .back { color: var(--muted); text-decoration: none; font-size: 14px; padding: 4px 8px; }
   .back:hover { color: var(--text); }
-  h2 { font: 700 19px var(--serif); margin: 6px 8px 10px; }
-  .item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; min-height: 30px; border-radius: 6px; color: var(--text); text-decoration: none; }
+  h2 { font: 600 19px var(--serif); margin: 8px 8px 12px; }
+  .item { display: flex; align-items: center; gap: 8px; padding: 4px 8px; min-height: 32px; border-radius: 6px; color: var(--text); text-decoration: none; }
   .item:hover { background: var(--sunken); }
   .item.active { background: var(--accent-soft); }
   .item :global(svg) { color: var(--muted); }
-  .compact { flex-direction: row; flex-wrap: wrap; gap: 6px; height: auto; padding: 0 0 4px; overflow: visible; }
+  .compact { flex-direction: row; flex-wrap: wrap; gap: 8px; height: auto; padding: 0 0 4px; overflow: visible; }
   .compact .item { background: var(--sunken); border-radius: 14px; padding: 4px 12px; min-height: 32px; font-size: 14px; }
   .compact .item.active { background: var(--accent-soft); color: var(--accent-ink); }
   @media (hover: none) { .item { min-height: 40px; } }

@@ -1,0 +1,417 @@
+---
+version: alpha
+name: Recipes
+description: >-
+  A family cookbook kept as plain-text recipes: a warm, paper-like reading app for the Mac and for
+  phones and tablets at home. Light theme tokens below; dark theme counterparts end in -dark.
+colors:
+  primary: "#d97706"
+  primary-ink: "#9a4f05"
+  primary-soft: "#ffe5cc"
+  on-primary: "#1a1a18"
+  background: "#fafaf8"
+  surface: "#ffffff"
+  sunken: "#f3f1ea"
+  border: "#e5e5e0"
+  text: "#1a1a18"
+  muted: "#6b6b66"
+  danger: "#dc2626"
+  success: "#16a34a"
+  card-red: "#ffd6d6"
+  card-orange: "#ffe5cc"
+  card-yellow: "#fff9cc"
+  card-green: "#d6f5d6"
+  card-blue: "#cce5ff"
+  card-purple: "#ead6ff"
+  card-brown: "#e8d5c4"
+  card-grey: "#f0f0f0"
+  primary-dark: "#f0a640"
+  primary-ink-dark: "#f5b860"
+  primary-soft-dark: "#3a2c18"
+  on-primary-dark: "#141412"
+  background-dark: "#141412"
+  surface-dark: "#1e1e1c"
+  sunken-dark: "#191917"
+  border-dark: "#2e2e2a"
+  text-dark: "#f0f0ec"
+  muted-dark: "#9a9a94"
+typography:
+  display:
+    fontFamily: 'ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif'
+    fontSize: 2rem
+    fontWeight: 600
+    lineHeight: 1.25
+  recipe-section:
+    fontFamily: 'ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif'
+    fontSize: 1.35rem
+    fontWeight: 600
+    lineHeight: 1.25
+  recipe-group:
+    fontFamily: 'ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif'
+    fontSize: 1.1rem
+    fontWeight: 600
+    lineHeight: 1.25
+  recipe-body:
+    fontFamily: 'ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif'
+    fontSize: 17px
+    fontWeight: 400
+    lineHeight: 1.6
+  card-title:
+    fontFamily: 'ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif'
+    fontSize: 17px
+    fontWeight: 600
+    lineHeight: 1.3
+  brand:
+    fontFamily: 'ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif'
+    fontSize: 19px
+    fontWeight: 600
+    lineHeight: 1.2
+  body:
+    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: 15px
+    fontWeight: 400
+    lineHeight: 1.5
+  label:
+    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: 14px
+    fontWeight: 500
+    lineHeight: 1.4
+  caption:
+    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: 13px
+    fontWeight: 400
+    lineHeight: 1.4
+  micro:
+    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: 11px
+    fontWeight: 500
+    lineHeight: 1.3
+  code:
+    fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace'
+    fontSize: 0.9em
+    fontWeight: 400
+    lineHeight: 1.5
+rounded:
+  xs: 4px
+  sm: 6px
+  md: 8px
+  lg: 10px
+  pill: 16px
+spacing:
+  xxs: 2px
+  xs: 4px
+  sm: 8px
+  md: 12px
+  lg: 16px
+  xl: 24px
+  xxl: 48px
+  sidebar-width: 290px
+  reading-width: 760px
+  page-max-width: 1200px
+  compact-breakpoint: 899px
+  touch-target: 36px
+  touch-target-coarse: 40px
+components:
+  button:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: 12px
+    height: 36px
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: 12px
+    height: 36px
+  button-ghost:
+    backgroundColor: transparent
+    textColor: "{colors.text}"
+    rounded: "{rounded.md}"
+    height: 36px
+  button-ghost-hover:
+    backgroundColor: "{colors.sunken}"
+  button-selected:
+    backgroundColor: "{colors.primary-soft}"
+    textColor: "{colors.text}"
+  button-danger:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.danger}"
+  input:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: 12px
+  card:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.lg}"
+  folder-card:
+    backgroundColor: "{colors.card-orange}"
+    textColor: "{colors.text}"
+    typography: "{typography.card-title}"
+    rounded: "{rounded.lg}"
+    padding: 16px
+  folder-card-red:
+    backgroundColor: "{colors.card-red}"
+  folder-card-yellow:
+    backgroundColor: "{colors.card-yellow}"
+  folder-card-green:
+    backgroundColor: "{colors.card-green}"
+  folder-card-blue:
+    backgroundColor: "{colors.card-blue}"
+  folder-card-purple:
+    backgroundColor: "{colors.card-purple}"
+  folder-card-brown:
+    backgroundColor: "{colors.card-brown}"
+  folder-card-grey:
+    backgroundColor: "{colors.card-grey}"
+  chip:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    height: 32px
+  chip-selected:
+    backgroundColor: "{colors.primary-soft}"
+    textColor: "{colors.primary-ink}"
+  property-chip:
+    backgroundColor: "{colors.sunken}"
+    textColor: "{colors.text}"
+    typography: "{typography.caption}"
+    rounded: "{rounded.pill}"
+  tag:
+    backgroundColor: "{colors.primary-soft}"
+    textColor: "{colors.primary-ink}"
+    typography: "{typography.micro}"
+    rounded: "{rounded.lg}"
+  favorite-chip:
+    backgroundColor: "{colors.card-yellow}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.pill}"
+  tree-row:
+    backgroundColor: transparent
+    textColor: "{colors.text}"
+    typography: "{typography.body}"
+    rounded: "{rounded.sm}"
+    height: 32px
+  tree-row-hover:
+    backgroundColor: "{colors.sunken}"
+  tree-row-active:
+    backgroundColor: "{colors.primary-soft}"
+    textColor: "{colors.text}"
+  sidebar:
+    backgroundColor: "{colors.sunken}"
+    textColor: "{colors.text}"
+    width: 290px
+  menu:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.md}"
+  menu-item:
+    rounded: "{rounded.sm}"
+    padding: 8px
+  toast:
+    backgroundColor: "{colors.text}"
+    textColor: "{colors.background}"
+    rounded: "{rounded.md}"
+    padding: 12px
+  toast-error:
+    backgroundColor: "{colors.danger}"
+    textColor: "#ffffff"
+  toast-success:
+    backgroundColor: "{colors.success}"
+    textColor: "{colors.on-primary}"
+  banner:
+    backgroundColor: "{colors.card-yellow}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.lg}"
+    padding: 16px
+  link:
+    textColor: "{colors.primary-ink}"
+  reader:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.text}"
+    typography: "{typography.recipe-body}"
+    width: 760px
+  reader-dark:
+    backgroundColor: "{colors.background-dark}"
+    textColor: "{colors.text-dark}"
+  surface-dark:
+    backgroundColor: "{colors.surface-dark}"
+    textColor: "{colors.text-dark}"
+  sidebar-dark:
+    backgroundColor: "{colors.sunken-dark}"
+    textColor: "{colors.muted-dark}"
+  button-primary-dark:
+    backgroundColor: "{colors.primary-dark}"
+    textColor: "{colors.on-primary-dark}"
+  chip-selected-dark:
+    backgroundColor: "{colors.primary-soft-dark}"
+    textColor: "{colors.primary-ink-dark}"
+  divider-dark:
+    backgroundColor: "{colors.border-dark}"
+  divider:
+    backgroundColor: "{colors.border}"
+  caption-text:
+    textColor: "{colors.muted}"
+---
+
+# Recipes design system
+
+## Overview
+
+Recipes preserves a mother's and grandmother's handwritten and typed recipes as plain-text files,
+and the app should feel like that family recipe box: warm, quiet, personal, and easy to read at
+the stove. The people using it are family members of every age, on a Mac in the kitchen and on
+phones and tablets around the house, often with flour on their hands.
+
+- **Warm paper, one amber accent.** Off-white pages, a slightly darker "sunken" tone for the
+  navigation column and quiet panels, and amber for the few things that act or are selected.
+- **Serif for the recipe, sans for the app.** Recipe text, titles and cards use the system serif
+  (New York on Apple devices) so a recipe reads like a printed card; controls, labels and lists use
+  the system sans.
+- **Content first.** The recipe is the page. Chrome stays small and muted; formatting marks are
+  never shown, even while editing (Apple Notes style); navigation follows Obsidian (a folder column,
+  breadcrumbs, `[[links]]`, properties).
+- **Native feel.** System fonts, system colour scheme (light and dark follow the device), standard
+  controls (`select`, checkboxes) wherever they work.
+
+## Colors
+
+The palette comes from the family's earlier recipe app: a warm paper neutral range, an amber
+accent, and eight pastel card colours the family picks for folders and recipes.
+
+- **Amber (`primary` #d97706):** the one accent. Primary buttons, list bullets and numbers, focus
+  rings, the selected outline, dashed underlines on recipe links.
+- **Amber ink (`primary-ink` #9a4f05):** amber dark enough for text: links, group headings inside a
+  recipe, the selected portion chip. 5.8:1 on the page background.
+- **Amber wash (`primary-soft` #ffe5cc):** selected rows and chips, tags, the rule under recipe
+  section headings.
+- **Paper neutrals:** `background` #fafaf8 (pages), `surface` #ffffff (cards, inputs, menus),
+  `sunken` #f3f1ea (navigation column, table headers, quiet panels), `border` #e5e5e0 (every 1px
+  line).
+- **Text:** `text` #1a1a18 (16.7:1) and `muted` #6b6b66 (5.1:1 on the page, 4.7:1 on sunken) for
+  secondary information: counts, captions, breadcrumbs, the ↗ after web links.
+- **Status:** `danger` #dc2626 for destructive actions and error toasts, `success` #16a34a for
+  saved toasts.
+- **Card colours (`card-*`):** red, orange, yellow, green, blue, purple, brown, grey pastels behind
+  folder and recipe cards. They are chosen by the family in the icon picker, never used for meaning,
+  and always carry `text` on top. Yellow doubles as the background of notice banners and the
+  favourite chip.
+- **Dark theme:** each token has a `-dark` counterpart (warm near-black pages, `primary-dark`
+  #f0a640, `primary-ink-dark` #f5b860, `primary-soft-dark` #3a2c18; card pastels become deep muted
+  tones). The theme follows the system setting unless the user picks one in Settings. On amber in
+  dark mode, put the dark background colour, not white, as text (9.0:1).
+
+## Typography
+
+Two system families and nothing downloaded: the system serif for anything that is part of a recipe,
+the system sans for the app around it, and the system monospace only for the Markdown view and code.
+
+- **display** (serif 2rem/600): the page title (All recipes, a folder, a recipe's title).
+- **recipe-section** (serif 1.35rem/600): "Ingredients", "Directions"; underlined with a 2px amber
+  wash rule.
+- **recipe-group** (serif 1.1rem/600, amber ink): groups inside a section ("Crust", "Filling").
+- **recipe-body** (serif 17px/1.6): ingredient lines, steps and notes in the reader and the
+  formatted editor; capped at 760px wide.
+- **card-title** (serif 17px/600) and **brand** (serif 19px/600): card names and the app name in
+  the navigation column.
+- **body** (sans 15px/1.5): the default for the interface, tree rows, buttons and inputs.
+- **label** (sans 14px/500): chips, menu items, settings rows. **caption** (13px) for secondary
+  lines; **micro** (11–12px/500) for counts, tags and keyboard hints, always in `muted`.
+- Numbers that line up (counts) use tabular figures. Fractions are written with glyphs where the
+  recipe has them (½, ¼) and amounts are never restyled.
+- Print: recipe text at 12pt in black on white, all chrome hidden.
+
+## Layout
+
+- **Desktop:** a two-column grid exactly one window tall: the navigation column (`sidebar-width`
+  290px, `sunken` background) and the main column, each scrolling on its own. Recipe pages keep
+  their text to `reading-width` 760px; folder pages use a card grid up to `page-max-width` 1200px
+  (`repeat(auto-fill, minmax(220px, 1fr))`, 16px gaps, folder cards too).
+- **Compact (≤ `compact-breakpoint` 899px):** one column. The navigation column becomes a drawer
+  (86vw, at most 330px) over a dimmed scrim, a top bar holds menu / back / title / search, and a
+  fixed bottom bar holds Home, Folders, Search, Add and Settings. Breadcrumbs are hidden. Cards
+  shrink to `minmax(150px, 1fr)` with 12px gaps; page padding drops to 16px with room for the bottom bar. Respect
+  safe-area insets.
+- **Spacing scale:** 2, 4, 8, 12, 16, 24, 48px (`xxs`…`xxl`), plus 20 and 32 where a step is needed;
+  every margin, padding and gap is a multiple of 4 (2px only as a nudge inside small controls). Page
+  padding 16px × 24px on desktop, the same on every page. Toolbars stick to the top of the main column on the page background.
+- **Touch:** controls are at least 36px tall, 40px where the pointer is coarse (rows, settings
+  items), 52px for bottom-bar buttons.
+
+## Elevation & Depth
+
+The design is nearly flat: hierarchy comes from the paper tones and 1px `border` lines, not from
+shadows.
+
+- **Shadow (0 1px 3px, 8% black):** cards and the small ⋯ button on cards.
+- **Raised shadow (0 4px 12px, 12% black):** things that float over the page: menus, toasts, the
+  mobile drawer, dialogs.
+- **Scrims:** 30% black behind the mobile drawer, 25% behind full-page busy states.
+- Selection and focus use colour, not depth: an amber wash for selected rows and chips, a 2px amber
+  outline for keyboard focus.
+
+## Shapes
+
+Soft, small radii; nothing sharp, nothing fully round except where something is a pill.
+
+- `xs` 4px: inline code, keyboard hints.
+- `sm` 6px: tree rows, menu items, small icon buttons.
+- `md` 8px: buttons, inputs, selects, toasts, menus.
+- `lg` 10px: cards, images in recipes, banners, tags.
+- `pill` 16px: chips (properties, portions, settings chips on phones) at about 32px tall.
+
+Icons are 1.8px-stroke, round-capped line icons (Lucide paths, `ui/src/components/Icon.svelte`) at 16px in
+rows and chips, 18px in toolbars and 22px in the phone bars. Interface icons are always line icons, never
+emoji or text glyphs (＋, ✕, ›): file types and Favorites in the navigation column, folders in search,
+the tree chevron, property chips. Recipe and folder icons are emoji the family picks, or a line icon when
+they haven't picked one. AI actions are plain text labels, with no sparkle.
+
+## Components
+
+- **Buttons.** `button` is the default (surface, 1px border, amber border on hover). `button-primary`
+  is reserved for the one main action on a screen (Save, Cook mode, Create). `button-ghost` for
+  toolbar icons; `button-selected` for a toggled state; `button-danger` text for destructive menu
+  actions. Icon-only buttons are 36px square and always have an accessible label.
+- **Inputs and selects.** Surface fill, 1px border, `md` radius; focus replaces the border with a
+  2px amber outline. Use the native `select` for short choices (text type, units).
+- **Cards.** Folder cards are pastel (`card-*`), show an icon, the name in serif and a bare item
+  count in the top-right corner (it gives way to the ⋯ button on hover). Recipe cards are white with
+  the icon, the title in serif, tags, and a ★ when the recipe is a favourite.
+- **Chips.** Property chips on the sunken tone ("Prep 20 min"); missing standard properties appear as
+  dashed outline chips with "＋". Portion chips ("Single ×1", "Double ×2") use `chip` and
+  `chip-selected`. Tags use the amber wash.
+- **Navigation column.** Tree rows 32px, a 16px chevron column for folders (a line icon for PDFs, images
+  and other files), the recipe's emoji, the name, a muted count; files sit one step (16px) in from their folder. The active row uses the amber wash.
+  A Favorites group sits on top.
+- **Reader.** The recipe in `recipe-body`, sections with an amber-wash rule, bullets and step
+  numbers in amber, checkboxes in amber. Recipe links have a dashed amber underline; links to web
+  pages are solid with a small muted ↗ and open in the browser. A recipe bar above the text holds
+  the serving scaler, portion chips, the unit menu (US / Metric) and Cook mode.
+- **Formatted editor.** Looks like the reader (serif, sizes) with a slim toolbar; Markdown marks are
+  never visible; tables are real grids with cell borders.
+- **Feedback.** Toasts at the bottom, inverted (`text` on `background`), red with white text for
+  errors, green with dark text when something was saved. Notices inside a page use the yellow `banner`.
+- **Cook mode.** A full-screen view with large checkable ingredient and step lists that keeps the
+  screen awake.
+
+## Do's and Don'ts
+
+- Do keep a single amber accent; use it to mean "acts" or "selected", never decoration.
+- Do set recipe text in the serif and interface text in the sans; don't mix them inside one control.
+- Do use `primary-ink` (not `primary`) for amber text on light backgrounds.
+- Don't put white text on amber or green: it is 3.2:1 (2.1:1 in dark mode), below WCAG AA. The
+  primary button and the green saved toast use `on-primary` (dark text, 5.5:1; `--on-accent` in the
+  CSS).
+- Do show the recipe exactly as written: never restyle amounts, never show Markdown marks, never
+  hide a line.
+- Don't use the card pastels to mean anything (status, category); they are the family's choice.
+- Do make every control reachable at phone width and at least 36px (40px on touch) tall.
+- Don't add shadows to show hierarchy; use the paper tones and 1px borders.
+- Do follow the device's light or dark setting, and check both.
+- Don't load web fonts or remote assets; the app must look the same offline.

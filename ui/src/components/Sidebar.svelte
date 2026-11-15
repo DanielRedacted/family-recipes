@@ -66,11 +66,11 @@
 </div>
 
 <style>
-  .side { display: flex; flex-direction: column; height: 100%; gap: 8px; padding: 10px 8px calc(8px + env(safe-area-inset-bottom)); }
+  .side { display: flex; flex-direction: column; height: 100%; gap: 8px; padding: 12px 8px calc(8px + env(safe-area-inset-bottom)); }
   .brand { padding: 2px 4px; flex-wrap: nowrap; min-height: 36px; }
-  .logo { display: flex; align-items: center; gap: 8px; font-family: var(--serif); font-weight: 700; font-size: 19px; text-decoration: none; color: var(--text); }
+  .logo { display: flex; align-items: center; gap: 8px; font-family: var(--serif); font-weight: 600; font-size: 19px; text-decoration: none; color: var(--text); }
   .search { justify-content: flex-start; color: var(--muted); background: var(--surface); }
-  kbd { font: 11px var(--mono); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  kbd { font: 11px var(--mono); border: 1px solid var(--border); border-radius: 4px; padding: 2px 4px; }
   .tree { flex: 1; overflow-y: auto; overscroll-behavior: contain; border-radius: 8px; }
   .tree.drop { outline: 2px dashed var(--accent); }
   .pad { padding: 8px; }

@@ -69,7 +69,7 @@
     {#if update.version && !update.hidden}
       <div class="update no-print" role="status">
         <div class="utext">
-          <strong>Recipes {update.version} is available.</strong>
+          <strong>Recipes {update.version} is available</strong>
           {#if update.notes}<details><summary>What's new</summary><p>{update.notes}</p></details>{/if}
         </div>
         <button class="btn" onclick={() => (update.hidden = true)} disabled={update.busy}>Later</button>
@@ -106,12 +106,12 @@
   .main-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; }
   main { flex: 1; overflow-y: auto; min-width: 0; }
   .update {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px;
     background: var(--accent-soft); border-bottom: 1px solid var(--border);
   }
   .utext { flex: 1 1 240px; }
   .update summary { cursor: pointer; color: var(--accent-ink); font-size: 14px; }
-  .update details p { margin: 6px 0 0; white-space: pre-line; font-size: 14px; }
+  .update details p { margin: 8px 0 0; white-space: pre-line; font-size: 14px; }
   .mobilebar, .bottombar, .scrim { display: none; }
   @media (max-width: 899px) {
     .app { grid-template-columns: 1fr; }
@@ -125,13 +125,13 @@
       display: flex; align-items: center; gap: 4px; padding: calc(4px + env(safe-area-inset-top)) 8px 4px;
       border-bottom: 1px solid var(--border); background: var(--bg);
     }
-    .mtitle { flex: 1; text-align: center; font-family: var(--serif); font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
+    .mtitle { flex: 1; text-align: center; font-family: var(--serif); font-weight: 600; font-size: 18px; color: var(--text); text-decoration: none; }
     .bottombar {
       display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 40; background: var(--surface);
       border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom);
     }
     .bottombar button {
-      flex: 1; display: grid; justify-items: center; gap: 1px; padding: 7px 0 6px; border: 0; background: none;
+      flex: 1; display: grid; justify-items: center; gap: 2px; padding: 8px 0; border: 0; background: none;
       font-size: 11px; color: var(--muted); cursor: pointer; min-height: 52px;
     }
     .bottombar button.on { color: var(--accent-ink); }

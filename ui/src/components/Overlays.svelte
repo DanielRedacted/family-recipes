@@ -102,7 +102,7 @@
 
 <style>
   .modal-back { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); display: grid; place-items: center; z-index: 100; padding: 16px; }
-  .modal { width: min(440px, calc(100vw - 32px)); padding: 18px 20px; display: grid; gap: 12px; }
+  .modal { width: min(440px, calc(100vw - 32px)); padding: 20px; display: grid; gap: 12px; }
   .modal h3 { margin: 0; }
   .modal p { margin: 0; }
   .end { justify-content: flex-end; }
@@ -110,13 +110,13 @@
   :global(.btn.primary.danger-fill) { background: var(--danger); border-color: var(--danger); }
   .menu-back { position: fixed; inset: 0; z-index: 90; }
   .menu { position: fixed; z-index: 91; min-width: 200px; padding: 4px; display: grid; }
-  .menu button { text-align: left; background: none; border: 0; padding: 9px 12px; border-radius: 6px; cursor: pointer; }
+  .menu button { text-align: left; background: none; border: 0; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
   .menu button:hover { background: var(--sunken); }
   .menu button.danger { color: var(--danger); }
-  .menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 6px; }
+  .menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 8px; }
   .toasts { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: grid; gap: 8px; z-index: 200; pointer-events: none; }
-  .toast { background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 8px; box-shadow: var(--shadow-md); max-width: 90vw; }
+  .toast { background: var(--text); color: var(--bg); padding: 12px 16px; border-radius: 8px; box-shadow: var(--shadow-md); max-width: 90vw; }
   .toast.error { background: var(--danger); color: #fff; }
-  .toast.ok { background: var(--ok); color: #fff; }
+  .toast.ok { background: var(--ok); color: var(--on-accent); }
   @media (max-width: 899px) { .toasts { bottom: calc(72px + env(safe-area-inset-bottom)); } }
 </style>

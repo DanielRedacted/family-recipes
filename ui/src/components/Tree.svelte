@@ -59,6 +59,7 @@
   import { moveTo, upload, entryItems } from '../lib/ops';
   import { iconOf } from '../lib/icons';
   import CardIcon from './CardIcon.svelte';
+  import Icon from './Icon.svelte';
 
   let { node, depth = 0 }: { node: TreeNode; depth?: number } = $props();
   let dropOver = $state('');
@@ -96,8 +97,8 @@
     }
   }
 
-  const icon = (n: TreeNode) => (n.kind === 'pdf' ? '📄' : n.kind === 'image' ? '🖼' : n.kind === 'other' ? '📎' : '');
-  const folderIcon = (n: TreeNode) => (n.path === FAV ? { emoji: '⭐' } : iconOf(n.name, app.folderMeta[n.path]?.emoji));
+  const icon = (n: TreeNode) => (n.kind === 'pdf' ? 'file' : n.kind === 'image' ? 'image' : n.kind === 'other' ? 'paperclip' : '');
+  const folderIcon = (n: TreeNode) => (n.path === FAV ? { icon: 'star' } : iconOf(n.name, app.folderMeta[n.path]?.emoji));
   // same rule as the recipe cards: the note's own icon, else its folder's
   const noteIcon = (n: TreeNode) => {
     const e = app.byPath[n.path];
@@ -117,7 +118,7 @@
     class:folder={n.folder}
     class:drop={dropOver === n.path}
     class:dim={n.path === 'attachments'}
-    style="padding-left:{8 + depth * 14}px"
+    style="padding-left:{8 + depth * 16}px"
     draggable={canWrite() && !virtual}
     role="treeitem"
     aria-selected={active}
@@ -133,12 +134,12 @@
     oncontextmenu={(e) => { if (!virtual) openMenu(e, items(n)); }}
   >
     {#if n.folder}
-      <button class="chev" class:open={expanded[n.path]} aria-label="Toggle folder" tabindex="-1" onclick={(e) => { e.stopPropagation(); toggle(n); }}>›</button>
+      <button class="chev" class:open={expanded[n.path]} aria-label="Toggle folder" tabindex="-1" onclick={(e) => { e.stopPropagation(); toggle(n); }}><Icon name="chevron-right" size={16} /></button>
     {:else}
       <!-- a file keeps the chevron's space, so it sits indented under its folder -->
-      <span class="chev-space">{ic ? '' : icon(n)}</span>
+      <span class="chev-space">{#if !ic && icon(n)}<Icon name={icon(n)} size={16} />{/if}</span>
     {/if}
-    {#if ic}<span class="ic"><CardIcon icon={ic} size={15} /></span>{/if}
+    {#if ic}<span class="ic"><CardIcon icon={ic} size={16} /></span>{/if}
     <span class="name">{label(n)}</span>
     {#if n.folder}<span class="count">{n.children.filter((c) => !c.folder).length || ''}</span>{/if}
     {#if !virtual}<button class="more" aria-label="More actions" tabindex="-1" onclick={(e) => openMenu(e, items(n))}>⋯</button>{/if}
@@ -150,8 +151,8 @@
 
 <style>
   .row-item {
-    display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 6px; cursor: pointer;
-    min-height: 30px; user-select: none; color: var(--text);
+    display: flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; cursor: pointer;
+    min-height: 32px; user-select: none; color: var(--text);
   }
   .row-item:hover { background: var(--sunken); }
   .row-item.active { background: var(--accent-soft); }
@@ -159,10 +160,10 @@
   .row-item.dim { opacity: 0.6; }
   .folder .name { font-weight: 500; }
   .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .chev { border: 0; background: none; width: 18px; padding: 0; cursor: pointer; color: var(--muted); font-size: 16px; transition: transform 0.1s; }
+  .chev { display: inline-flex; border: 0; background: none; width: 16px; padding: 0; cursor: pointer; color: var(--muted); transition: transform 0.1s; }
   .chev.open { transform: rotate(90deg); }
-  .chev-space { width: 18px; font-size: 11px; text-align: center; }
-  .ic { display: inline-flex; width: 18px; justify-content: center; flex: none; }
+  .chev-space { display: inline-flex; width: 16px; flex: none; color: var(--muted); }
+  .ic { display: inline-flex; width: 16px; justify-content: center; flex: none; }
   .folder .ic { width: auto; }
   .count { color: var(--muted); font-size: 12px; }
   .more { border: 0; background: none; color: var(--muted); padding: 0 4px; cursor: pointer; opacity: 0; }

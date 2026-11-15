@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from './Icon.svelte';
   import { onMount } from 'svelte';
   import { fileUrl } from '../lib/api';
 
@@ -49,16 +50,16 @@
 </script>
 
 <div class="bar row no-print">
-  <button class="btn" onclick={() => { zoom = Math.max(0.5, zoom - 0.25); render(); }} aria-label="Zoom out">－</button>
+  <button class="btn" onclick={() => { zoom = Math.max(0.5, zoom - 0.25); render(); }} aria-label="Zoom out"><Icon name="minus" size={16} /></button>
   <span class="small muted">{Math.round(zoom * 100)}%</span>
-  <button class="btn" onclick={() => { zoom = Math.min(3, zoom + 0.25); render(); }} aria-label="Zoom in">＋</button>
+  <button class="btn" onclick={() => { zoom = Math.min(3, zoom + 0.25); render(); }} aria-label="Zoom in"><Icon name="plus" size={16} /></button>
   <a class="btn" href={fileUrl(path)} target="_blank" rel="noopener">Open in new tab</a>
 </div>
 {#if status}<p class="muted">{status}</p>{/if}
 <div class="pages" bind:this={host}></div>
 
 <style>
-  .bar { margin-bottom: 10px; }
+  .bar { margin-bottom: 12px; }
   .pages { display: grid; gap: 12px; justify-items: center; overflow-x: auto; }
   .pages :global(canvas) { box-shadow: var(--shadow-md); background: #fff; max-width: none; }
 </style>

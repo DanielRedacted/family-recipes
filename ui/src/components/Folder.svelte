@@ -141,36 +141,36 @@
 
 <style>
   .page { padding: 16px 24px 48px; max-width: 1200px; }
-  .toolbar { position: sticky; top: 0; background: var(--bg); padding: 6px 0 10px; z-index: 5; }
+  .toolbar { position: sticky; top: 0; background: var(--bg); padding: 8px 0 12px; z-index: 5; }
   .seg { display: flex; }
   .seg .btn { border-radius: 0; }
   .seg .btn:first-child { border-radius: 8px 0 0 8px; }
   .seg .btn:last-child { border-radius: 0 8px 8px 0; border-left: 0; }
   .title { font-size: 2rem; margin: 8px 0 16px; }
-  .sub { font-size: 1.05rem; margin: 24px 0 10px; color: var(--muted); font-family: var(--sans); font-weight: 600; }
-  .folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+  .sub { font-size: 1.05rem; margin: 24px 0 12px; color: var(--muted); font-family: var(--sans); font-weight: 500; }
+  .folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; }
   .wrap { position: relative; display: grid; }
-  .more { position: absolute; top: 6px; right: 6px; border: 0; border-radius: 6px; background: var(--surface); color: var(--muted); padding: 0 7px; font-size: 16px; line-height: 24px; cursor: pointer; opacity: 0; box-shadow: var(--shadow); }
+  .more { position: absolute; top: 8px; right: 8px; border: 0; border-radius: 6px; background: var(--surface); color: var(--muted); padding: 0 8px; font-size: 16px; line-height: 24px; cursor: pointer; opacity: 0; box-shadow: var(--shadow); }
   .wrap:hover .more, .more:focus-visible { opacity: 1; }
   @media (hover: none) { .more { opacity: 0.85; } }
-  .folder { position: relative; display: grid; gap: 2px; padding: 14px 16px; text-decoration: none; color: var(--text); border: 0; justify-items: start; }
+  .folder { position: relative; display: grid; gap: 2px; padding: 16px; text-decoration: none; color: var(--text); border: 0; justify-items: start; }
   .folder:hover { box-shadow: var(--shadow-md); }
-  .fname { font-family: var(--serif); font-size: 17px; font-weight: 600; padding-right: 22px; }
+  .fname { font-family: var(--serif); font-size: 17px; font-weight: 600; padding-right: 24px; }
   /* item count in the corner; it gives way to the ⋯ button, which shares the corner on hover */
-  .folder .count { position: absolute; top: 9px; right: 12px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; transition: opacity 0.1s; }
+  .folder .count { position: absolute; top: 8px; right: 12px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; transition: opacity 0.1s; }
   .wrap:hover .folder .count, .wrap:focus-within .folder .count { opacity: 0; }
   @media (hover: none) { .folder .count { right: 42px; } .wrap:hover .folder .count { opacity: 1; } }
-  .star { color: #d4a017; margin-left: 4px; }
+  .star { color: var(--accent); margin-left: 4px; }
   .sub.first { margin-top: 0; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
   .recipe { display: flex; flex-direction: column; text-decoration: none; color: var(--text); overflow: hidden; }
   .recipe:hover { box-shadow: var(--shadow-md); border-color: var(--accent); }
   .recipe img, .ph { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
   .ph { display: grid; place-items: center; }
-  .info { padding: 10px 12px 12px; display: grid; gap: 4px; }
+  .info { padding: 12px; display: grid; gap: 4px; }
   .rtitle { font-family: var(--serif); font-weight: 600; font-size: 16px; }
   .tags { display: flex; gap: 4px; flex-wrap: wrap; }
-  .tag { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: var(--sunken); color: var(--muted); }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--sunken); color: var(--muted); }
   .tag.badge { background: var(--accent-soft); color: var(--accent-ink); }
   .tag.warn { background: var(--p-yellow); color: var(--text); }
   .tbl { width: 100%; border-collapse: collapse; }
@@ -178,8 +178,9 @@
   .tbl th { color: var(--muted); font-weight: 500; font-size: 13px; }
   .acts { white-space: nowrap; text-align: right; }
   @media (max-width: 899px) {
-    .page { padding: 8px 14px 96px; }
-    .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+    .page { padding: 8px 16px 96px; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    .folders { gap: 12px; }
     .toolbar .btn { min-height: 40px; }
     .toolbar .add { display: none; } /* the bottom bar has "Add" */
     .tbl th:nth-child(3), .tbl td:nth-child(3), .tbl th:nth-child(4), .tbl td:nth-child(4) { display: none; }

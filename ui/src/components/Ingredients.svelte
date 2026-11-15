@@ -57,19 +57,19 @@
 <style>
   .title { display: flex; align-items: center; gap: 4px; margin-left: -8px; }
   .page { padding: 16px 28px 80px; max-width: 820px; }
-  h1 { margin: 6px 0 4px; }
-  .bar { margin: 12px 0 6px; }
+  h1 { margin: 8px 0 4px; }
+  .bar { margin: 12px 0 8px; }
   .grow { flex: 1; min-width: 200px; }
   .w { width: auto; }
   .list { list-style: none; padding: 0; margin: 0; }
   .list > li { border-bottom: 1px solid var(--border); }
-  .head { width: 100%; display: flex; justify-content: space-between; gap: 12px; padding: 9px 4px; background: none; border: 0; cursor: pointer; text-align: left; color: var(--text); }
+  .head { width: 100%; display: flex; justify-content: space-between; gap: 12px; padding: 8px 4px; background: none; border: 0; cursor: pointer; text-align: left; color: var(--text); }
   .head:hover { background: var(--sunken); }
   .name { font-family: var(--serif); font-size: 16px; display: flex; align-items: center; gap: 8px; }
   .ic { display: inline-flex; width: 20px; justify-content: center; flex: none; }
   .more { padding: 0 8px 12px; }
-  .more p { margin: 0 0 6px; }
-  .more ul { margin: 0; padding-left: 18px; columns: 2 240px; }
+  .more p { margin: 0 0 8px; }
+  .more ul { margin: 0; padding-left: 20px; columns: 2 240px; }
   .more li { break-inside: avoid; margin: 2px 0; }
-  @media (max-width: 899px) { .page { padding: 8px 14px 96px; } }
+  @media (max-width: 899px) { .page { padding: 8px 16px 96px; } }
 </style>

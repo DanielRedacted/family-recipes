@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from './Icon.svelte';
   import { app, go, noteHash, folderHash } from '../lib/state.svelte';
   import { search } from '../lib/search';
   import { catalog, loadIngredients } from '../lib/ingredients.svelte';
@@ -52,7 +53,7 @@
         {#each all as h, i (h.path + h.folder + h.ing)}
           <li role="option" aria-selected={i === sel}>
             <button class:sel={i === sel} onmouseenter={() => (sel = i)} onclick={() => pick(i)}>
-              <span>{h.folder ? '🗀 ' : h.ing ? ((ingredientIcon(h.title) as { emoji?: string } | null)?.emoji ?? '🥕') + ' ' : ''}{h.title}</span>
+              <span class="hit">{#if h.folder}<Icon name="folder" size={16} />{:else if h.ing}{@const e = (ingredientIcon(h.title) as { emoji?: string } | null)?.emoji}{#if e}{e}{:else}<Icon name="carrot" size={16} />{/if}{/if}{h.title}</span>
               {#if !h.folder}<span class="muted small">{h.sub}</span>{/if}
             </button>
           </li>
@@ -68,11 +69,13 @@
 <style>
   .back { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); z-index: 80; display: flex; justify-content: center; align-items: flex-start; padding: 10vh 12px 12px; }
   .box { width: min(640px, 100%); max-height: 75vh; display: flex; flex-direction: column; overflow: hidden; }
-  .q { border: 0 !important; border-bottom: 1px solid var(--border) !important; border-radius: 0; font-size: 17px; padding: 14px 16px; outline: none !important; }
-  ul { list-style: none; margin: 0; padding: 6px; overflow-y: auto; }
-  li button { width: 100%; display: flex; justify-content: space-between; gap: 12px; text-align: left; border: 0; background: none; padding: 9px 10px; border-radius: 6px; cursor: pointer; }
+  .q { border: 0 !important; border-bottom: 1px solid var(--border) !important; border-radius: 0; font-size: 17px; padding: 16px; outline: none !important; }
+  ul { list-style: none; margin: 0; padding: 8px; overflow-y: auto; }
+  li button { width: 100%; display: flex; justify-content: space-between; gap: 12px; text-align: left; border: 0; background: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
   li button.sel { background: var(--accent-soft); }
+  .hit { display: inline-flex; align-items: center; gap: 8px; }
+  .hit :global(svg) { color: var(--muted); flex: none; }
   .pad { padding: 12px; }
-  .hint { margin: 0; padding: 6px 12px 10px; border-top: 1px solid var(--border); }
+  .hint { margin: 0; padding: 8px 12px; border-top: 1px solid var(--border); }
   @media (max-width: 899px) { .back { padding-top: 12px; } .box { max-height: calc(100vh - 24px); } .hint { display: none; } }
 </style>

@@ -49,5 +49,5 @@
   ul { list-style: none; padding: 0; }
   li { padding: 8px 0; border-bottom: 1px solid var(--border); }
   .grow { flex: 1; overflow-wrap: anywhere; }
-  @media (max-width: 899px) { .page { padding: 8px 14px 96px; } }
+  @media (max-width: 899px) { .page { padding: 8px 16px 96px; } }
 </style>
