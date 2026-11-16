@@ -141,8 +141,8 @@
     {/if}
     {#if ic}<span class="ic"><CardIcon icon={ic} size={16} /></span>{/if}
     <span class="name">{label(n)}</span>
-    {#if n.folder}<span class="count">{n.children.filter((c) => !c.folder).length || ''}</span>{/if}
     {#if !virtual}<button class="more" aria-label="More actions" tabindex="-1" onclick={(e) => openMenu(e, items(n))}>⋯</button>{/if}
+    {#if n.folder}<span class="count">{n.children.filter((c) => !c.folder).length || ''}</span>{/if}
   </div>
   {#if n.folder && expanded[n.path]}
     <Tree node={n} depth={depth + 1} />

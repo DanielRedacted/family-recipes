@@ -1,3 +1,16 @@
+<script lang="ts" module>
+  import { flushSync } from 'svelte';
+  import { app as appState } from '../lib/state.svelte';
+
+  /** Open search with its field focused in the same tap: iOS shows the keyboard only for a focus made
+   * while handling the tap itself, so the field is rendered at once (flushSync) and focused here. */
+  export function openSearch() {
+    appState.switcher = true;
+    flushSync();
+    document.querySelector<HTMLInputElement>('input[aria-label="Search"]')?.focus();
+  }
+</script>
+
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { app, go, noteHash, folderHash } from '../lib/state.svelte';
@@ -67,7 +80,7 @@
 {/if}
 
 <style>
-  .back { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); z-index: 80; display: flex; justify-content: center; align-items: flex-start; padding: 10vh 12px 12px; }
+  .back { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); z-index: 80; display: flex; justify-content: center; align-items: flex-start; padding: 10vh max(12px, env(safe-area-inset-right)) 12px max(12px, env(safe-area-inset-left)); }
   .box { width: min(640px, 100%); max-height: 75vh; display: flex; flex-direction: column; overflow: hidden; }
   .q { border: 0 !important; border-bottom: 1px solid var(--border) !important; border-radius: 0; font-size: 17px; padding: 16px; outline: none !important; }
   ul { list-style: none; margin: 0; padding: 8px; overflow-y: auto; }

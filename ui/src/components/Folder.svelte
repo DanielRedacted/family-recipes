@@ -1,12 +1,13 @@
 <script lang="ts" module>
   /** the home page's pick, kept while the app is open so coming back home doesn't reshuffle it */
-  let kept: { path: string } | null = null;
+  let kept: { path: string; matches?: string[] | null } | null = null;
   /** the Random card's filters, kept the same way ('' = any) */
   const filters = { tag: 'Dinner', protein: '', folder: '', fav: false };
 </script>
 
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import { untrack } from 'svelte';
   import { app, noteHash, folderHash, canWrite, nameOf, dirOf, toast } from '../lib/state.svelte';
   import Crumbs from './Crumbs.svelte';
   import CardIcon from './CardIcon.svelte';
@@ -43,7 +44,7 @@
   const meta = (f: Entry) => [f.frontmatter?.yield ?? f.frontmatter?.servings, f.frontmatter?.total_time ?? f.frontmatter?.cook_time]
     .filter(Boolean).map(String).join(' · ');
   // ---------- home: a suggested recipe (dinner unless the filters say otherwise) ----------
-  const TAGS = ['Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack', 'Side', 'Drink', 'Sauce'];
+  const TAGS = ['Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack', 'Side', 'Bread', 'Dough', 'Drink', 'Sauce'];
   const PROTEINS = ['Chicken', 'Beef', 'Pork', 'Turkey', 'Seafood', 'Eggs', 'Beans'];
   const recipes = $derived(app.files.filter((f) => f.kind === 'note' && f.recipe));
   const hasTag = (f: Entry, t: string) => tagsOf(f).some((x) => x.toLowerCase() === t.toLowerCase());
@@ -52,6 +53,8 @@
   let pickFolder = $state(filters.folder);
   let pickFav = $state(filters.fav);
   let pick = $state(kept);
+  /** after Random: the other matching recipes, shuffled, shown instead of Favorites and Folders */
+  let matches = $state<string[] | null>(kept?.matches ?? null);
   const anyOf = (list: Entry[]) => (list.length ? list[Math.floor(Math.random() * list.length)].path : null);
   // shown as soon as the recipes load: a dinner recipe (any recipe while none is tagged Dinner)
   $effect(() => {
@@ -64,10 +67,24 @@
     Object.assign(filters, { tag: pickTag, protein: pickProtein, folder: pickFolder, fav: pickFav });
     const pool = recipes.filter((f) => (!pickTag || hasTag(f, pickTag)) && (!pickProtein || hasTag(f, pickProtein))
       && (!pickFolder || f.path.startsWith(pickFolder + '/')) && (!pickFav || f.frontmatter?.favorite === true));
-    const p = anyOf(pool.length > 1 ? pool.filter((f) => f.path !== pick?.path) : pool);
-    if (p) pick = kept = { path: p };
-    else toast('No recipe matches those filters');
+    if (!pool.length) return toast('No recipe matches those filters');
+    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    if (pool.length > 1 && pool[0].path === pick?.path) [pool[0], pool[1]] = [pool[1], pool[0]]; // a new suggestion each time
+    matches = pool.slice(1).map((f) => f.path);
+    pick = kept = { path: pool[0].path, matches };
   }
+  function showFolders() {
+    matches = null;
+    if (kept) kept.matches = null;
+  }
+  // tapping Home (or the logo) while on the home page brings the folders back
+  let firstRoute = true;
+  $effect(() => {
+    app.route;
+    if (firstRoute) { firstRoute = false; return; }
+    untrack(showFolders);
+  });
+  const matchList = $derived((matches ?? []).map((p) => app.byPath[p]).filter(Boolean));
   const picked = $derived(pick ? app.byPath[pick.path] : undefined);
 
   const badge = (f: Entry) => (f.kind === 'pdf' ? 'PDF' : f.kind === 'image' ? 'Image' : f.kind === 'other' ? nameOf(f.path).split('.').pop()?.toUpperCase() : f.recipe ? '' : 'Note');
@@ -100,7 +117,7 @@
 <div class="page">
   <header class="toolbar row">
     <Crumbs dir={path} />
-    {#if path}<span class="bar-name">{nameOf(path)}</span>{/if}
+    <span class="bar-name">{path ? nameOf(path) : 'Recipes'}</span>
     <span class="spacer"></span>
     {#if canWrite()}
       <button class="btn primary add" aria-label="Add" title="Add a recipe, files or a folder" onclick={(e) => plusMenu(e, path)}><Icon name="plus" /></button>
@@ -114,7 +131,7 @@
   </header>
 
   <!-- only the folder's contents scroll; the row and the folder's title above stay put -->
-  {#if path && exists}<h1 class="title">{nameOf(path)}</h1>{/if}
+  {#if exists}<h1 class="title">{path ? nameOf(path) : 'Recipes'}</h1>{/if}
   <div class="scroll">
   {#if !exists && app.loaded}
     <p class="muted">This folder no longer exists. <a href="#/">Back to all recipes</a></p>
@@ -143,6 +160,16 @@
       </section>
     {/if}
 
+    {#if matches}
+      <div class="row matches-head">
+        <h2 class="sub">{matchList.length} more match{matchList.length === 1 ? '' : 'es'}</h2>
+        <span class="spacer"></span>
+        <button class="btn ghost" onclick={showFolders}>Show folders</button>
+      </div>
+      <div class="grid">
+        {#each matchList as f (f.path)}{@render card(f)}{/each}
+      </div>
+    {:else}
     {#if favorites.length}
       <h2 class="sub" class:first={!recipes.length}>Favorites</h2>
       <div class="grid">
@@ -192,6 +219,7 @@
     {:else if path && !subfolders.length}
       <p class="muted">This folder is empty.</p>
     {/if}
+    {/if}
   {/if}
   </div>
 </div>
@@ -224,7 +252,9 @@
   .sub.first { margin-top: 0; }
   .suggest { margin-bottom: 8px; }
   /* beside the suggestion, on the page itself: label left, value right, hairlines between rows */
-  .picker { display: flex; flex-direction: column; padding: 4px 12px 12px; font-size: 14px; }
+  .picker { display: flex; flex-direction: column; font-size: 14px; }
+  .matches-head { margin-top: 24px; }
+  .matches-head .sub { margin: 0; }
   .opt { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; border-bottom: 1px solid var(--border); }
   .opt span { color: var(--muted); }
   .opt select { text-align: right; text-align-last: right; }

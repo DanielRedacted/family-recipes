@@ -313,7 +313,8 @@ accent, and eight pastel card colours the family picks for folders and recipes.
 Two system families and nothing downloaded: the system serif for anything that is part of a recipe,
 the system sans for the app around it, and the system monospace only for the Markdown view and code.
 
-- **display** (serif 2rem/600): the page title (All recipes, a folder, a recipe's title).
+- **display** (serif 2rem/600): the page title (Recipes on the home page, a folder, a recipe's title).
+  A recipe's author sits right under its title as a byline: sans 14px in `muted`, "By …".
 - **recipe-section** (serif 1.35rem/600): "Ingredients", "Directions"; underlined with a 2px amber
   wash rule.
 - **recipe-group** (serif 1.1rem/600, amber ink): groups inside a section ("Crust", "Filling").
@@ -405,7 +406,10 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
 - **Suggestion.** At the top of the home page, "Suggested": a recipe card (a Dinner recipe, shown at
   once) and beside it, in the same row and on the page itself (no card), the Random controls as a
   settings-style list: label left in `muted`, value right; Kind (default Dinner), Protein, Folder as
-  plain menus, Favorites as a switch, hairlines between rows, then a `button-primary` "Random".
+  plain menus, Favorites as a switch, hairlines between rows, then a `button-primary` "Random"; no
+  padding, so it lines up with its grid column. After Random, the other matching recipes replace
+  Favorites and Folders as a shuffled card grid under "N more matches", with a ghost "Show folders"
+  button (tapping Home does the same).
 - **Plain menus (`plain-select`).** A native `select` without the boxed field: no border or fill,
   the value in amber ink with the system's arrow. Used for the Random filters and the recipe's
   US / Metric menu.

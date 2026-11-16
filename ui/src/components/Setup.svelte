@@ -87,7 +87,7 @@
 </div>
 
 <style>
-  .setup { position: fixed; inset: 0; z-index: 60; overflow-y: auto; background: var(--bg); padding: calc(24px + env(safe-area-inset-top)) 16px 40px; }
+  .setup { position: fixed; inset: 0; z-index: 60; overflow-y: auto; background: var(--bg); padding: calc(24px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 40px max(16px, env(safe-area-inset-left)); }
   .box { max-width: 640px; margin: 0 auto; display: grid; gap: 16px; }
   h1 { margin: 0; }
   p { margin: 0; }

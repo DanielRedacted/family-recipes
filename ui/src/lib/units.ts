@@ -15,7 +15,7 @@ const ADJ = '(?:heaping|scant|level|rounded|slight|generous)';
 /** written unit (lower case) -> the one spelling */
 const UNITS: Record<string, string> = {
   ts: 'tsp', tsp: 'tsp', tsps: 'tsp', teaspoon: 'tsp', teaspoons: 'tsp',
-  tb: 'tbsp', tbs: 'tbsp', tbsp: 'tbsp', tbsps: 'tbsp', tbl: 'tbsp', tbps: 'tbsp', tablespoon: 'tbsp', tablespoons: 'tbsp',
+  tb: 'tbsp', tbs: 'tbsp', tbsp: 'tbsp', tbsps: 'tbsp', tbl: 'tbsp', tbps: 'tbsp', tbp: 'tbsp', tablespoon: 'tbsp', tablespoons: 'tbsp',
   cup: 'cup', cups: 'cup',
   oz: 'oz', ounce: 'oz', ounces: 'oz',
   lb: 'lb', lbs: 'lb', pound: 'lb', pounds: 'lb',

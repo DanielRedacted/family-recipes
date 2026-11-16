@@ -11,7 +11,7 @@
   import SettingsNav from './components/SettingsNav.svelte';
   import Import from './components/Import.svelte';
   import Ingredients from './components/Ingredients.svelte';
-  import Switcher from './components/Switcher.svelte';
+  import Switcher, { openSearch } from './components/Switcher.svelte';
   import Overlays from './components/Overlays.svelte';
   import Setup from './components/Setup.svelte';
   import { update, checkForUpdate, installUpdate } from './lib/update.svelte';
@@ -31,7 +31,7 @@
 
   function key(e: KeyboardEvent) {
     const mod = e.metaKey || e.ctrlKey;
-    if (mod && (e.key === 'k' || e.key === 'o' || e.key === 'p')) { e.preventDefault(); app.switcher = !app.switcher; }
+    if (mod && (e.key === 'k' || e.key === 'o' || e.key === 'p')) { e.preventDefault(); if (app.switcher) app.switcher = false; else openSearch(); }
     else if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); if (e.shiftKey) newFolder(dir); else newNote(dir); }
     else if (mod && e.key === ',') { e.preventDefault(); go('#/settings'); }
     else if (mod && e.key === '[') { e.preventDefault(); back(); }
@@ -85,7 +85,7 @@
     <nav class="bottombar no-print" aria-label="Main">
       <button onclick={() => (app.sidebar = true)}><Icon name="menu" size={22} />Folders</button>
       <button onclick={() => go('#/')} class:on={app.route.view === 'folder' && !app.route.path}><Icon name="book" size={22} />Home</button>
-      <button onclick={() => (app.switcher = true)}><Icon name="search" size={22} />Search</button>
+      <button onclick={openSearch}><Icon name="search" size={22} />Search</button>
     </nav>
   </div>
 </div>
@@ -96,6 +96,8 @@
 
 <style>
   .app { display: grid; grid-template-columns: var(--sidebar) 1fr; grid-template-rows: minmax(0, 1fr); height: 100vh; height: 100dvh; overflow: hidden; }
+  /* landscape iPhone: keep clear of the Dynamic Island (0 everywhere else) */
+  .app { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
   /* both columns are exactly one window tall; only their insides scroll */
   .sidebar { border-right: 1px solid var(--border); background: var(--sunken); overflow: hidden; min-height: 0; max-height: 100dvh; padding-top: env(safe-area-inset-top); }
   .main-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; }
@@ -112,14 +114,14 @@
     .app { grid-template-columns: 1fr; }
     .sidebar {
       position: fixed; inset: 0 auto 0 0; width: min(86vw, 330px); z-index: 50; transform: translateX(-100%);
-      transition: transform 0.2s ease; box-shadow: var(--shadow-md);
+      transition: transform 0.2s ease; box-shadow: var(--shadow-md); padding-left: env(safe-area-inset-left);
     }
     .open .sidebar { transform: none; }
     .open .scrim { display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); z-index: 49; }
     .main-col { padding-top: env(safe-area-inset-top); }
     .bottombar {
       display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 40; background: var(--surface);
-      border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom);
+      border-top: 1px solid var(--border); padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
     .bottombar button {
       flex: 1; display: grid; justify-items: center; gap: 2px; padding: 8px 0; border: 0; background: none;

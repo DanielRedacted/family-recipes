@@ -50,7 +50,7 @@
   const fm = $derived(entry.frontmatter ?? {});
   const keys = $derived(Object.keys(fm));
   // shown elsewhere: tags as chips, nutrition as its own table, icon/colour on the cards
-  const HIDDEN = ['tags', 'needs_review', 'original', 'nutrition', 'emoji', 'color', 'favorite'];
+  const HIDDEN = ['tags', 'needs_review', 'original', 'nutrition', 'emoji', 'color', 'favorite', 'author'];
   const fmtVal = (v: unknown) => (Array.isArray(v) ? v.join(', ') : v === true ? 'yes' : v === false ? 'no' : v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
   function update(key: string, text: string) {

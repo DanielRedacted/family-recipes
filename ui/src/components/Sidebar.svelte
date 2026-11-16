@@ -3,6 +3,7 @@
   import Tree, { buildTree, FAV, reveal } from './Tree.svelte';
   import { app, go, canWrite } from '../lib/state.svelte';
   import { upload, moveTo } from '../lib/ops';
+  import { openSearch } from './Switcher.svelte';
   import { tick, untrack } from 'svelte';
 
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
@@ -34,7 +35,7 @@
   <div class="brand row">
     <a href="#/" class="logo" onclick={() => (app.sidebar = false)}><img src="/icon.svg" alt="" width="24" height="24" /> Recipes</a>
   </div>
-  <button class="search btn" onclick={() => (app.switcher = true)}>
+  <button class="search btn" onclick={openSearch}>
     <Icon name="search" size={16} /><span>Search recipes</span><span class="spacer"></span><kbd>⌘K</kbd>
   </button>
   <div

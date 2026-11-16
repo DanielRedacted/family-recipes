@@ -73,10 +73,11 @@ Freezes well. See [[Pie Crust]].
 
 | Key | Meaning |
 |---|---|
-| `tags` | list, e.g. `[pie, holiday]`; `Breakfast`, `Lunch`, `Dinner`, `Dessert`, `Snack`, `Side`, `Drink`, `Sauce` (kind) and `Chicken`, `Beef`, `Pork`, `Turkey`, `Seafood`, `Eggs`, `Beans` (protein) feed the home page's suggestion (Dinner) and Random filters |
+| `tags` | list, e.g. `[pie, holiday]`. Kind: `Dessert`, `Snack`, `Side`, `Bread`, `Dough`, `Drink`, `Sauce`; meal, on entrées only: `Breakfast`, `Lunch`, `Dinner`; main protein: `Chicken`, `Beef`, `Pork`, `Turkey`, `Seafood`, `Eggs`, `Beans`. They feed the home page's suggestion (Dinner) and Random filters |
 | `yield`, `servings` | e.g. `8 servings`, `2 loaves`, `2 dozen`; the leading number (a dozen counts as 12) drives the serving scaler. A yield with a second number (`3 small, 2 large or 1 jumbo pizza`) is shown as written and the scaler shows ×N |
 | `prep_time`, `cook_time`, `total_time`, `additional_time` | human text, e.g. `1 hr 20 min` |
-| `source`, `author` | where the recipe came from |
+| `author` | who wrote the recipe; the reader shows “By …” under the title |
+| `source` | the website a recipe was copied from (e.g. `https://www.food.com`); shown as a link chip |
 | `original` | path of the kept original file (PDF, DOCX) |
 | `needs_review` | `true` when the converter could not find clear sections |
 | `emoji` | the card icon; `none` hides it. Without it the app picks one from the title or folder name, or shows none |

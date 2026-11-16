@@ -71,7 +71,7 @@
 </div>
 
 <style>
-  .cook { position: fixed; inset: 0; z-index: 60; background: var(--bg); overflow-y: auto; padding: calc(12px + env(safe-area-inset-top)) 24px 40px; font-family: var(--serif); }
+  .cook { position: fixed; inset: 0; z-index: 60; background: var(--bg); overflow-y: auto; padding: calc(12px + env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) 40px max(24px, env(safe-area-inset-left)); font-family: var(--serif); }
   header { position: sticky; top: 0; background: var(--bg); padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   h1 { margin: 0; font-size: 1.7rem; }
   .pill { background: var(--accent-soft); color: var(--accent-ink); padding: 2px 12px; border-radius: 12px; font-family: var(--sans); }
@@ -87,7 +87,7 @@
   .steps li { font-size: 24px; }
   .tabs { display: none; margin-top: 12px; }
   @media (max-width: 899px) {
-    .cook { padding: calc(12px + env(safe-area-inset-top)) 16px 40px; }
+    .cook { padding: calc(12px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 40px max(16px, env(safe-area-inset-left)); }
     .cols { grid-template-columns: 1fr; gap: 0; }
     .tabs { display: flex; }
     .hide { display: none; }

@@ -143,7 +143,12 @@
       const fmEnd = draft.match(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/);
       return renderMarkdown(fmEnd ? draft.slice(fmEnd[0].length) : draft, path);
     }
-    return renderMarkdown(bodyOf(scaledRaw(entry, factor, units, portion), entry.body_line), path);
+    const out = renderMarkdown(bodyOf(scaledRaw(entry, factor, units, portion), entry.body_line), path);
+    // the recipe's author, small, right under its title
+    const by = entry.frontmatter?.author;
+    if (!by || typeof by !== 'string') return out;
+    const esc = by.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+    return out.replace('</h1>', `</h1><p class="byline">By ${esc}</p>`);
   });
 
   const baseYield = $derived(entry ? parseYield(entry.frontmatter?.servings) ?? parseYield(entry.frontmatter?.yield) : null);
