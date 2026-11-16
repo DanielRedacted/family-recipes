@@ -171,11 +171,18 @@ pub fn read_entry(root: &Path, p: VaultPath, prev: Option<&Entry>, pdf: Option<P
     Ok(e)
 }
 
+/// Not part of the recipes: hidden files and folders (the app's, git's, agents' skills) and, at the top,
+/// AGENTS.md and CLAUDE.md (instructions for agents).
+pub(crate) fn hidden(e: &walkdir::DirEntry) -> bool {
+    let name = e.file_name().to_string_lossy();
+    name.starts_with('.') || (e.depth() == 1 && (name == "AGENTS.md" || name == "CLAUDE.md"))
+}
+
 /// Full scan; entries whose size+mtime are unchanged are reused from `prev`.
 pub fn scan(root: &Path, prev: Option<&Index>, pdf: Option<PdfText>) -> Index {
     let mut idx = Index::default();
     let walker = walkdir::WalkDir::new(root).follow_links(false).sort_by_file_name().into_iter();
-    for e in walker.filter_entry(|e| e.depth() == 0 || !e.file_name().to_string_lossy().starts_with('.')) {
+    for e in walker.filter_entry(|e| e.depth() == 0 || !hidden(e)) {
         let Ok(e) = e else { continue };
         if e.depth() == 0 {
             continue;
@@ -333,6 +340,19 @@ pub fn unique(root: &Path, p: &VaultPath) -> VaultPath {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn agents_md_at_the_top_is_not_a_note() {
+        let dir = std::env::temp_dir().join(format!("rv-agents-{}", now_stamp()));
+        std::fs::create_dir_all(dir.join("Pies")).unwrap();
+        std::fs::write(dir.join("AGENTS.md"), "# Notes for agents\n").unwrap();
+        std::fs::write(dir.join("CLAUDE.md"), "@AGENTS.md\n").unwrap();
+        std::fs::write(dir.join("Pies/AGENTS.md"), "# A recipe that happens to be called AGENTS\n").unwrap();
+        let idx = scan(&dir, None, None);
+        assert!(!idx.files.keys().any(|p| p.as_str() == "AGENTS.md" || p.as_str() == "CLAUDE.md"));
+        assert!(idx.files.keys().any(|p| p.as_str() == "Pies/AGENTS.md"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn vault_path_rejects_escapes() {

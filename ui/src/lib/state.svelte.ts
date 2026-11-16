@@ -26,6 +26,15 @@ export const app = $state({
 
 export const canWrite = () => app.session.role !== 'reader';
 
+/** Reading preferences for this device (Settings → General), kept in this browser. */
+export const prefs = $state({
+  units: ((): 'us' | 'metric' => { try { return localStorage.getItem('units') === 'metric' ? 'metric' : 'us'; } catch { return 'us'; } })(),
+});
+export function setUnits(u: 'us' | 'metric') {
+  prefs.units = u;
+  try { localStorage.setItem('units', u); } catch {}
+}
+
 export function toast(text: string, kind: 'info' | 'error' | 'ok' = 'info') {
   const id = Math.random();
   app.toasts.push({ id, text, kind });

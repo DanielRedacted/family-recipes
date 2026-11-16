@@ -55,6 +55,8 @@ Freezes well. See [[Pie Crust]].
 - The folder is the category (`Pies/Pumpkin Pie.md`). Move a file to recategorise it.
 - `attachments/` holds pictures; `attachments/originals/` holds imported PDFs and Word files.
 - `.trash/` holds deleted files and earlier versions of edited files until the trash is emptied.
+- Hidden from the app: files and folders whose name starts with `.` (`.tools/`, `.agents/`…) and, at the
+  top of the folder, `AGENTS.md` and `CLAUDE.md` (instructions for coding agents).
 - `[[Name]]` links to another note by file name (or by title); a Markdown link to the file
   (`[mayonnaise](../Condiments/Mayonnaise.md)`) works too, also outside the app. The note it points
   to lists “Mentioned in” links back. In the editor, typing `[[` suggests recipe names.
@@ -131,7 +133,7 @@ Counts stay words (`2 cloves`, `1 can`, `pinch`, `1 stick`). Temperatures with a
 this way too, and the importer writes it this way; `scripts/normalize-units.ts <folder>` rewrites a
 whole folder (each changed line is printed).
 
-Scaling, **US** (the default): the recipe's own unit while the scaled amount reads well in it (⅛ up
+Scaling (US or Metric, chosen per device in Settings → General), **US** (the default): the recipe's own unit while the scaled amount reads well in it (⅛ up
 to 3 tsp, 1 up to 4 tbsp, ¼ up to 16 cups, under 16 oz, ½ lb and up), otherwise the unit it does
 read well in ("16 tbsp" × ½ → "½ cup"); qt, pt, fl oz and metric units keep their unit. **Metric**
 converts to ml / g (l / kg from 950; one decimal under 1, e.g. "0.3 ml").

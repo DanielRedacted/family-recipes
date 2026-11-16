@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { app, toast, loadSession, loadVault, noteHash, dirOf } from '../lib/state.svelte';
+  import { app, toast, loadSession, loadVault, noteHash, dirOf, prefs, setUnits } from '../lib/state.svelte';
   import { api } from '../lib/api';
   import { shell } from '../lib/ops';
   import { confirmIt } from '../lib/dialog.svelte';
@@ -14,7 +14,8 @@
   const sec = $derived(settingsSections().some((x) => x.id === currentSection()) ? currentSection() : 'general');
   const title = $derived(settingsSections().find((x) => x.id === sec)?.label ?? 'Settings');
 
-  let theme = $state((() => { try { return localStorage.getItem('theme') || 'system'; } catch { return 'system'; } })());
+  // light is the default everywhere; a saved "light" from before reads as that default
+  let theme = $state((() => { try { return localStorage.getItem('theme') === 'dark' ? 'dark' : 'system'; } catch { return 'system'; } })());
   let s = $state<any>(null);
   let pin = $state('');
   let aiKey = $state('');
@@ -87,9 +88,15 @@
     <h2>Appearance</h2>
     <label class="row">Theme
       <select class="field w" bind:value={theme}>
-        <option value="system">Match system</option><option value="light">Light</option><option value="dark">Dark</option>
+        <option value="system">Light</option><option value="dark">Dark</option>
       </select>
     </label>
+    <label class="row">Units
+      <select class="field w" aria-label="Units" value={prefs.units} onchange={(e) => setUnits(e.currentTarget.value as 'us' | 'metric')}>
+        <option value="us">US</option><option value="metric">Metric</option>
+      </select>
+    </label>
+    <p class="muted small">US shows the recipe's own units, tidied when you scale; Metric converts to ml and g. Saved on this device.</p>
   </section>
 
   {#if !admin}

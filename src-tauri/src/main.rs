@@ -126,8 +126,13 @@ fn main() {
             let opener = handle.clone();
             let opener2 = handle.clone();
             let downloads = app.path().download_dir().unwrap_or_else(|_| std::env::temp_dir());
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url.parse()?))
-                .title("Recipes")
+            let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url.parse()?));
+            #[cfg(target_os = "macos")]
+            let builder = builder.title_bar_style(tauri::TitleBarStyle::Transparent);
+            builder
+                .title("") // no name in the title bar: the menu bar and Dock already say Recipes
+                // the title bar takes the folder column's colour (`--sunken` #f3f1ea in app.css)
+                .background_color(tauri::window::Color(0xf3, 0xf1, 0xea, 0xff))
                 .inner_size(1240.0, 820.0)
                 .min_inner_size(380.0, 480.0)
                 .disable_drag_drop_handler() // let the page handle HTML5 drag & drop and file drops

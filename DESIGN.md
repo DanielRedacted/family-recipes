@@ -319,7 +319,8 @@ the system sans for the app around it, and the system monospace only for the Mar
   wash rule.
 - **recipe-group** (serif 1.1rem/600, amber ink): groups inside a section ("Crust", "Filling").
 - **recipe-body** (serif 17px/1.6): ingredient lines, steps and notes in the reader and the
-  formatted editor; capped at 760px wide.
+  formatted editor; capped at 760px wide. In the desktop reader the text itself is 6.5in (624px)
+  wide, centred under the 760px recipe bar and property row by equal side padding.
 - **card-title** (serif 17px/600) and **brand** (serif 19px/600): card names and the app name in
   the navigation column.
 - **body** (sans 15px/1.5): the default for the interface, tree rows, buttons and inputs.
@@ -332,6 +333,14 @@ the system sans for the app around it, and the system monospace only for the Mar
 
 ## Layout
 
+- **Desktop app window:** no title text, and a transparent title bar on the `sunken` colour (#f3f1ea).
+  The page has no space along its top edge there (`html.shell`), so the navigation column and the
+  breadcrumb row run straight into the title bar. Nothing bounces at the end of a scroll, neither the window nor any column or panel (`overscroll-behavior: none` on everything).
+- **Navigation column header:** the app name, and across from it a search icon button (⌘K).
+- **Folder title:** the folder's name with its item count beside it as a plain muted number (sans, 0.55em),
+  on the desktop title and in the phone's top row; no separate "N items" heading.
+- **Folder list view:** one row per recipe (name and time; no yield or tags); the name stays on one line and ends in … when it doesn't fit.
+- **Home page:** no page title; it opens on the Suggested row (the phone's top row still names it Recipes).
 - **Desktop:** a two-column grid exactly one window tall: the navigation column (`sidebar-width`
   290px, `sunken` background) and the main column, each scrolling on its own. Recipe pages keep
   their text to `reading-width` 760px; folder pages use a card grid up to `page-max-width` 1200px
@@ -345,7 +354,9 @@ the system sans for the app around it, and the system monospace only for the Mar
   safe-area insets.
 - **Spacing scale:** 2, 4, 8, 12, 16, 24, 48px (`xxs`…`xxl`), plus 20 and 32 where a step is needed;
   every margin, padding and gap is a multiple of 4 (2px only as a nudge inside small controls). Page
-  padding 16px × 24px on desktop, the same on every page. Toolbars stick to the top of the main column on the page background.
+  padding 24px at the sides on desktop, the same on every page. The toolbar row (breadcrumbs, buttons)
+  is a full-width band on the `sunken` colour, like the desktop title bar and the navigation column,
+  with 8px above and below its controls; it stays fixed while the page below it scrolls.
 - **Touch:** controls are at least 36px tall, 40px where the pointer is coarse (rows, settings
   items), 52px for bottom-bar buttons.
 
@@ -384,11 +395,15 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   toolbar icons; `button-selected` for a toggled state; `button-danger` text for destructive menu
   actions. Icon-only buttons are 36px square and always have an accessible label.
 - **Inputs and selects.** Surface fill, 1px border, `md` radius; focus replaces the border with a
-  2px amber outline. Use the native `select` for short choices (text type); inside a row of other controls, the
-  borderless `plain-select` (units, the Random filters).
+  2px amber outline. Use the native `select` for short choices (text type, theme, units); inside a row of other
+  controls, the borderless `plain-select` (the Random filters).
 - **Cards.** Folder cards are pastel (`card-*`), show an icon, the name in serif and a bare item
-  count in the top-right corner (it gives way to the ⋯ button on hover). Recipe cards are white with
-  the icon, the title in serif, tags, and a ★ when the recipe is a favourite.
+  count in the top-right corner (it gives way to the ⋯ button on hover). Recipe cards are all one height:
+  the picture (or the card's pastel with its 44px icon in the top-left corner, 14px × 16px in) fills
+  the card, 186px tall everywhere (room for the icon above the fullest text), and the title in serif (two lines at most), one details line (the time, never the yield or batch size), one row of tags and a ★ for a
+  favourite sit on it at the bottom. The suggested card on the home page stretches to the height of
+  the Random controls beside it (whose last row has no hairline). On a pastel the text is plain and the tags a 60% `surface` wash;
+  on a photo a dark fade carries white text.
 - **Chips.** Property chips on the sunken tone ("Prep 20 min"); missing standard properties appear as
   dashed outline chips with "＋". Portion chips ("Single ×1", "Double ×2") use `chip` and
   `chip-selected`. Tags use the amber wash.
@@ -397,8 +412,11 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   A Favorites group sits on top.
 - **Reader.** The recipe in `recipe-body`, sections with an amber-wash rule, bullets and step
   numbers in amber, checkboxes in amber. Recipe links have a dashed amber underline; links to web
-  pages are solid with a small muted ↗ and open in the browser. A recipe bar above the text holds
-  the serving scaler, portion chips, the unit menu (US / Metric) and Cook mode.
+  pages are solid with a small muted ↗ and open in the browser. A recipe card above the text holds
+  the serving scaler, portion chips and the recipe's filled-in property chips in one wrapping row,
+  with an amber-ink "More ⌄" at its end. More opens a line with the source, the dashed add chips and
+  the tags (and the original file); notes that aren't recipes show all their chips above the text. Cook mode (`button-primary`) sits in the toolbar row beside ⋯,
+  and the unit choice (US / Metric) is in Settings → General, per device.
 - **Formatted editor.** Looks like the reader (serif, sizes) with a slim toolbar; Markdown marks are
   never visible; tables are real grids with cell borders.
 - **Feedback.** Toasts at the bottom, inverted (`text` on `background`), red with white text for
@@ -411,8 +429,7 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   Favorites and Folders as a shuffled card grid under "N more matches", with a ghost "Show folders"
   button (tapping Home does the same).
 - **Plain menus (`plain-select`).** A native `select` without the boxed field: no border or fill,
-  the value in amber ink with the system's arrow. Used for the Random filters and the recipe's
-  US / Metric menu.
+  the value in amber ink with the system's arrow. Used for the Random filters.
 - **Cook mode.** A full-screen view with large checkable ingredient and step lists that keeps the
   screen awake.
 

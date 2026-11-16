@@ -892,7 +892,7 @@ mod tests {
     fn dump_vault() {
         let root = &vault();
         let mut out = std::collections::BTreeMap::new();
-        for e in walkdir::WalkDir::new(root).into_iter().filter_entry(|e| e.depth() == 0 || !e.file_name().to_string_lossy().starts_with('.')).filter_map(Result::ok) {
+        for e in walkdir::WalkDir::new(root).into_iter().filter_entry(|e| e.depth() == 0 || !crate::vault::hidden(e)).filter_map(Result::ok) {
             if e.path().extension().is_some_and(|x| x == "md") {
                 let rel = e.path().strip_prefix(root).unwrap().to_string_lossy().into_owned();
                 out.insert(rel, parse(&std::fs::read_to_string(e.path()).unwrap()).recipe);
@@ -915,7 +915,7 @@ mod tests {
             .map(str::to_string)
             .collect();
         let (mut missed, mut charts, mut steps_qty) = (vec![], vec![], vec![]);
-        for e in walkdir::WalkDir::new(root).into_iter().filter_entry(|e| e.depth() == 0 || !e.file_name().to_string_lossy().starts_with('.')).filter_map(Result::ok) {
+        for e in walkdir::WalkDir::new(root).into_iter().filter_entry(|e| e.depth() == 0 || !crate::vault::hidden(e)).filter_map(Result::ok) {
             if e.path().extension().is_some_and(|x| x == "md") {
                 let text = std::fs::read_to_string(e.path()).unwrap();
                 let p = parse(&text);

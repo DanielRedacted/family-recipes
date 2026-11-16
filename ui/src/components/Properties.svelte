@@ -33,7 +33,9 @@
   import { noteHash } from '../lib/state.svelte';
   import Icon from './Icon.svelte';
 
-  let { entry, editable, onchange }: { entry: Entry; editable: boolean; onchange: (raw: string) => void } = $props();
+  /** `collapsible`: inside a recipe's card, where the add (+) pills, source, tags and original file wait behind More */
+  let { entry, editable, onchange, collapsible = false }: { entry: Entry; editable: boolean; onchange: (raw: string) => void; collapsible?: boolean } = $props();
+  let open = $state(false);
   /** a missing standard property being filled in from its chip */
   let adding = $state<string | null>(null);
   // a recipe always shows these, with an Add button when they are missing
@@ -61,20 +63,32 @@
     onchange(setProp(entry.raw ?? '', key, v));
   }
 
+  // in a recipe's card the details show at once; the rest waits behind More
+  const shown = $derived(keys.filter((k) => !HIDDEN.includes(k) && !(collapsible && k === 'source')));
   const orig = $derived(typeof fm.original === 'string' ? vaultTarget(fm.original, '') : null);
+  const hasMore = $derived(!!fm.source || missing.length > 0 || tagsOf(entry).length > 0 || !!orig);
 </script>
+
+{#snippet prop(k: string)}
+  <span class="chip"><span class="k">{LABELS[k] ?? k}</span>
+    {#if k === 'source' && /^https?:/.test(String(fm[k]))}
+      <a class="ext" href={String(fm[k])} target="_blank" rel="noopener noreferrer">{new URL(String(fm[k])).hostname}</a>
+    {:else}{fmtVal(fm[k])}{/if}
+  </span>
+{/snippet}
 
 {#if keys.length || editable}
   <section class="props" aria-label="Properties">
     <div class="chips">
         {#if fm.favorite === true}<span class="chip fav">★ Favorite</span>{/if}
-        {#each keys.filter((k) => !HIDDEN.includes(k)) as k}
-          <span class="chip"><span class="k">{LABELS[k] ?? k}</span>
-            {#if k === 'source' && /^https?:/.test(String(fm[k]))}
-              <a class="ext" href={String(fm[k])} target="_blank" rel="noopener noreferrer">{new URL(String(fm[k])).hostname}</a>
-            {:else}{fmtVal(fm[k])}{/if}
-          </span>
-        {/each}
+        {#each shown as k}{@render prop(k)}{/each}
+        {#if collapsible && hasMore}
+          <button class="chip toggle" aria-expanded={open} onclick={() => (open = !open)}>{open ? 'Less' : 'More'}<Icon name={open ? 'chevron-up' : 'chevron-down'} size={14} /></button>
+        {/if}
+      </div>
+      {#if !collapsible || open}
+      <div class="chips more">
+        {#if collapsible && fm.source}{@render prop('source')}{/if}
         {#each missing as k (k)}
           {#if adding === k}
             <span class="chip adding"><span class="k">{LABELS[k]}</span>
@@ -89,6 +103,7 @@
         {#each tagsOf(entry) as t}<span class="chip tag">#{t}</span>{/each}
         {#if orig}<a class="chip" href={noteHash(orig)}><Icon name="paperclip" size={14} /> Original file</a>{/if}
       </div>
+      {/if}
     {#if entry.frontmatter_error}<p class="warn small">Properties block could not be read: {entry.frontmatter_error}</p>{/if}
   </section>
 {/if}
@@ -96,6 +111,7 @@
 <style>
   .props { margin: 0 0 16px; font-size: 14px; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .chip.toggle { border: 0; cursor: pointer; font: inherit; color: var(--accent-ink); background: none; padding: 4px 8px; }
   .chip { display: inline-flex; align-items: center; gap: 4px; background: var(--sunken); border-radius: 16px; padding: 4px 12px; text-decoration: none; color: var(--text); }
   .chip .k { color: var(--muted); }
   .chip.tag { color: var(--accent-ink); background: var(--accent-soft); }

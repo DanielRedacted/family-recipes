@@ -41,8 +41,8 @@
     const p = vaultTarget(f.cover, f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : '');
     return p ? fileUrl(p) : null;
   }
-  const meta = (f: Entry) => [f.frontmatter?.yield ?? f.frontmatter?.servings, f.frontmatter?.total_time ?? f.frontmatter?.cook_time]
-    .filter(Boolean).map(String).join(' · ');
+  // the card's details line: how long it takes (not the batch size)
+  const meta = (f: Entry) => String(f.frontmatter?.total_time ?? f.frontmatter?.cook_time ?? '');
   // ---------- home: a suggested recipe (dinner unless the filters say otherwise) ----------
   const TAGS = ['Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack', 'Side', 'Bread', 'Dough', 'Drink', 'Sauce'];
   const PROTEINS = ['Chicken', 'Beef', 'Pork', 'Turkey', 'Seafood', 'Eggs', 'Beans'];
@@ -94,7 +94,7 @@
   {@const img = cover(f)}
   {@const ic = noteIcon(f)}
   <div class="wrap">
-  <a class="recipe card" href={noteHash(f.path)} oncontextmenu={menuFor(f.path, false)}>
+  <a class="recipe card" class:photo={!!img} href={noteHash(f.path)} oncontextmenu={menuFor(f.path, false)}>
     {#if img}
       <img src={img} alt="" loading="lazy" />
     {:else}
@@ -102,7 +102,7 @@
     {/if}
     <div class="info">
       <span class="rtitle">{#if img && ic}<CardIcon icon={ic} size={16} /> {/if}{f.title}{#if f.frontmatter?.favorite === true}<span class="star" title="Favorite" aria-label="Favorite"> ★</span>{/if}</span>
-      <span class="muted small">{meta(f)}</span>
+      {#if meta(f)}<span class="muted small">{meta(f)}</span>{/if}
       <span class="tags">
         {#if badge(f)}<span class="tag badge">{badge(f)}</span>{/if}
         {#each tagsOf(f).slice(0, 3) as t}<span class="tag">{t}</span>{/each}
@@ -115,9 +115,9 @@
 {/snippet}
 
 <div class="page">
-  <header class="toolbar row">
+  <header class="toolbar row crumb-bar">
     <Crumbs dir={path} />
-    <span class="bar-name">{path ? nameOf(path) : 'Recipes'}</span>
+    <span class="bar-name">{path ? nameOf(path) : 'Recipes'}{#if path && files.length}<span class="n" aria-label="{files.length} items">{files.length}</span>{/if}</span>
     <span class="spacer"></span>
     {#if canWrite()}
       <button class="btn primary add" aria-label="Add" title="Add a recipe, files or a folder" onclick={(e) => plusMenu(e, path)}><Icon name="plus" /></button>
@@ -131,7 +131,7 @@
   </header>
 
   <!-- only the folder's contents scroll; the row and the folder's title above stay put -->
-  {#if exists}<h1 class="title">{path ? nameOf(path) : 'Recipes'}</h1>{/if}
+  {#if exists && path}<h1 class="title">{nameOf(path)}{#if files.length}<span class="n" aria-label="{files.length} items">{files.length}</span>{/if}</h1>{/if}
   <div class="scroll">
   {#if !exists && app.loaded}
     <p class="muted">This folder no longer exists. <a href="#/">Back to all recipes</a></p>
@@ -194,7 +194,6 @@
     {/if}
 
     {#if files.length}
-      {#if path}<h2 class="sub">{files.length} item{files.length === 1 ? '' : 's'}</h2>{/if}
       {#if view === 'cards'}
         <div class="grid">
           {#each files as f (f.path)}{@render card(f)}
@@ -202,14 +201,12 @@
         </div>
       {:else}
         <table class="tbl">
-          <thead><tr><th>Name</th><th>Yield</th><th>Time</th><th>Tags</th><th class="no-print"></th></tr></thead>
+          <thead><tr><th>Name</th><th>Time</th><th class="no-print"></th></tr></thead>
           <tbody>
             {#each files as f (f.path)}
               <tr oncontextmenu={menuFor(f.path, false)}>
-                <td><CardIcon icon={noteIcon(f)} size={16} /> <a href={noteHash(f.path)}>{f.title}</a>{#if f.frontmatter?.favorite === true}<span class="star" aria-label="Favorite"> ★</span>{/if} {#if badge(f)}<span class="tag badge">{badge(f)}</span>{/if}</td>
-                <td>{f.frontmatter?.yield ?? f.frontmatter?.servings ?? ''}</td>
+                <td class="name"><CardIcon icon={noteIcon(f)} size={16} /> <a href={noteHash(f.path)}>{f.title}</a>{#if f.frontmatter?.favorite === true}<span class="star" aria-label="Favorite"> ★</span>{/if} {#if badge(f)}<span class="tag badge">{badge(f)}</span>{/if}</td>
                 <td>{f.frontmatter?.total_time ?? f.frontmatter?.cook_time ?? ''}</td>
-                <td>{tagsOf(f).join(', ')}</td>
                 <td class="acts no-print"><button class="btn ghost icon" aria-label="Actions for {f.title}" onclick={menuFor(f.path, false)}><Icon name="more" size={16} /></button></td>
               </tr>
             {/each}
@@ -225,9 +222,10 @@
 </div>
 
 <style>
-  .page { display: flex; flex-direction: column; height: 100%; max-width: 1200px; }
-  .toolbar { flex: none; padding: 16px 24px 12px; }
-  .scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 24px 48px; }
+  .page { display: flex; flex-direction: column; height: 100%; }
+  .toolbar { flex: none; padding: 8px 24px; margin-bottom: 4px; }
+  /* the row spans the column; the cards stay within 1200px, with the scrollbar at the window's edge */
+  .scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 max(24px, calc(100% - 1176px)) 48px 24px; }
   .bar-name { display: none; }
   @media print { .page { height: auto; } .scroll { overflow: visible; } }
   .seg { display: flex; }
@@ -235,12 +233,15 @@
   .seg .btn:first-child { border-radius: 8px 0 0 8px; }
   .seg .btn:last-child { border-radius: 0 8px 8px 0; border-left: 0; }
   .title { flex: none; font-size: 2rem; margin: 8px 24px 16px; }
+  /* the folder's item count, beside its name */
+  .title .n, .bar-name .n { margin-left: 0.4em; font: 500 0.55em var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; vertical-align: middle; }
+  .folders + .grid, .folders + .tbl { margin-top: 24px; }
   .sub { font-size: 1.05rem; margin: 24px 0 12px; color: var(--muted); font-family: var(--sans); font-weight: 500; }
   .folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; }
   .wrap { position: relative; display: grid; }
   .more { position: absolute; top: 8px; right: 8px; border: 0; border-radius: 6px; background: var(--surface); color: var(--muted); padding: 0 8px; font-size: 16px; line-height: 24px; cursor: pointer; opacity: 0; box-shadow: var(--shadow); }
   .wrap:hover .more, .more:focus-visible { opacity: 1; }
-  @media (hover: none) { .more { opacity: 0.85; } }
+  @media (hover: none) { .more { opacity: 0.85; } .info .rtitle { padding-right: 28px; } } /* the ⋯ button stays clear of the title */
   .folder { position: relative; display: grid; gap: 2px; padding: 16px; text-decoration: none; color: var(--text); border: 0; justify-items: start; }
   .folder:hover { box-shadow: var(--shadow-md); }
   .fname { font-family: var(--serif); font-size: 17px; font-weight: 600; padding-right: 24px; }
@@ -250,22 +251,36 @@
   @media (hover: none) { .folder .count { right: 42px; } .wrap:hover .folder .count { opacity: 1; } }
   .star { color: var(--accent); margin-left: 4px; }
   .sub.first { margin-top: 0; }
-  .suggest { margin-bottom: 8px; }
+  .suggest { margin-bottom: 8px; padding-top: 16px; } /* room under the breadcrumb row */
+  /* the suggested card takes the height of the Random controls beside it */
+  .suggest .grid > .wrap > .recipe { height: 100%; min-height: 186px; }
   /* beside the suggestion, on the page itself: label left, value right, hairlines between rows */
   .picker { display: flex; flex-direction: column; font-size: 14px; }
   .matches-head { margin-top: 24px; }
   .matches-head .sub { margin: 0; }
   .opt { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; border-bottom: 1px solid var(--border); }
+  .opt:last-of-type { border-bottom: 0; } /* no line between Favorites and the Random button */
   .opt span { color: var(--muted); }
   .opt select { text-align: right; text-align-last: right; }
   .opt input { accent-color: var(--accent); }
   .picker .btn { justify-content: center; margin-top: 12px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-  .recipe { display: flex; flex-direction: column; text-decoration: none; color: var(--text); overflow: hidden; }
+  /* the picture (or the card's colour with its icon) fills the card; title, details and tags sit on it */
+  .recipe { position: relative; display: block; height: 186px; text-decoration: none; color: var(--text); overflow: hidden; }
   .recipe:hover { box-shadow: var(--shadow-md); border-color: var(--accent); }
-  .recipe img, .ph { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
-  .ph { display: grid; place-items: center; }
-  .info { padding: 12px; display: grid; gap: 4px; }
+  .recipe img, .ph { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .ph { padding: 14px 16px; } /* the icon in the top-left corner, with room around it */
+  .info { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 12px 12px; display: grid; gap: 4px; }
+  /* every card the same height, and the overlay too: at most two title lines, one details line, one row of tags */
+  .info .rtitle { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .info .muted { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .info .tags { flex-wrap: nowrap; overflow: hidden; }
+  .info .tag { flex: none; }
+  .recipe:not(.photo) .tag { background: color-mix(in srgb, var(--surface) 60%, transparent); }
+  /* a photo: a dark fade behind white text */
+  .photo .info { padding-top: 32px; color: #fff; background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0)); }
+  .photo .info .muted { color: rgba(255, 255, 255, 0.85); }
+  .photo .tag { background: rgba(255, 255, 255, 0.85); color: var(--text); }
   .rtitle { font-family: var(--serif); font-weight: 600; font-size: 16px; }
   .tags { display: flex; gap: 4px; flex-wrap: wrap; }
   .tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--sunken); color: var(--muted); }
@@ -273,10 +288,12 @@
   .tag.warn { background: var(--p-yellow); color: var(--text); }
   .tbl { width: 100%; border-collapse: collapse; }
   .tbl th, .tbl td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); }
+  /* a recipe's name stays on one line, cut with … when it doesn't fit */
+  .tbl td.name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0; width: 50%; }
   .tbl th { color: var(--muted); font-weight: 500; font-size: 13px; }
   .acts { white-space: nowrap; text-align: right; }
   @media (max-width: 899px) {
-    .toolbar { padding: 8px 16px 12px; flex-wrap: nowrap; }
+    .toolbar { padding: 8px 16px; flex-wrap: nowrap; }
     .scroll { padding: 0 16px 96px; }
     /* the folder's name sits in the row (back, name, add, view); the big title would repeat it */
     .bar-name { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 19px var(--serif); }
@@ -284,6 +301,6 @@
     .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
     .folders { gap: 12px; }
     .toolbar .btn { min-height: 40px; }
-    .tbl th:nth-child(3), .tbl td:nth-child(3), .tbl th:nth-child(4), .tbl td:nth-child(4) { display: none; }
+    .tbl td.name { width: 70%; }
   }
 </style>

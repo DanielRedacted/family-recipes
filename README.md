@@ -22,7 +22,7 @@ What it does: a folder column that follows the open recipe and cards (with emoji
 can change), favorites, a suggested dinner on the home page with Random beside it (filters: kind of recipe, default Dinner;
 protein; folder; favorites; Random shows every match as a shuffled grid), each recipe's author under
 its title and the website it came from, ⌘K search (recipes, folders, ingredients), a reader with serving scaler (every set of
-ingredients scales; yields such as "2 dozen" count as 24), US or metric units (units are written one
+ingredients scales; yields such as "2 dozen" count as 24), US or metric units (chosen in Settings; units are written one
 way, in lower case, with amounts in bold: `docs/FORMAT.md`) and cook mode, ingredient
 tables with alternative portions (Single / Double…: one portion at a time, with its multiplier), a
 formatted editor in the style of Apple Notes (Markdown marks are never shown; text types, lists,

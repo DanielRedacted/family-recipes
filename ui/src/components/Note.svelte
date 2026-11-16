@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { onMount, untrack } from 'svelte';
-  import { app, canWrite, go, folderHash, noteHash, dirOf, nameOf, toast, loadVault, setLeaveGuard, clearLeaveGuard } from '../lib/state.svelte';
+  import { app, canWrite, go, folderHash, noteHash, dirOf, nameOf, toast, loadVault, setLeaveGuard, clearLeaveGuard, prefs } from '../lib/state.svelte';
   import { fileUrl, saveFile, ApiError, api } from '../lib/api';
   import Crumbs from './Crumbs.svelte';
   import { renderMarkdown, scaledRaw, bodyOf, vaultTarget, linksTo } from '../lib/markdown';
@@ -35,8 +35,8 @@
   let factor = $state(1);
   /** the chosen column of an ingredient table with alternative portions (Single / Double…) */
   let portion = $state(0);
-  // "original" (units as written) is gone: recipes are written in one spelling, shown as US by default
-  let units = $state<Units>((() => { try { return localStorage.getItem('units') === 'metric' ? 'metric' : 'us'; } catch { return 'us'; } })());
+  // US or Metric, chosen in Settings → General for this device
+  const units = $derived<Units>(prefs.units);
   let editor: Editor | undefined = $state();
 
   // start state (the component is re-created for each note)
@@ -70,7 +70,6 @@
     });
   });
 
-  $effect(() => { try { localStorage.setItem('units', units); } catch {} });
 
   // Nothing is written until Save (or ⌘S). Leaving with unsaved changes asks first.
   function onEdit(v: string, tidy = false) {
@@ -279,7 +278,7 @@
   </div>
 {:else}
   <div class="page" class:split={mode === 'split'} class:editing={mode !== 'read'}>
-    <header class="toolbar row no-print">
+    <header class="toolbar row no-print crumb-bar">
       <Crumbs dir={dirOf(path)} leaf={entry.kind === 'note' ? entry.title : nameOf(path)} />
       <span class="spacer"></span>
       {#if entry.kind === 'note' && mode !== 'read'}
@@ -287,6 +286,7 @@
         <button class="btn" onclick={() => setMode('read')}>Done</button>
         <button class="btn primary" disabled={!dirty || saving || !!conflict} onclick={() => save()} title="Save (⌘S)"><Icon name="check" size={16} /> Save</button>
       {/if}
+      {#if entry.kind === 'note' && mode === 'read' && entry.recipe}<button class="btn primary" onclick={() => (cooking = true)}><Icon name="chef" /> Cook mode</button>{/if}
       <button class="btn icon" aria-label="More" onclick={moreMenu}><Icon name="more" /></button>
     </header>
 
@@ -325,12 +325,7 @@
               {/each}
             </div>
           {/if}
-          <select class="plain-select" bind:value={units} aria-label="Units">
-            <option value="us">US</option>
-            <option value="metric">Metric</option>
-          </select>
-          <span class="spacer"></span>
-          <button class="btn primary" onclick={() => (cooking = true)}><Icon name="chef" /> Cook mode</button>
+          <div class="details"><Properties {entry} editable={canWrite()} onchange={saveRaw} collapsible /></div>
         </div>
       {/if}
 
@@ -342,7 +337,7 @@
         {/if}
         {#if mode !== 'edit'}
           <article class="reader">
-            {#if mode === 'read'}<Properties {entry} editable={canWrite()} onchange={saveRaw} />{/if}
+            {#if mode === 'read' && !entry.recipe}<Properties {entry} editable={canWrite()} onchange={saveRaw} />{/if}
             {#if asking && mode === 'read'}
               <form class="ask card no-print" onsubmit={aiAsk}>
                 <div class="row"><input class="field grow" placeholder="Ask about this recipe — e.g. can I make it the day before?" bind:value={question} />
@@ -394,8 +389,8 @@
 {/if}
 
 <style>
-  .page { padding: 16px 24px 64px; }
-  .toolbar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0 12px; }
+  .page { padding: 0 24px 64px; }
+  .toolbar { position: sticky; top: 0; z-index: 5; padding: 8px 0; margin-bottom: 12px; }
   .mentions { margin: 32px 0 0; padding-top: 12px; border-top: 1px solid var(--border); max-width: 760px; }
   .mentions h2 { font: 600 14px var(--sans); color: var(--muted); margin: 0 0 8px; }
   .mentions ul { margin: 0; padding-left: 20px; }
@@ -404,6 +399,11 @@
   .recipebar { margin: 0 0 16px; max-width: 760px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
   .scaler .qty { min-width: 90px; text-align: center; font-weight: 600; }
   .portions { gap: 4px; }
+  /* the property pills flow in the card's row after the scaler; what More opens takes its own line */
+  .details, .details :global(.props) { display: contents; }
+  .details :global(.chips:not(.more)) { flex: 1 1 auto; }
+  .details :global(.chips.more), .details :global(.warn) { flex-basis: 100%; }
+  .details :global(.chip.toggle) { margin-left: auto; }
   .chip { border: 1px solid var(--border); background: var(--surface); border-radius: 16px; padding: 4px 12px; min-height: 32px; cursor: pointer; font-size: 14px; }
   .chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
   .chip .mult { margin-left: 2px; color: var(--muted); font-weight: 500; }
@@ -418,10 +418,10 @@
   .answer { font-size: 15px; }
   .busy { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.25); display: grid; place-items: center; color: #fff; font-size: 18px; z-index: 70; }
   .full { max-width: 100%; border-radius: var(--radius); }
+  /* desktop: the recipe text is 6.5in wide, centred under the 760px recipe bar and property row */
+  @media screen and (min-width: 900px) { .page:not(.split) .reader > :global(.prose) { padding-inline: calc((760px - 6.5in) / 2); } }
   @media (max-width: 899px) {
-    .page { padding: 8px 16px 96px; }
+    .page { padding: 0 16px 96px; }
     .editpane { height: calc(100vh - 170px); top: 52px; }
-    .recipebar .spacer { display: none; }
-    .recipebar .btn.primary { width: 100%; justify-content: center; }
   }
 </style>

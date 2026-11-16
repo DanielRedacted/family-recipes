@@ -16,6 +16,9 @@
   import Setup from './components/Setup.svelte';
   import { update, checkForUpdate, installUpdate } from './lib/update.svelte';
 
+  // the desktop app's window: the page runs up to its title bar (app.css, html.shell)
+  $effect(() => { document.documentElement.classList.toggle('shell', !!app.session.shell); });
+
   onMount(async () => {
     await loadSession();
     await loadVault();

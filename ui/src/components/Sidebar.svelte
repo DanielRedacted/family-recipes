@@ -34,10 +34,9 @@
 <div class="side">
   <div class="brand row">
     <a href="#/" class="logo" onclick={() => (app.sidebar = false)}><img src="/icon.svg" alt="" width="24" height="24" /> Recipes</a>
+    <span class="spacer"></span>
+    <button class="btn ghost icon" aria-label="Search" title="Search (⌘K)" onclick={openSearch}><Icon name="search" /></button>
   </div>
-  <button class="search btn" onclick={openSearch}>
-    <Icon name="search" size={16} /><span>Search recipes</span><span class="spacer"></span><kbd>⌘K</kbd>
-  </button>
   <div
     class="tree"
     bind:this={treeEl}
@@ -70,9 +69,7 @@
   .side { display: flex; flex-direction: column; height: 100%; gap: 8px; padding: 12px 8px calc(8px + env(safe-area-inset-bottom)); }
   .brand { padding: 2px 4px; flex-wrap: nowrap; min-height: 36px; }
   .logo { display: flex; align-items: center; gap: 8px; font-family: var(--serif); font-weight: 600; font-size: 19px; text-decoration: none; color: var(--text); }
-  .search { justify-content: flex-start; color: var(--muted); background: var(--surface); }
-  kbd { font: 11px var(--mono); border: 1px solid var(--border); border-radius: 4px; padding: 2px 4px; }
-  .tree { flex: 1; overflow-y: auto; overscroll-behavior: contain; border-radius: 8px; }
+  .tree { flex: 1; overflow-y: auto; border-radius: 8px; }
   .tree.drop { outline: 2px dashed var(--accent); }
   .pad { padding: 8px; }
   .foot { display: flex; gap: 4px; border-top: 1px solid var(--border); padding-top: 8px; flex-wrap: wrap; }

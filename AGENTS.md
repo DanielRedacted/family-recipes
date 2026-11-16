@@ -31,6 +31,10 @@ The app ships empty. The family recipes live in a separate private repository; o
 conversion and checking tools in `~/Recipes/.tools/` (`verify.py`, `convert.py`, `techniques.txt`).
 
 - Never copy recipes into this repository.
+- The recipes repository has its own `AGENTS.md` (format, tags, authors, the no-changed-information
+  rule) and a `clean-up-recipe` skill in `.agents/skills/`; agents working on recipes follow those.
+  The app hides `AGENTS.md` and `CLAUDE.md` at the top of the recipes folder (`vault::hidden`), and
+  every dot-folder.
 - `~/Recipes` is the owner's live data. Don't edit it unless asked; if asked, commit there locally
   and leave pushing to the owner.
 - The sibling folder `home-recipes/` next to this repository is read-only.
