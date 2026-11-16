@@ -1,23 +1,23 @@
-/* Family cookbook: warm paper palette from the earlier `recipes` app's stylesheet,
-   card pastels from its colour swatches, amber accent from its --warning tone. */
+/* Family cookbook: paper palette with a very mild lavender tint (originally the earlier `recipes` app's warm greys),
+   card pastels from its colour swatches, purple accent. */
 :root {
-  --bg: #fafaf8;
+  --bg: #faf9fd;
   --surface: #ffffff;
-  --sunken: #f3f1ea;
-  --border: #e5e5e0;
-  --text: #1a1a18;
-  --muted: #6b6b66;
-  --accent: #d97706;
-  --accent-ink: #9a4f05;
-  --accent-soft: #ffe5cc;
-  --on-accent: #1a1a18; /* text on amber or green fills: 5.5:1 (white is 3.2:1) */
+  --sunken: #f1eef8;
+  --border: #e4e0ee;
+  --text: #1b1a22;
+  --muted: #69657a;
+  --accent: #7a52cc; /* purple, the lavender's complement in strength */
+  --accent-ink: #5e3ba8;
+  --accent-soft: #ebe3fb;
+  --on-accent: #ffffff; /* text on purple fills: 5.4:1 */
   --danger: #dc2626;
   --ok: #16a34a;
   --radius: 10px;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
   --p-red: #ffd6d6; --p-orange: #ffe5cc; --p-yellow: #fff9cc; --p-green: #d6f5d6;
-  --p-blue: #cce5ff; --p-purple: #ead6ff; --p-brown: #e8d5c4; --p-grey: #f0f0f0;
+  --p-blue: #cce5ff; --p-purple: #ead6ff; --p-brown: #e8d5c4; --p-grey: #efedf5;
   --serif: ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif;
   --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -25,10 +25,10 @@
   color-scheme: light;
 }
 :root[data-theme="dark"] {
-  --bg: #141412; --surface: #1e1e1c; --sunken: #191917; --border: #2e2e2a; --text: #f0f0ec; --muted: #9a9a94;
-  --accent: #f0a640; --accent-ink: #f5b860; --accent-soft: #3a2c18; --on-accent: #141412;
+  --bg: #141319; --surface: #1e1c24; --sunken: #19171f; --border: #2e2b37; --text: #f1eff6; --muted: #9c98a8;
+  --accent: #b39cf2; --accent-ink: #c9b8f7; --accent-soft: #2d2442; --on-accent: #141319;
   --p-red: #3b2626; --p-orange: #3b2e22; --p-yellow: #37341f; --p-green: #22362a;
-  --p-blue: #213040; --p-purple: #302640; --p-brown: #362d25; --p-grey: #2a2a28;
+  --p-blue: #213040; --p-purple: #302640; --p-brown: #362d25; --p-grey: #2a2830;
   color-scheme: dark;
 }
 
@@ -36,6 +36,9 @@
 html, body { margin: 0; height: 100%; }
 /* nothing bounces: not the window, not the recipe or folder columns, not any scrolling panel */
 *, html, body { overscroll-behavior: none; }
+/* no scrollbars anywhere; everything still scrolls */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
 html { touch-action: manipulation; } /* no double-tap zoom */
 body { background: var(--bg); color: var(--text); font: 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
 a { color: var(--accent-ink); }
@@ -60,11 +63,14 @@ input.field, select.field, textarea.field {
 }
 input.field:focus, select.field:focus, textarea.field:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
 .muted { color: var(--muted); }
-/* the breadcrumb row wears the window's colour (the desktop title bar and the folder column), edge to edge */
-.crumb-bar { background: var(--sunken); box-shadow: 0 0 0 100vmax var(--sunken); clip-path: inset(0 -100vmax); }
+/* the breadcrumb row, edge to edge: on phones in the window's colour (the title bar, the folder column);
+   with two columns it is part of its tab's page, under the tab strip, in the page's colour */
+.crumb-bar { --bar: var(--sunken); background: var(--bar); box-shadow: 0 0 0 100vmax var(--bar); clip-path: inset(0 -100vmax); }
+@media (min-width: 900px) { .crumb-bar { --bar: var(--bg); } }
 /* desktop app: no space along the top edge; the title bar above wears the same colour, so the page melts into it */
-html.shell .crumb-bar, html.shell .side, html.shell .snav { padding-top: 0; }
-/* a native menu without the boxed field: the value in amber ink, the system's own arrow */
+html.shell .side, html.shell .snav, html.shell .tabs { padding-top: 0; }
+@media (max-width: 899px) { html.shell .crumb-bar { padding-top: 0; } }
+/* a native menu without the boxed field: the value in accent ink, the system's own arrow */
 select.plain-select { border: 0; background: transparent; color: var(--accent-ink); font-weight: 500; padding: 4px 0; cursor: pointer; min-width: 0; max-width: 60%; text-overflow: ellipsis; }
 select.plain-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .small { font-size: 13px; }

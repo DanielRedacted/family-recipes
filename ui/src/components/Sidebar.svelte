@@ -12,20 +12,23 @@
     const favs = app.files.filter((f) => f.kind === 'note' && f.frontmatter?.favorite === true)
       .sort((a, b) => collator.compare(a.title, b.title))
       .map((f) => ({ name: f.path.slice(f.path.lastIndexOf('/') + 1), path: f.path, folder: false, children: [], kind: f.kind }));
-    if (favs.length) t.children.unshift({ name: 'Favorites', path: FAV, folder: true, children: favs });
+    if (favs.length) t.children.unshift({ name: 'Bookmarks', path: FAV, folder: true, children: favs });
     return t;
   });
   let dropRoot = $state(false);
   let treeEl: HTMLDivElement;
 
-  // follow the page being shown: open its folders and scroll its row into view
+  // follow the page being opened: open its folders and scroll its row into view
+  // (not on switching tabs, and not when a folder is toggled)
   $effect(() => {
-    const { view, path } = app.route;
-    if (!app.loaded || (view !== 'note' && view !== 'folder')) return;
-    untrack(() => reveal(path, view === 'folder')); // only on navigation, not when a folder is toggled
+    app.nav;
+    if (!app.loaded) return;
+    const { view, path } = untrack(() => app.route);
+    if (view !== 'note' && view !== 'folder') return;
+    untrack(() => reveal(path, view === 'folder'));
     tick().then(() => {
       const rows = treeEl?.querySelectorAll<HTMLElement>('[aria-current="page"]');
-      // the last match is the row in the folder tree (an earlier one may be in Favorites)
+      // the last match is the row in the folder tree (an earlier one may be in Bookmarks)
       rows?.[rows.length - 1]?.scrollIntoView({ block: 'nearest' });
     });
   });

@@ -19,8 +19,8 @@ from, edit, import and manage them.
   key). Only ever proposes changes you accept.
 
 What it does: a folder column that follows the open recipe and cards (with emoji and colours you
-can change), favorites, a suggested dinner on the home page with Random beside it (filters: kind of recipe, default Dinner;
-protein; folder; favorites; Random shows every match as a shuffled grid), each recipe's author under
+can change), bookmarks, a suggested dinner on the home page with Random beside it (filters: kind of recipe, default Dinner;
+protein; folder; bookmarked; Random shows every match as a shuffled grid), each recipe's author under
 its title and the website it came from, ⌘K search (recipes, folders, ingredients), a reader with serving scaler (every set of
 ingredients scales; yields such as "2 dozen" count as 24), US or metric units (chosen in Settings; units are written one
 way, in lower case, with amounts in bold: `docs/FORMAT.md`) and cook mode, ingredient
@@ -29,7 +29,8 @@ formatted editor in the style of Apple Notes (Markdown marks are never shown; te
 checklists and real tables with an editor in each cell; the file stays plain
 Markdown and is saved only when you press Save), `[[links]]` and Markdown links between recipes with backlinks (an ingredient named like another
 recipe links to it), an
-ingredient catalogue with pictures that also feeds suggestions while typing, a Back button (⌘[),
+ingredient catalogue with pictures that also feeds suggestions while typing, tabs on wider screens (each
+with its own page and Back button, ⌘[),
 links to web pages marked ↗ and opened in the browser, and an importer for web pages (schema.org, WP Recipe Maker incl. its
 REST data, nutrition and equipment), PDFs, Word files, photos and pasted text — several at once,
 each with a step log.

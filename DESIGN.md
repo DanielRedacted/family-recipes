@@ -6,16 +6,17 @@ description: >-
   phones and tablets at home. Light theme tokens below (the default everywhere); dark theme
   counterparts end in -dark.
 colors:
-  primary: "#d97706"
-  primary-ink: "#9a4f05"
-  primary-soft: "#ffe5cc"
-  on-primary: "#1a1a18"
-  background: "#fafaf8"
+  primary: "#7a52cc"
+  primary-ink: "#5e3ba8"
+  primary-soft: "#ebe3fb"
+  on-primary: "#ffffff"
+  on-success: "#1b1a22"
+  background: "#faf9fd"
   surface: "#ffffff"
-  sunken: "#f3f1ea"
-  border: "#e5e5e0"
-  text: "#1a1a18"
-  muted: "#6b6b66"
+  sunken: "#f1eef8"
+  border: "#e4e0ee"
+  text: "#1b1a22"
+  muted: "#69657a"
   danger: "#dc2626"
   success: "#16a34a"
   card-red: "#ffd6d6"
@@ -25,17 +26,17 @@ colors:
   card-blue: "#cce5ff"
   card-purple: "#ead6ff"
   card-brown: "#e8d5c4"
-  card-grey: "#f0f0f0"
-  primary-dark: "#f0a640"
-  primary-ink-dark: "#f5b860"
-  primary-soft-dark: "#3a2c18"
-  on-primary-dark: "#141412"
-  background-dark: "#141412"
-  surface-dark: "#1e1e1c"
-  sunken-dark: "#191917"
-  border-dark: "#2e2e2a"
-  text-dark: "#f0f0ec"
-  muted-dark: "#9a9a94"
+  card-grey: "#efedf5"
+  primary-dark: "#b39cf2"
+  primary-ink-dark: "#c9b8f7"
+  primary-soft-dark: "#2d2442"
+  on-primary-dark: "#141319"
+  background-dark: "#141319"
+  surface-dark: "#1e1c24"
+  sunken-dark: "#19171f"
+  border-dark: "#2e2b37"
+  text-dark: "#f1eff6"
+  muted-dark: "#9c98a8"
 typography:
   display:
     fontFamily: 'ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif'
@@ -225,7 +226,7 @@ components:
     textColor: "#ffffff"
   toast-success:
     backgroundColor: "{colors.success}"
-    textColor: "{colors.on-primary}"
+    textColor: "{colors.on-success}"
   banner:
     backgroundColor: "{colors.card-yellow}"
     textColor: "{colors.text}"
@@ -270,8 +271,8 @@ and the app should feel like that family recipe box: warm, quiet, personal, and 
 the stove. The people using it are family members of every age, on a Mac in the kitchen and on
 phones and tablets around the house, often with flour on their hands.
 
-- **Warm paper, one amber accent.** Off-white pages, a slightly darker "sunken" tone for the
-  navigation column and quiet panels, and amber for the few things that act or are selected.
+- **Lavender paper, one purple accent.** Off-white pages with a faint lavender tint, a slightly darker "sunken"
+  tone for the navigation column and quiet panels, and purple for the few things that act or are selected.
 - **Serif for the recipe, sans for the app.** Recipe text, titles and cards use the system serif
   (New York on Apple devices) so a recipe reads like a printed card; controls, labels and lists use
   the system sans.
@@ -283,30 +284,30 @@ phones and tablets around the house, often with flour on their hands.
 
 ## Colors
 
-The palette comes from the family's earlier recipe app: a warm paper neutral range, an amber
-accent, and eight pastel card colours the family picks for folders and recipes.
+The palette: a paper neutral range tinted very lightly lavender, a purple accent that complements it,
+and eight pastel card colours the family picks for folders and recipes.
 
-- **Amber (`primary` #d97706):** the one accent. Primary buttons, list bullets and numbers, focus
+- **Purple (`primary` #7a52cc):** the one accent; white text on it is 5.4:1. Primary buttons, list bullets and numbers, focus
   rings, the selected outline, dashed underlines on recipe links.
-- **Amber ink (`primary-ink` #9a4f05):** amber dark enough for text: links, group headings inside a
-  recipe, the selected portion chip. 5.8:1 on the page background.
-- **Amber wash (`primary-soft` #ffe5cc):** selected rows and chips, tags, the rule under recipe
+- **Purple ink (`primary-ink` #5e3ba8):** purple dark enough for text: links, group headings inside a
+  recipe, the selected portion chip. 7.5:1 on the page background.
+- **Purple wash (`primary-soft` #ebe3fb):** selected rows and chips, tags, the rule under recipe
   section headings.
-- **Paper neutrals:** `background` #fafaf8 (pages), `surface` #ffffff (cards, inputs, menus),
-  `sunken` #f3f1ea (navigation column, table headers, quiet panels), `border` #e5e5e0 (every 1px
+- **Paper neutrals, lightly lavender:** `background` #faf9fd (pages), `surface` #ffffff (cards, inputs, menus),
+  `sunken` #f1eef8 (navigation column, table headers, quiet panels), `border` #e4e0ee (every 1px
   line).
-- **Text:** `text` #1a1a18 (16.7:1) and `muted` #6b6b66 (5.1:1 on the page, 4.7:1 on sunken) for
+- **Text:** `text` #1b1a22 (16.5:1) and `muted` #69657a (5.35:1 on the page, 4.9:1 on sunken) for
   secondary information: counts, captions, breadcrumbs, the ↗ after web links.
 - **Status:** `danger` #dc2626 for destructive actions and error toasts, `success` #16a34a for
   saved toasts.
 - **Card colours (`card-*`):** red, orange, yellow, green, blue, purple, brown, grey pastels behind
   folder and recipe cards. They are chosen by the family in the icon picker, never used for meaning,
   and always carry `text` on top. Yellow doubles as the background of notice banners and the
-  favourite chip.
-- **Dark theme:** each token has a `-dark` counterpart (warm near-black pages, `primary-dark`
-  #f0a640, `primary-ink-dark` #f5b860, `primary-soft-dark` #3a2c18; card pastels become deep muted
+  bookmarked chip.
+- **Dark theme:** each token has a `-dark` counterpart (near-black pages with a lavender tint,
+  `primary-dark` #b39cf2, `primary-ink-dark` #c9b8f7, `primary-soft-dark` #2d2442; card pastels become deep muted
   tones). Light is the default everywhere, whatever the system setting; dark applies only when
-  `data-theme="dark"` is set (`theme.js`, from the saved `theme`). On amber in dark mode, put the dark background colour, not white, as text (9.0:1).
+  `data-theme="dark"` is set (`theme.js`, from the saved `theme`). On the light purple of dark mode, put the dark background colour, not white, as text (7.9:1).
 
 ## Typography
 
@@ -315,9 +316,9 @@ the system sans for the app around it, and the system monospace only for the Mar
 
 - **display** (serif 2rem/600): the page title (Recipes on the home page, a folder, a recipe's title).
   A recipe's author sits right under its title as a byline: sans 14px in `muted`, "By …".
-- **recipe-section** (serif 1.35rem/600): "Ingredients", "Directions"; underlined with a 2px amber
+- **recipe-section** (serif 1.35rem/600): "Ingredients", "Directions"; underlined with a 2px purple
   wash rule.
-- **recipe-group** (serif 1.1rem/600, amber ink): groups inside a section ("Crust", "Filling").
+- **recipe-group** (serif 1.1rem/600, purple ink): groups inside a section ("Crust", "Filling").
 - **recipe-body** (serif 17px/1.6): ingredient lines, steps and notes in the reader and the
   formatted editor; capped at 760px wide. In the desktop reader the text itself is 6.5in (624px)
   wide, centred under the 760px recipe bar and property row by equal side padding.
@@ -333,9 +334,22 @@ the system sans for the app around it, and the system monospace only for the Mar
 
 ## Layout
 
-- **Desktop app window:** no title text, and a transparent title bar on the `sunken` colour (#f3f1ea).
+- **App icon:** the book on a `primary-soft` tile, the cover in `primary` with a `primary-ink` spine (`ui/public/icon.svg` is the
+  master; `ui/e2e/icons.mjs` renders the web icons, `tauri icon` the desktop ones). The menu-bar icon is a monochrome template.
+- **Desktop app window:** no title text, and a transparent title bar on the `sunken` colour (#f1eef8).
   The page has no space along its top edge there (`html.shell`), so the navigation column and the
-  breadcrumb row run straight into the title bar. Nothing bounces at the end of a scroll, neither the window nor any column or panel (`overscroll-behavior: none` on everything).
+  tab strip run straight into the title bar. Scrollbars are hidden everywhere (scrolling still works). Nothing bounces at the end of a scroll, neither the window nor any column or panel (`overscroll-behavior: none` on everything).
+- **Tabs (desktop, any screen with two columns):** a strip at the top of the main column, on the
+  `sunken` colour like the title bar. Each tab shows its page's icon and name (14px icon, 13px sans,
+  `muted`; the active one in `text`), a × on hover, and is up to 200px wide (at least 96px; the strip
+  scrolls sideways when full), with a + at the end. The active tab is the page's `background` colour
+  with an 8px top radius, so it runs into the page below. Everything that navigates a page (Back,
+  breadcrumbs, the page's buttons) is in that page's toolbar row, inside the tab. Each tab keeps its
+  page alive (scroll, scaler, cook mode, an unsaved edit) and its own Back steps. ⌘-click or middle-click
+  a link or a row, or "Open in new tab" in a ⋯ menu, opens a page in a new tab; ⌘T a new tab, Ctrl+Tab
+  the next one; middle-click or × closes one (asking first about unsaved changes); drag to reorder. The
+  navigation column is shared: switching tabs only moves its highlighted row, and its folders open and
+  fold only when a page is opened. The tabs are kept per device. Phones have no strip and one page.
 - **Navigation column header:** the app name, and across from it a search icon button (⌘K).
 - **Folder title:** the folder's name with its item count beside it as a plain muted number (sans, 0.55em),
   on the desktop title and in the phone's top row; no separate "N items" heading.
@@ -354,9 +368,10 @@ the system sans for the app around it, and the system monospace only for the Mar
   safe-area insets.
 - **Spacing scale:** 2, 4, 8, 12, 16, 24, 48px (`xxs`…`xxl`), plus 20 and 32 where a step is needed;
   every margin, padding and gap is a multiple of 4 (2px only as a nudge inside small controls). Page
-  padding 24px at the sides on desktop, the same on every page. The toolbar row (breadcrumbs, buttons)
-  is a full-width band on the `sunken` colour, like the desktop title bar and the navigation column,
-  with 8px above and below its controls; it stays fixed while the page below it scrolls.
+  padding 24px at the sides on desktop, the same on every page. The toolbar row (Back, breadcrumbs,
+  buttons) is a full-width band with 8px above and below its controls; it stays fixed while the page
+  below it scrolls. On desktop it is part of its tab's page (the `background` colour, under the active
+  tab); on phones it is on the `sunken` colour, like the navigation column.
 - **Touch:** controls are at least 36px tall, 40px where the pointer is coarse (rows, settings
   items), 52px for bottom-bar buttons.
 
@@ -369,7 +384,7 @@ shadows.
 - **Raised shadow (0 4px 12px, 12% black):** things that float over the page: menus, toasts, the
   mobile drawer, dialogs.
 - **Scrims:** 30% black behind the mobile drawer, 25% behind full-page busy states.
-- Selection and focus use colour, not depth: an amber wash for selected rows and chips, a 2px amber
+- Selection and focus use colour, not depth: an purple wash for selected rows and chips, a 2px purple
   outline for keyboard focus.
 
 ## Shapes
@@ -384,37 +399,38 @@ Soft, small radii; nothing sharp, nothing fully round except where something is 
 
 Icons are 1.8px-stroke, round-capped line icons (Lucide paths, `ui/src/components/Icon.svelte`) at 16px in
 rows and chips, 18px in toolbars and 22px in the phone bars. Interface icons are always line icons, never
-emoji or text glyphs (＋, ✕, ›): file types and Favorites in the navigation column, folders in search,
+emoji or text glyphs (＋, ✕, ›): file types and Bookmarks (bookmark icon) in the navigation column, folders in search,
 the tree chevron, property chips. Recipe and folder icons are emoji the family picks, or a line icon when
 they haven't picked one. AI actions are plain text labels, with no sparkle.
 
 ## Components
 
-- **Buttons.** `button` is the default (surface, 1px border, amber border on hover). `button-primary`
+- **Buttons.** `button` is the default (surface, 1px border, purple border on hover). `button-primary`
   is reserved for the one main action on a screen (Save, Cook mode, Create). `button-ghost` for
   toolbar icons; `button-selected` for a toggled state; `button-danger` text for destructive menu
   actions. Icon-only buttons are 36px square and always have an accessible label.
 - **Inputs and selects.** Surface fill, 1px border, `md` radius; focus replaces the border with a
-  2px amber outline. Use the native `select` for short choices (text type, theme, units); inside a row of other
+  2px purple outline. Use the native `select` for short choices (text type, theme, units); inside a row of other
   controls, the borderless `plain-select` (the Random filters).
 - **Cards.** Folder cards are pastel (`card-*`), show an icon, the name in serif and a bare item
   count in the top-right corner (it gives way to the ⋯ button on hover). Recipe cards are all one height:
   the picture (or the card's pastel with its 44px icon in the top-left corner, 14px × 16px in) fills
-  the card, 186px tall everywhere (room for the icon above the fullest text), and the title in serif (two lines at most), one details line (the time, never the yield or batch size), one row of tags and a ★ for a
-  favourite sit on it at the bottom. The suggested card on the home page stretches to the height of
+  the card, 186px tall everywhere (room for the icon above the fullest text), and the title in serif (two lines at most), one details line (the time, never the yield or batch size), one row of tags and a bookmark icon for a
+  bookmarked recipe sit on it at the bottom. The suggested card on the home page stretches to the height of
   the Random controls beside it (whose last row has no hairline). On a pastel the text is plain and the tags a 60% `surface` wash;
   on a photo a dark fade carries white text.
 - **Chips.** Property chips on the sunken tone ("Prep 20 min"); missing standard properties appear as
   dashed outline chips with "＋". Portion chips ("Single ×1", "Double ×2") use `chip` and
-  `chip-selected`. Tags use the amber wash.
+  `chip-selected`. Tags use the purple wash.
 - **Navigation column.** Tree rows 32px, a 16px chevron column for folders (a line icon for PDFs, images
-  and other files), the recipe's emoji, the name, a muted count; files sit one step (16px) in from their folder. The active row uses the amber wash.
-  A Favorites group sits on top.
-- **Reader.** The recipe in `recipe-body`, sections with an amber-wash rule, bullets and step
-  numbers in amber, checkboxes in amber. Recipe links have a dashed amber underline; links to web
+  and other files), the recipe's emoji, the name, a muted count; files sit one step (16px) in from their folder. The active row uses the purple wash.
+  A Bookmarks group sits on top, with a 12px gap before the folders. Clicking a folder row shows
+  the folder's page and opens or closes its list of files (a second click closes it and stays on the page).
+- **Reader.** The recipe in `recipe-body`, sections with an purple-wash rule, bullets and step
+  numbers in purple, checkboxes in purple. Recipe links have a dashed purple underline; links to web
   pages are solid with a small muted ↗ and open in the browser. A recipe card above the text holds
   the serving scaler, portion chips and the recipe's filled-in property chips in one wrapping row,
-  with an amber-ink "More ⌄" at its end. More opens a line with the source, the dashed add chips and
+  with an accent-ink "More ⌄" at its end. More opens a line with the source, the dashed add chips and
   the tags (and the original file); notes that aren't recipes show all their chips above the text. Cook mode (`button-primary`) sits in the toolbar row beside ⋯,
   and the unit choice (US / Metric) is in Settings → General, per device.
 - **Formatted editor.** Looks like the reader (serif, sizes) with a slim toolbar; Markdown marks are
@@ -424,23 +440,22 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
 - **Suggestion.** At the top of the home page, "Suggested": a recipe card (a Dinner recipe, shown at
   once) and beside it, in the same row and on the page itself (no card), the Random controls as a
   settings-style list: label left in `muted`, value right; Kind (default Dinner), Protein, Folder as
-  plain menus, Favorites as a switch, hairlines between rows, then a `button-primary` "Random"; no
+  plain menus, Bookmarked as a switch, hairlines between rows, then a `button-primary` "Random"; no
   padding, so it lines up with its grid column. After Random, the other matching recipes replace
-  Favorites and Folders as a shuffled card grid under "N more matches", with a ghost "Show folders"
+  Bookmarks and Folders as a shuffled card grid under "N more matches", with a ghost "Show folders"
   button (tapping Home does the same).
 - **Plain menus (`plain-select`).** A native `select` without the boxed field: no border or fill,
-  the value in amber ink with the system's arrow. Used for the Random filters.
+  the value in purple ink with the system's arrow. Used for the Random filters.
 - **Cook mode.** A full-screen view with large checkable ingredient and step lists that keeps the
   screen awake.
 
 ## Do's and Don'ts
 
-- Do keep a single amber accent; use it to mean "acts" or "selected", never decoration.
+- Do keep a single purple accent; use it to mean "acts" or "selected", never decoration.
 - Do set recipe text in the serif and interface text in the sans; don't mix them inside one control.
-- Do use `primary-ink` (not `primary`) for amber text on light backgrounds.
-- Don't put white text on amber or green: it is 3.2:1 (2.1:1 in dark mode), below WCAG AA. The
-  primary button and the green saved toast use `on-primary` (dark text, 5.5:1; `--on-accent` in the
-  CSS).
+- Do use `primary-ink` (not `primary`) for purple text on light backgrounds.
+- Primary buttons have white text on purple (`on-primary`, 5.4:1; `--on-accent` in the CSS). Don't put
+  white text on green (3.2:1): the saved toast uses `on-success`, dark text at 5.2:1.
 - Do show the recipe exactly as written: never change an amount or a word (bolding the leading
   amount and unit is the one restyle), never show Markdown marks, never hide a line.
 - Don't use the card pastels to mean anything (status, category); they are the family's choice.

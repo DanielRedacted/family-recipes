@@ -1,10 +1,12 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import { app, back } from '../lib/state.svelte';
+  import { getContext } from 'svelte';
+  import { back, type Tab } from '../lib/state.svelte';
+  const tab = getContext<Tab | undefined>('tab');
 </script>
 
-<!-- the window has no browser buttons: back to the previous page in this app (⌘[) -->
-<button type="button" class="btn ghost icon back" aria-label="Back" title="Back (⌘[)" disabled={!app.canBack} onclick={back}>
+<!-- the window has no browser buttons: back to this tab's previous page (⌘[) -->
+<button type="button" class="btn ghost icon back" aria-label="Back" title="Back (⌘[)" disabled={!tab || tab.pos === 0} onclick={back}>
   <Icon name="chevron-left" size={20} />
 </button>
 

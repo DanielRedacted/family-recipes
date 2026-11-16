@@ -10,11 +10,12 @@
   let tab = $state<'ing' | 'steps'>('ing');
   let awake = $state(false);
   let lock: any = null;
+  let el: HTMLElement | undefined = $state();
 
   onMount(() => {
     const nav: any = navigator;
     nav.wakeLock?.request('screen').then((l: any) => { lock = l; awake = true; }).catch(() => {});
-    const key = (e: KeyboardEvent) => e.key === 'Escape' && onclose();
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && !el?.closest('[inert]') && onclose(); // not a cook mode in another tab
     window.addEventListener('keydown', key);
     return () => { lock?.release?.(); window.removeEventListener('keydown', key); };
   });
@@ -23,7 +24,7 @@
   const nextStep = $derived(r.steps.flatMap((g) => g.items).find((s) => !done['s' + s.line])?.line);
 </script>
 
-<div class="cook" role="dialog" aria-modal="true" aria-label="Cook mode">
+<div class="cook" bind:this={el} role="dialog" aria-modal="true" aria-label="Cook mode">
   <header class="row">
     <h1>{entry.title}</h1>
     <span class="spacer"></span>

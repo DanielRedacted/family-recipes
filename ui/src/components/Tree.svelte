@@ -28,7 +28,7 @@
     return root;
   }
 
-  /** Path of the virtual "Favorites" group at the top of the tree (not a real folder). */
+  /** Path of the virtual "Bookmarks" group at the top of the tree (not a real folder). */
   export const FAV = '\u0000favorites';
 
   const saved = (() => { try { return JSON.parse(localStorage.getItem('expanded') || '[]'); } catch { return []; } })();
@@ -41,10 +41,15 @@
     } catch {}
   }
 
+  /** A folder just opened or closed by a click in the column: navigating to it keeps that state. */
+  let clicked: string | null = null;
+
   /** Expand the folders on the way to `path` (and `path` itself when it is a folder); fold the rest. */
   export function reveal(path: string, isFolder: boolean) {
     const parts = path.split('/');
-    const upto = isFolder ? parts.length : parts.length - 1;
+    const asClicked = isFolder && clicked === path;
+    clicked = null;
+    const upto = isFolder && !(asClicked && !expanded[path]) ? parts.length : parts.length - 1;
     const keep = new Set(Array.from({ length: upto }, (_, i) => parts.slice(0, i + 1).join('/')));
     for (const k of Object.keys(expanded)) if (k !== FAV && expanded[k] && !keep.has(k)) expanded[k] = false;
     for (const k of keep) expanded[k] = true;
@@ -54,7 +59,7 @@
 
 <script lang="ts">
   import Tree from './Tree.svelte';
-  import { app, go, noteHash, folderHash, canWrite, dirOf, nameOf } from '../lib/state.svelte';
+  import { app, go, noteHash, folderHash, canWrite, dirOf, nameOf, newTab, wide } from '../lib/state.svelte';
   import { openMenu } from '../lib/menu.svelte';
   import { moveTo, upload, entryItems } from '../lib/ops';
   import { iconOf } from '../lib/icons';
@@ -71,11 +76,13 @@
     persistExpanded();
   }
 
-  function open(n: TreeNode) {
+  /** A folder row opens and closes its list of files and shows the folder's page; a file row opens the file. */
+  function open(n: TreeNode, e?: MouseEvent) {
     if (n.path === FAV) return toggle(n);
+    if (e && (e.metaKey || e.ctrlKey) && wide()) return newTab(n.folder ? folderHash(n.path) : noteHash(n.path));
     if (n.folder) {
-      expanded[n.path] = true;
-      persistExpanded();
+      toggle(n);
+      clicked = n.path;
       go(folderHash(n.path));
     } else go(noteHash(n.path));
   }
@@ -98,7 +105,7 @@
   }
 
   const icon = (n: TreeNode) => (n.kind === 'pdf' ? 'file' : n.kind === 'image' ? 'image' : n.kind === 'other' ? 'paperclip' : '');
-  const folderIcon = (n: TreeNode) => (n.path === FAV ? { icon: 'star' } : iconOf(n.name, app.folderMeta[n.path]?.emoji));
+  const folderIcon = (n: TreeNode) => (n.path === FAV ? { icon: 'bookmark' } : iconOf(n.name, app.folderMeta[n.path]?.emoji));
   // same rule as the recipe cards: the note's own icon, else its folder's
   const noteIcon = (n: TreeNode) => {
     const e = app.byPath[n.path];
@@ -129,7 +136,7 @@
     ondragover={(e) => { if (n.folder && !virtual) { e.preventDefault(); dropOver = n.path; } }}
     ondragleave={() => (dropOver = '')}
     ondrop={(e) => n.folder && !virtual && onDrop(e, n)}
-    onclick={() => open(n)}
+    onclick={(e) => open(n, e)}
     onkeydown={(e) => { if (e.key === 'Enter') open(n); if (n.folder && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { expanded[n.path] = e.key === 'ArrowRight'; persistExpanded(); } }}
     oncontextmenu={(e) => { if (!virtual) openMenu(e, items(n)); }}
   >
@@ -147,6 +154,7 @@
   {#if n.folder && expanded[n.path]}
     <Tree node={n} depth={depth + 1} />
   {/if}
+  {#if virtual}<div class="fav-gap" aria-hidden="true"></div>{/if}
 {/each}
 
 <style>
@@ -155,6 +163,7 @@
     min-height: 32px; user-select: none; color: var(--text);
   }
   .row-item:hover { background: var(--sunken); }
+  .fav-gap { height: 12px; } /* Bookmarks stand apart from the folders */
   .row-item.active { background: var(--accent-soft); }
   .row-item.drop { outline: 2px dashed var(--accent); }
   .row-item.dim { opacity: 0.6; }

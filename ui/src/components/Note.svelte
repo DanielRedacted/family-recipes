@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import { onMount, untrack } from 'svelte';
-  import { app, canWrite, go, folderHash, noteHash, dirOf, nameOf, toast, loadVault, setLeaveGuard, clearLeaveGuard, prefs } from '../lib/state.svelte';
+  import { onMount, untrack, getContext } from 'svelte';
+  import { app, canWrite, go, folderHash, noteHash, dirOf, nameOf, toast, loadVault, setLeaveGuard, clearLeaveGuard, prefs, type Tab } from '../lib/state.svelte';
   import { fileUrl, saveFile, ApiError, api } from '../lib/api';
   import Crumbs from './Crumbs.svelte';
   import { renderMarkdown, scaledRaw, bodyOf, vaultTarget, linksTo } from '../lib/markdown';
@@ -18,6 +18,7 @@
   import { enqueueStarted } from '../lib/importer.svelte';
 
   let { path, mode: routeMode }: { path: string; mode?: string } = $props();
+  const tab = getContext<Tab>('tab');
 
   const entry = $derived(app.byPath[path]);
   const mq = typeof matchMedia !== 'undefined' ? matchMedia('(min-width: 1100px)') : null;
@@ -109,12 +110,12 @@
   }
 
   onMount(() => {
-    setLeaveGuard(confirmLeave);
+    setLeaveGuard(tab.id, confirmLeave);
     const unload = (e: BeforeUnloadEvent) => { if (dirty) e.preventDefault(); };
     const media = () => { wide = mq?.matches ?? false; if (!wide && mode === 'split') mode = 'edit'; };
     window.addEventListener('beforeunload', unload);
     mq?.addEventListener('change', media);
-    return () => { clearLeaveGuard(confirmLeave); window.removeEventListener('beforeunload', unload); mq?.removeEventListener('change', media); };
+    return () => { clearLeaveGuard(tab.id, confirmLeave); window.removeEventListener('beforeunload', unload); mq?.removeEventListener('change', media); };
   });
 
   /** Properties panel, "Mark as reviewed", AI tidy: one immediate, deliberate save. */
@@ -262,6 +263,7 @@
   }
 
   function onKey(e: KeyboardEvent) {
+    if (tab.id !== app.tab) return; // a page in another tab
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e' && entry?.kind === 'note') {
       e.preventDefault();
       if (mode === 'read') startEditing(); else setMode('read');

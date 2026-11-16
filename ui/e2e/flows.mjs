@@ -139,18 +139,18 @@ await page.goto(new URL('/#/', url).href);
 assert.match((await page.locator('a.folder:has-text("Pies") .count').textContent()).trim(), /^\d+$/);
 assert.equal(await page.locator('a.folder:has-text("items")').count(), 0);
 
-// favorites: from the ⋯ menu, stored as a property, shown on the home page and in the tree
+// bookmarks: from the ⋯ menu, stored as a property, shown on the home page and in the tree
 await page.goto(new URL('/#/n/Pies/Pumpkin%20Pie.md', url).href);
 await page.waitForSelector('.prose h1');
 await page.click('header button[aria-label="More"]');
 assert.equal(await page.locator('.menu button:has-text("Download")').count(), 0, 'no Download');
-await menuItem('Add to favorites');
+await menuItem('Bookmark');
 await page.waitForTimeout(800);
 assert.match(fs.readFileSync(pie, 'utf8'), /^---\n(?:.*\n)*favorite: true\n(?:.*\n)*---\n/, 'favorite saved as a property (block style)');
 await page.goto(new URL('/#/', url).href);
-await page.waitForSelector('h2:has-text("Favorites") + .grid .recipe:has-text("Pumpkin Pie")');
-await page.waitForSelector('aside .row-item:has-text("Favorites")');
-await page.screenshot({ path: `${out}/favorites.png` });
+await page.waitForSelector('h2:has-text("Bookmarks") + .grid .recipe:has-text("Pumpkin Pie")');
+await page.waitForSelector('aside .row-item:has-text("Bookmarks")');
+await page.screenshot({ path: `${out}/bookmarks.png` });
 
 // renamed recipes are still found by their old names (aliases:)
 await page.click('aside button[aria-label="Search"]');
@@ -286,6 +286,108 @@ assert.ok((await ingText()).includes('½ cup Butter'), '16 tbsp × ½ reads ½ c
 await units('metric');
 assert.ok((await ingText()).some((t) => /^\d+ ml Butter$/.test(t)), 'metric converts');
 await units('us');
+
+// tabs: each keeps its own page, Back steps and scroll; switching leaves the folder column alone
+await page.goto(new URL('/#/n/Pies/Pumpkin%20Pie.md', url).href);
+await page.waitForSelector('.pane:not([inert]) .prose h1');
+const tabs = () => page.locator('.tabs [role="tab"]');
+const shown = '.pane:not([inert])';
+for (let n = await tabs().count(); n > 1; n--) await page.click('.tabs [role="tab"]:not([aria-selected="true"]) .x');
+await page.click('aside .row-item:has-text("Pie Crust"):not(.folder)', { modifiers: ['Meta'] });
+await page.waitForFunction(() => location.hash.includes('Pie%20Crust'));
+assert.equal(await tabs().count(), 2, 'a new tab');
+assert.match(await page.locator('.tabs [aria-selected="true"]').innerText(), /Pie Crust/);
+assert.ok(await page.locator(`${shown} button[aria-label="Back"]`).isDisabled(), 'a new tab has nothing to go back to');
+await page.goto(new URL('/#/n/Candy/Caramel%20and%20Sauce.md', url).href);
+await page.waitForSelector(`${shown} .prose h1:has-text("Caramel")`);
+await page.click(`${shown} button[aria-label="Back"]`);
+await page.waitForFunction(() => location.hash.includes('Pie%20Crust'));
+assert.match(await page.locator(`${shown} .prose h1`).innerText(), /Pie Crust/, 'Back steps within the tab');
+// the first tab: still the pie, scaled and scrolled as left
+await page.click('.tabs [role="tab"] >> nth=0');
+await page.waitForFunction(() => location.hash.includes('Pumpkin'));
+await page.click(`${shown} button[aria-label="More servings"]`);
+const qty = await page.locator(`${shown} .qty`).innerText();
+const y = await page.locator(shown).evaluate((el) => { el.scrollTop = 120; return el.scrollTop; });
+assert.ok(y > 0, 'the page scrolls');
+const expandedRows = async () => (await page.locator('aside [aria-expanded="true"]').allInnerTexts()).join('|');
+const folds = await expandedRows();
+await page.click('.tabs [role="tab"] >> nth=1');
+await page.waitForFunction(() => location.hash.includes('Pie%20Crust'));
+assert.equal(await expandedRows(), folds, 'switching tabs leaves the folders as they are');
+await page.click('.tabs [role="tab"] >> nth=0');
+assert.equal(await page.locator(`${shown} .qty`).innerText(), qty, 'the scaler held');
+assert.equal(await page.locator(shown).evaluate((el) => el.scrollTop), y, 'the scroll held');
+assert.equal(await page.locator('aside .row-item.active .name').last().innerText(), 'Pumpkin Pie', 'the column highlights the tab’s page');
+// the tabs come back after a reload
+await page.reload();
+await page.waitForSelector(`${shown} .prose h1`);
+assert.equal(await tabs().count(), 2, 'tabs kept');
+// a new tab always goes on the right, whichever tab is open
+await page.click('.tabs [role="tab"] >> nth=0');
+await page.click('.tabs button[aria-label="New tab"]');
+assert.equal(await page.locator('.tabs [role="tab"]').nth(2).getAttribute('aria-selected'), 'true', 'new tab at the end');
+await page.click('.tabs [role="tab"] >> nth=2 >> .x');
+// closing the last tab leaves a home tab
+await page.click('.tabs [role="tab"] >> nth=1 >> .x');
+await page.click('.tabs [role="tab"] .x');
+assert.equal(await tabs().count(), 1);
+assert.match(await tabs().first().innerText(), /Recipes/);
+await page.waitForSelector(`${shown} a.folder`);
+// an unsaved edit survives switching tabs; closing its tab asks
+await page.goto(new URL('/#/n/Pies/Pumpkin%20Pie.md?mode=edit', url).href);
+await page.waitForSelector(`${shown} .cm-content`);
+await page.click(`${shown} .cm-content`);
+await page.keyboard.press('Meta+End');
+await page.keyboard.type('\nkept in its tab');
+await page.click('.tabs button[aria-label="New tab"]');
+await page.waitForSelector(`${shown} a.folder`);
+assert.equal(await page.locator('text=Save your changes?').count(), 0, 'no question on switching');
+await page.click('.tabs [role="tab"] >> nth=0');
+assert.ok((await page.locator(`${shown} .cm-content`).innerText()).includes('kept in its tab'), 'the edit held');
+await page.click('.tabs [role="tab"] >> nth=0 >> .x');
+await page.waitForSelector('text=Save your changes?');
+await page.click('button:has-text("Don’t save")');
+await page.waitForFunction(() => document.querySelectorAll('.tabs [role="tab"]').length === 1);
+assert.ok(!fs.readFileSync(pie, 'utf8').includes('kept in its tab'));
+// a recipe renamed while open in another tab: that tab follows it
+await page.goto(new URL('/#/n/Pies/Pumpkin%20Pie.md', url).href);
+await page.waitForSelector(`${shown} .prose h1`);
+await page.click('.tabs button[aria-label="New tab"]');
+await page.goto(new URL('/#/f/Pies', url).href);
+const renamePie = async (name) => {
+  await page.click(`${shown} .recipe:has-text("Pumpkin Pie")`, { button: 'right' });
+  await menuItem('Rename');
+  await page.fill('.modal input', name);
+  await page.click('.modal button:has-text("Rename")');
+  await page.waitForSelector('.toast');
+};
+await renamePie('Pumpkin Pie 2');
+await page.click('.tabs [role="tab"] >> nth=0');
+await page.waitForFunction(() => location.hash.includes('Pumpkin%20Pie%202'));
+await page.waitForSelector(`${shown} .prose h1:has-text("Pumpkin Pie")`);
+// and renamed back from its own menu, in the tab showing it
+await page.click(`${shown} button[aria-label="More"]`);
+await menuItem('Rename');
+await page.fill('.modal input', 'Pumpkin Pie');
+await page.click('.modal button:has-text("Rename")');
+await page.waitForFunction(() => /Pumpkin%20Pie\.md$/.test(location.hash));
+assert.ok(fs.existsSync(pie), 'renamed back');
+await page.click('.tabs [role="tab"] >> nth=1 >> .x');
+// a phone has no strip; its Back button and the browser's Back are the same steps
+await page.setViewportSize({ width: 390, height: 800 });
+assert.equal(await page.locator('.tabs').isVisible(), false, 'no tab strip on a phone');
+await page.goto(new URL('/#/n/Pies/Pumpkin%20Pie.md', url).href);
+await page.waitForSelector(`${shown} .prose a.wikilink`);
+await page.click(`${shown} .prose a.wikilink`);
+await page.waitForFunction(() => location.hash.includes('Pie%20Crust'));
+await page.click(`${shown} button[aria-label="Back"]:visible`);
+await page.waitForFunction(() => location.hash.includes('Pumpkin'));
+await page.goForward();
+await page.waitForFunction(() => location.hash.includes('Pie%20Crust'));
+await page.goBack();
+await page.waitForFunction(() => location.hash.includes('Pumpkin'));
+await page.setViewportSize({ width: 1280, height: 820 });
 
 await browser.close();
 if (errors.length) { console.error(errors.join('\n')); process.exit(1); }

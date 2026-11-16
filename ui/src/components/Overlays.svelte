@@ -117,6 +117,6 @@
   .toasts { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: grid; gap: 8px; z-index: 200; pointer-events: none; }
   .toast { background: var(--text); color: var(--bg); padding: 12px 16px; border-radius: 8px; box-shadow: var(--shadow-md); max-width: 90vw; }
   .toast.error { background: var(--danger); color: #fff; }
-  .toast.ok { background: var(--ok); color: var(--on-accent); }
+  .toast.ok { background: var(--ok); color: #1b1a22; } /* dark text on green: 5.2:1 */
   @media (max-width: 899px) { .toasts { bottom: calc(72px + env(safe-area-inset-bottom)); } }
 </style>

@@ -4,7 +4,7 @@
   export const LABELS: Record<string, string> = {
     tags: 'Tags', yield: 'Yield', servings: 'Servings', prep_time: 'Prep', cook_time: 'Cook', total_time: 'Total', additional_time: 'Additional',
     source: 'Source', author: 'Author', original: 'Original file', needs_review: 'Needs review', created: 'Created',
-    emoji: 'Icon', color: 'Card colour', nutrition: 'Nutrition', favorite: 'Favorite', note: 'Note', aliases: 'Also called',
+    emoji: 'Icon', color: 'Card colour', nutrition: 'Nutrition', favorite: 'Bookmarked', note: 'Note', aliases: 'Also called',
   };
 
   /** Split raw text into [yaml, body]; yaml is '' when there is no frontmatter. */
@@ -80,7 +80,7 @@
 {#if keys.length || editable}
   <section class="props" aria-label="Properties">
     <div class="chips">
-        {#if fm.favorite === true}<span class="chip fav">★ Favorite</span>{/if}
+        {#if fm.favorite === true}<span class="chip fav"><Icon name="bookmark" size={14} /> Bookmarked</span>{/if}
         {#each shown as k}{@render prop(k)}{/each}
         {#if collapsible && hasMore}
           <button class="chip toggle" aria-expanded={open} onclick={() => (open = !open)}>{open ? 'Less' : 'More'}<Icon name={open ? 'chevron-up' : 'chevron-down'} size={14} /></button>

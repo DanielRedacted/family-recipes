@@ -131,8 +131,8 @@ fn main() {
             let builder = builder.title_bar_style(tauri::TitleBarStyle::Transparent);
             builder
                 .title("") // no name in the title bar: the menu bar and Dock already say Recipes
-                // the title bar takes the folder column's colour (`--sunken` #f3f1ea in app.css)
-                .background_color(tauri::window::Color(0xf3, 0xf1, 0xea, 0xff))
+                // the title bar takes the folder column's colour (`--sunken` #f1eef8 in app.css)
+                .background_color(tauri::window::Color(0xf1, 0xee, 0xf8, 0xff))
                 .inner_size(1240.0, 820.0)
                 .min_inner_size(380.0, 480.0)
                 .disable_drag_drop_handler() // let the page handle HTML5 drag & drop and file drops

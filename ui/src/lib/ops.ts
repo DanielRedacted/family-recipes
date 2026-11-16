@@ -3,7 +3,7 @@ import { isMap, parseDocument } from 'yaml';
 import { api, saveFile } from './api';
 import { setProp } from '../components/Properties.svelte';
 import { ask, choose, confirmIt } from './dialog.svelte';
-import { app, dirOf, go, loadVault, nameOf, noteHash, folderHash, toast, canWrite, type FolderMeta } from './state.svelte';
+import { app, dirOf, go, loadVault, nameOf, noteHash, folderHash, toast, canWrite, newTab, retarget, wide, type FolderMeta } from './state.svelte';
 import { openMenu, type MenuItem } from './menu.svelte';
 import { importer, enqueueFiles } from './importer.svelte';
 import { picker } from './picker.svelte';
@@ -59,11 +59,7 @@ export async function moveTo(from: string, to: string, isFolder = false) {
     const r = await api('POST', '/api/fs/move', { from, to });
     if (isFolder) await renameFolderMeta(from, r.path);
     await loadVault();
-    const cur = app.route.path;
-    if (cur === from || cur.startsWith(from + '/')) {
-      const np = r.path + cur.slice(from.length);
-      go(isFolder || app.route.view === 'folder' ? folderHash(np) : noteHash(np));
-    }
+    retarget(from, r.path);
     toast(`Moved to ${dirOf(r.path) || 'top level'}`, 'ok');
   } catch (e: any) { toast(e.message, 'error'); }
 }
@@ -83,7 +79,7 @@ export async function remove(path: string, isFolder = false) {
   try {
     await api('DELETE', '/api/files/' + path.split('/').map(encodeURIComponent).join('/'));
     await loadVault();
-    if (app.route.path === path || app.route.path.startsWith(path + '/')) go(folderHash(dirOf(path)));
+    retarget(path, null);
     toast('Moved to trash', 'ok');
   } catch (e: any) { toast(e.message, 'error'); }
 }
@@ -154,16 +150,18 @@ export function plusMenu(e: MouseEvent, dir: string) {
 export function entryItems(path: string, isFolder: boolean): MenuItem[] {
   const w = canWrite();
   const it: MenuItem[] = [];
+  if (wide()) it.push({ label: 'Open in new tab', run: () => newTab(isFolder ? folderHash(path) : noteHash(path)) });
   if (w && isFolder) it.push({ label: 'New recipe here', run: () => newNote(path) }, { label: 'New folder here', run: () => newFolder(path) });
   if (w && (isFolder || path.endsWith('.md'))) it.push({ label: 'Icon & colour…', run: () => openPicker(path, isFolder), sep: isFolder });
-  if (w && path.endsWith('.md')) it.push({ label: isFavorite(path) ? 'Remove from favorites' : 'Add to favorites', run: () => toggleFavorite(path) });
+  if (w && path.endsWith('.md')) it.push({ label: isFavorite(path) ? 'Remove bookmark' : 'Bookmark', run: () => toggleFavorite(path) });
   if (w) it.push({ label: 'Rename…', run: () => rename(path, isFolder) }, { label: 'Move to…', run: () => moveDialog(path, isFolder) });
   if (app.session.shell) it.push({ label: 'Show in Finder', run: () => shell('reveal', { path }) });
   if (w) it.push({ label: 'Move to trash', run: () => remove(path, isFolder), danger: true, sep: true });
+  if (it[0]?.label === 'Open in new tab' && it[1]) it[1] = { ...it[1], sep: true };
   return it;
 }
 
-// ---------- favorites (`favorite: true` in the recipe's properties) ----------
+// ---------- bookmarks (`favorite: true` in the recipe's properties, the key kept from before) ----------
 
 export const isFavorite = (path: string) => app.byPath[path]?.frontmatter?.favorite === true;
 
