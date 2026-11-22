@@ -10,7 +10,9 @@
   import Tabs from './components/Tabs.svelte';
   import Switcher, { openSearch } from './components/Switcher.svelte';
   import Overlays from './components/Overlays.svelte';
+  import Feedback, { openFeedback } from './components/Feedback.svelte';
   import Setup from './components/Setup.svelte';
+  import SignIn from './components/SignIn.svelte';
   import { update, checkForUpdate, installUpdate } from './lib/update.svelte';
 
   // the desktop app's window: the page runs up to its title bar (app.css, html.shell)
@@ -29,6 +31,7 @@
     const mod = e.metaKey || e.ctrlKey;
     if (mod && (e.key === 'k' || e.key === 'o' || e.key === 'p')) { e.preventDefault(); if (app.switcher) app.switcher = false; else openSearch(); }
     else if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); if (e.shiftKey) newFolder(dir); else newNote(dir); }
+    else if (mod && e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); openFeedback(); }
     else if (mod && e.key === ',') { e.preventDefault(); go('#/settings'); }
     else if (mod && e.key === '[') { e.preventDefault(); back(); }
     else if (mod && e.key.toLowerCase() === 't' && wide()) { e.preventDefault(); newTab(); }
@@ -91,7 +94,10 @@
 
 <Switcher />
 {#if app.session.setup}<Setup />{/if}
+<!-- every device but the desktop app (always "Admin") signs in; not offline before any session was saved -->
+{#if app.session.version && !app.session.user}<SignIn />{/if}
 <Overlays />
+<Feedback />
 
 <style>
   .app { display: grid; grid-template-columns: var(--sidebar) 1fr; grid-template-rows: minmax(0, 1fr); height: 100vh; height: 100dvh; overflow: hidden; }

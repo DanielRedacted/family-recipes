@@ -1,20 +1,66 @@
 // File-manager actions shared by the tree, folder view and note toolbar.
 import { isMap, parseDocument } from 'yaml';
 import { api, saveFile } from './api';
-import { setProp } from '../components/Properties.svelte';
+import { setProp } from './frontmatter';
+import { stamp, today } from './credit';
 import { ask, choose, confirmIt } from './dialog.svelte';
-import { app, dirOf, go, loadVault, nameOf, noteHash, folderHash, toast, canWrite, newTab, retarget, wide, type FolderMeta } from './state.svelte';
+import { app, dirOf, go, loadSession, loadVault, nameOf, noteHash, folderHash, toast, canWrite, newTab, retarget, wide, favorites, setFavorites, type FolderMeta } from './state.svelte';
 import { openMenu, type MenuItem } from './menu.svelte';
 import { importer, enqueueFiles } from './importer.svelte';
 import { picker } from './picker.svelte';
+import { DAYS, proteinsOf, type Made } from './made';
+import { tagsOf } from './search';
+import type { Entry } from './types';
+
+/** "Made today": confirm, then log the meal (any device may; the recipe file isn't changed). */
+export async function markMade(e: Entry) {
+  const tags = tagsOf(e);
+  const prot = tags.some((t) => t.toLowerCase() === 'dinner') ? proteinsOf(tags) : [];
+  const note = prot.length ? `${prot.join(' and ')} dinners won’t be suggested for the next ${DAYS} days.` : undefined;
+  if (!(await confirmIt(`Made “${e.title}” today?`, note, 'Made today'))) return;
+  try {
+    app.made = await api<Made[]>('POST', '/api/made', { path: e.path });
+    toast(`Logged ${e.title}`, 'ok');
+  } catch (err: any) { toast(err.message, 'error'); }
+}
 
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 
 export function requireWrite(): boolean {
   if (canWrite()) return true;
-  if (app.session.pin_set) app.pinPrompt = true;
-  else toast('Editing is only available in the Recipes app on the Mac until a PIN is set there.', 'error');
+  toast('Editing from this device needs a family PIN. Set one in the Recipes app on the Mac, then sign in again.', 'error');
   return false;
+}
+
+// ---------- who is credited for a change (lib/credit.ts) ----------
+
+let warnedUnsigned = false;
+/**
+ * The full name to credit for a change from here: the signed-in person, or on the Mac the person
+ * chosen as "Editing as" (asked the first time). '' = nobody to credit; null = the person cancelled.
+ */
+export async function signer(): Promise<string | null> {
+  const u = app.session.user;
+  if (u && u.id !== 'admin') return u.full_name || u.name;
+  if (app.session.role !== 'admin') return '';
+  let people: { id: string; name: string; full_name: string }[] = [];
+  try { people = await api('GET', '/api/users'); } catch {}
+  if (!people.length) {
+    if (!warnedUnsigned) toast('Changes made on the Mac are credited once someone is added in Settings → People.');
+    warnedUnsigned = true;
+    return '';
+  }
+  const label = (p: (typeof people)[number]) => (p.full_name && p.full_name !== p.name ? `${p.name} (${p.full_name})` : p.name);
+  const pick = await choose('Who is editing on this Mac?', people.map(label), '', 'Continue');
+  const p = people.find((x) => label(x) === pick);
+  if (!p) return null;
+  await setEditingAs(p.id);
+  return p.full_name || p.name;
+}
+
+/** The person the Mac edits as ('' = nobody, the built-in Admin). */
+export async function setEditingAs(id: string) {
+  try { await api('PUT', '/api/settings', { editing_as: id }); await loadSession(); } catch (e: any) { toast(e.message, 'error'); }
 }
 
 const cleanName = (s: string) => s.trim().replace(/[\/\\:]/g, '-').replace(/^\.+/, '');
@@ -25,8 +71,11 @@ export async function newNote(dir: string) {
   if (!requireWrite()) return;
   const title = await ask('New recipe', '', 'Create', dir ? `In ${dir}` : undefined);
   if (!title?.trim()) return;
+  const by = await signer();
+  if (by === null) return;
   try {
-    const r = await saveFile(join(dir, cleanName(title) + '.md'), RECIPE_TEMPLATE(title.trim()), null, true);
+    const text = stamp(RECIPE_TEMPLATE(title.trim()), { by, date: today(), note: 'Created', author: true });
+    const r = await saveFile(join(dir, cleanName(title) + '.md'), text, null, true);
     await loadVault();
     go(noteHash(r.path, 'edit'));
   } catch (e: any) { toast(e.message, 'error'); }
@@ -153,7 +202,8 @@ export function entryItems(path: string, isFolder: boolean): MenuItem[] {
   if (wide()) it.push({ label: 'Open in new tab', run: () => newTab(isFolder ? folderHash(path) : noteHash(path)) });
   if (w && isFolder) it.push({ label: 'New recipe here', run: () => newNote(path) }, { label: 'New folder here', run: () => newFolder(path) });
   if (w && (isFolder || path.endsWith('.md'))) it.push({ label: 'Icon & colour…', run: () => openPicker(path, isFolder), sep: isFolder });
-  if (w && path.endsWith('.md')) it.push({ label: isFavorite(path) ? 'Remove bookmark' : 'Bookmark', run: () => toggleFavorite(path) });
+  if (path.endsWith('.md')) it.push({ label: isFavorite(path) ? 'Remove from favorites' : 'Add to favorites', run: () => toggleFavorite(path) });
+  if (w && path.endsWith('.md')) it.push({ label: isBookmarked(path) ? 'Remove bookmark' : 'Bookmark for everyone', run: () => toggleBookmark(path) });
   if (w) it.push({ label: 'Rename…', run: () => rename(path, isFolder) }, { label: 'Move to…', run: () => moveDialog(path, isFolder) });
   if (app.session.shell) it.push({ label: 'Show in Finder', run: () => shell('reveal', { path }) });
   if (w) it.push({ label: 'Move to trash', run: () => remove(path, isFolder), danger: true, sep: true });
@@ -161,16 +211,20 @@ export function entryItems(path: string, isFolder: boolean): MenuItem[] {
   return it;
 }
 
-// ---------- bookmarks (`favorite: true` in the recipe's properties, the key kept from before) ----------
+// ---------- bookmarks are everyone's (`favorite: true` in the recipe's properties, the key kept from
+// before); favorites are each person's own (kept in this browser, see state.svelte.ts) ----------
 
-export const isFavorite = (path: string) => app.byPath[path]?.frontmatter?.favorite === true;
+export const isFavorite = (path: string) => favorites.paths.includes(path);
+export const toggleFavorite = (path: string) => setFavorites(isFavorite(path) ? favorites.paths.filter((p) => p !== path) : [...favorites.paths, path]);
 
-export async function toggleFavorite(path: string) {
+export const isBookmarked = (path: string) => app.byPath[path]?.frontmatter?.favorite === true;
+
+export async function toggleBookmark(path: string) {
   if (!requireWrite()) return;
   const e = app.byPath[path];
   if (!e || e.kind !== 'note') return;
   try {
-    await saveFile(path, setProp(e.raw ?? '', 'favorite', isFavorite(path) ? undefined : true), e.etag);
+    await saveFile(path, setProp(e.raw ?? '', 'favorite', isBookmarked(path) ? undefined : true), e.etag);
     await loadVault();
   } catch (err: any) { toast(err.message, 'error'); }
 }

@@ -1,16 +1,18 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { picker } from '../lib/picker.svelte';
-  import { app, toast, loadVault, nameOf, stemOf, dirOf } from '../lib/state.svelte';
+  import { app, loadVault, nameOf, stemOf, dirOf } from '../lib/state.svelte';
   import { suggestEmoji, iconOf, COLORS } from '../lib/icons';
   import { setFolderMeta } from '../lib/ops';
   import { saveFile } from '../lib/api';
-  import { setProp } from './Properties.svelte';
+  import { setProp } from '../lib/frontmatter';
   import CardIcon from './CardIcon.svelte';
+  import { modal } from '../lib/modal';
 
   let emoji = $state(''); // '' = automatic, 'none' = no icon
   let color = $state(''); // '' = automatic
   let busy = $state(false);
+  let error = $state(''); // shown in the form: a toast would sit under the dialog
 
   const name = $derived(picker.path ? (picker.folder ? nameOf(picker.path) : app.byPath[picker.path]?.title ?? stemOf(picker.path)) : '');
   const folderIcon = $derived(picker.path && !picker.folder ? iconOf(nameOf(dirOf(picker.path)), app.folderMeta[dirOf(picker.path)]?.emoji) : null);
@@ -27,13 +29,14 @@
     });
   });
 
-  const close = () => { picker.path = null; };
+  const close = () => { picker.path = null; error = ''; };
 
   async function save(e: Event) {
     e.preventDefault();
     const p = picker.path;
     if (!p) return;
     busy = true;
+    error = '';
     try {
       if (picker.folder) await setFolderMeta(p, { emoji: emoji.trim() || undefined, color: color || undefined });
       else {
@@ -43,17 +46,15 @@
         if (raw !== entry.raw) { await saveFile(p, raw, entry.etag); await loadVault(); }
       }
       close();
-    } catch (err: any) { toast(err.message, 'error'); }
+    } catch (err: any) { error = err.message; }
     finally { busy = false; }
   }
 </script>
 
 {#if picker.path}
-  <div class="modal-back" role="presentation" onclick={close} onkeydown={(e) => e.key === 'Escape' && close()}>
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div role="dialog" aria-modal="true" aria-label="Icon and colour" tabindex="-1" onclick={(e) => e.stopPropagation()}>
+  <dialog class="modal-host" aria-labelledby="picker-title" use:modal={{ onclose: close, outside: true }}>
       <form class="modal card" onsubmit={save}>
-        <h3>Icon & colour — {name}</h3>
+        <h3 id="picker-title">Icon & colour — {name}</h3>
         <div class="preview" style="background:{color ? `var(--p-${color})` : 'var(--sunken)'}">
           <CardIcon icon={emoji === 'none' ? null : emoji.trim() ? { emoji: emoji.trim() } : auto} size={40} />
         </div>
@@ -76,17 +77,16 @@
             {#each COLORS as c}<button type="button" class="sw" class:on={color === c} style="background:var(--p-{c})" onclick={() => (color = c)} aria-label={c} title={c}></button>{/each}
           </div>
         </fieldset>
+        {#if error}<p class="form-error" role="alert">{error}</p>{/if}
         <div class="row end">
           <button type="button" class="btn" onclick={close}>Cancel</button>
           <button class="btn primary" disabled={busy}>Save</button>
         </div>
       </form>
-    </div>
-  </div>
+  </dialog>
 {/if}
 
 <style>
-  .modal-back { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); display: grid; place-items: center; z-index: 100; padding: 16px; }
   .modal { width: min(480px, calc(100vw - 32px)); padding: 20px; display: grid; gap: 12px; max-height: 90vh; overflow: auto; }
   h3 { margin: 0; }
   .preview { height: 72px; border-radius: var(--radius); display: grid; place-items: center; }

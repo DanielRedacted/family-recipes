@@ -1,7 +1,8 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import Tree, { buildTree, FAV, reveal } from './Tree.svelte';
-  import { app, go, canWrite } from '../lib/state.svelte';
+  import EditingAs from './EditingAs.svelte';
+  import { app, go } from '../lib/state.svelte';
   import { upload, moveTo } from '../lib/ops';
   import { openSearch } from './Switcher.svelte';
   import { tick, untrack } from 'svelte';
@@ -59,10 +60,8 @@
     <Tree node={tree} />
   </div>
   <div class="foot">
-    {#if !canWrite() && app.session.pin_set}
-      <button class="btn ghost" onclick={() => (app.pinPrompt = true)}><Icon name="lock" size={16} /> Unlock editing</button>
-    {/if}
     <button class="btn ghost" class:on={app.route.view === 'ingredients'} onclick={() => go('#/ingredients')}><Icon name="carrot" size={16} /> Ingredients</button>
+    {#if app.session.role === 'admin'}<EditingAs />{/if}
     <span class="spacer"></span>
     <button class="btn ghost icon" title="Settings" aria-label="Settings" onclick={() => go('#/settings')}><Icon name="settings" /></button>
   </div>

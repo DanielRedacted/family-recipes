@@ -174,8 +174,14 @@
   // external replacement of the document (e.g. reload after a change on disk)
   $effect(() => {
     const v = value;
-    if (view && v !== view.state.doc.toString()) {
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: v } });
+    const cur = view?.state.doc.toString();
+    if (view && cur !== undefined && v !== cur) {
+      // replace only what differs, so the cursor and scroll stay put
+      let a = 0;
+      while (a < cur.length && a < v.length && cur[a] === v[a]) a++;
+      let b = 0;
+      while (b < cur.length - a && b < v.length - a && cur[cur.length - 1 - b] === v[v.length - 1 - b]) b++;
+      view.dispatch({ changes: { from: a, to: cur.length - b, insert: v.slice(a, v.length - b) } });
     }
   });
 
@@ -200,6 +206,11 @@
   const lines = (k: LineKind) => apply(toggleLines(view.state, k), view);
   const addTable = () => { insertEmptyMarkdownTable()({ state: view.state, dispatch: (tr) => view.dispatch(tr) }); view.focus(); };
   const trackCell = () => { const v = target(); inCell = v !== view; };
+
+  /** Back to typing where the cursor was (after a dialog took the focus). */
+  export function focus() {
+    view?.focus();
+  }
 
   export function insert(text: string) {
     const pos = view.state.selection.main.head;

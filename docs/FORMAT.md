@@ -78,7 +78,9 @@ Freezes well. See [[Pie Crust]].
 | `tags` | list, e.g. `[pie, holiday]`. Kind: `Dessert`, `Snack`, `Side`, `Bread`, `Dough`, `Drink`, `Sauce`; meal, on entrées only: `Breakfast`, `Lunch`, `Dinner`; main protein: `Chicken`, `Beef`, `Pork`, `Turkey`, `Seafood`, `Eggs`, `Beans`. They feed the home page's suggestion (Dinner) and Random filters |
 | `yield`, `servings` | e.g. `8 servings`, `2 loaves`, `2 dozen`; the leading number (a dozen counts as 12) drives the serving scaler. A yield with a second number (`3 small, 2 large or 1 jumbo pizza`) is shown as written and the scaler shows ×N |
 | `prep_time`, `cook_time`, `total_time`, `additional_time` | human text, e.g. `1 hr 20 min` |
-| `author` | who wrote the recipe; the reader shows “By …” under the title |
+| `author` | who wrote the recipe, or a list when several people did; the reader shows “By …” under the title. Saving an edit in the app can add the editor's full name (the “Credit me as an author” box) |
+| `added_by` | who imported the recipe into the app (their full name); set once, never replaced |
+| `changes` | the recipe's history, written by the app: a list of `by` (full name), `date` (`YYYY-MM-DD`) and `note` (a short comment). One entry per person per day; that day's further changes add to its note (`Less sugar; Changed prep time`). Edits made outside the app are not recorded |
 | `source` | the website a recipe was copied from (e.g. `https://www.food.com`); shown as a link chip |
 | `original` | path of the kept original file (PDF, DOCX) |
 | `needs_review` | `true` when the converter could not find clear sections |

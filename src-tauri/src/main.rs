@@ -88,19 +88,31 @@ fn show(app: &AppHandle) {
     let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
 }
 
+/// Started by "Open Recipes at login": serve phones and tablets from the menu bar, no window.
+const HIDDEN: &str = "--hidden";
+
 fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
 
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| show(app)))
+        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
+            if !args.iter().any(|a| a == HIDDEN) {
+                show(app);
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_autostart::Builder::new().build())
+        .plugin(tauri_plugin_autostart::Builder::new().arg(HIDDEN).build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let handle = app.handle().clone();
+            let hidden = std::env::args().any(|a| a == HIDDEN);
+            // a login item written by an older version starts without the flag: write it again
+            if !hidden && app.autolaunch().is_enabled().unwrap_or(false) {
+                let _ = app.autolaunch().enable();
+            }
             let data_dir = app.path().app_data_dir()?;
             let vault = app.path().home_dir()?.join("Recipes");
             let shell: Arc<dyn Shell> = Arc::new(TauriShell(handle.clone()));
@@ -136,6 +148,7 @@ fn main() {
                 .inner_size(1240.0, 820.0)
                 .min_inner_size(380.0, 480.0)
                 .disable_drag_drop_handler() // let the page handle HTML5 drag & drop and file drops
+                .visible(!hidden) // still loads (and signs in as the desktop app); `show` reveals it
                 .on_navigation(move |u| {
                     let local = u.host_str() == Some("127.0.0.1");
                     if !local && (u.scheme() == "http" || u.scheme() == "https") {
@@ -180,6 +193,10 @@ fn main() {
                     _ => {}
                 })
                 .build(app)?;
+            #[cfg(target_os = "macos")]
+            if hidden {
+                let _ = handle.set_activation_policy(tauri::ActivationPolicy::Accessory); // no Dock icon, as after closing
+            }
             app.manage(state);
             Ok(())
         })

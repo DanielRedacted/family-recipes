@@ -1,14 +1,18 @@
 pub mod ai;
 pub mod auth;
+pub mod board;
 pub mod extract;
+pub mod feedback;
 pub mod fetch;
 pub mod git;
 pub mod import;
 pub mod ingredient;
 pub mod lan;
+pub mod made;
 pub mod recipe;
 pub mod schema;
 pub mod server;
+pub mod users;
 pub mod vault;
 
 use auth::{Caller, Role};
@@ -27,11 +31,14 @@ pub struct Extensions {
     pub jobs: import::Jobs,
     pub ingredients: ingredient::Cache,
     pub git: git::Sync,
+    pub users: users::Store,
+    pub board: board::Store,
+    pub made: made::Store,
 }
 
 impl Default for Extensions {
     fn default() -> Self {
-        Self { lan: Default::default(), app: OnceLock::new(), jobs: import::Jobs::new(), ingredients: Default::default(), git: Default::default() }
+        Self { lan: Default::default(), app: OnceLock::new(), jobs: import::Jobs::new(), ingredients: Default::default(), git: Default::default(), users: Default::default(), board: Default::default(), made: Default::default() }
     }
 }
 
@@ -43,6 +50,10 @@ pub fn extra_routes() -> Router<Arc<AppState>> {
         .merge(import::routes())
         .merge(ai::routes())
         .merge(git::routes())
+        .merge(users::routes())
+        .merge(board::routes())
+        .merge(made::routes())
+        .merge(feedback::routes())
 }
 
 async fn trust_local(State(s): State<Arc<AppState>>, caller: Caller) -> Result<Response, Response> {

@@ -7,14 +7,17 @@
   import { renderMarkdown, scaledRaw, bodyOf, vaultTarget, linksTo } from '../lib/markdown';
   import { formatNum, parseYield, portionMultipliers, resolvePortion, yieldLabel, type Units } from '../lib/scale';
   import { openMenu, type MenuItem } from '../lib/menu.svelte';
-  import { entryItems, requireWrite, attachImage, shell } from '../lib/ops';
-  import { confirm3 } from '../lib/dialog.svelte';
+  import { entryItems, requireWrite, attachImage, shell, signer } from '../lib/ops';
+  import { confirm3, askCheck } from '../lib/dialog.svelte';
+  import { stamp, today, creditedByDefault, authorsOf } from '../lib/credit';
   import Editor from './Editor.svelte';
   import Merge from './Merge.svelte';
-  import Properties, { setProp } from './Properties.svelte';
+  import Properties from './Properties.svelte';
+  import { setProp } from '../lib/frontmatter';
   import CookMode from './CookMode.svelte';
   import PdfView from './PdfView.svelte';
   import Nutrition from './Nutrition.svelte';
+  import MadeToday from './MadeToday.svelte';
   import { enqueueStarted } from '../lib/importer.svelte';
 
   let { path, mode: routeMode }: { path: string; mode?: string } = $props();
@@ -100,11 +103,32 @@
     }
   }
 
+  // Saving an edit of the text asks what changed and whether to credit the editor as an author, then
+  // records it in the recipe's properties (lib/credit.ts); the stamped text replaces the draft.
+  let crediting = false;
+  async function saveEdit() {
+    if (!entry || saving || crediting || !dirty || conflict) return;
+    crediting = true;
+    try {
+      const by = await signer();
+      if (by === null) return;
+      let text = draft;
+      if (by) {
+        const r = await askCheck('What changed?', undefined, 'Save', 'Credit me as an author', creditedByDefault(entry.frontmatter, by), 'e.g. Less sugar (optional)');
+        editor?.focus(); // back to typing at once; text typed during the save stays unsaved
+        if (r === null) return;
+        text = stamp(draft, { by, date: today(), note: r.text.trim() || 'Edited', author: r.checked });
+      }
+      draft = text;
+      await save(text, base);
+    } finally { crediting = false; }
+  }
+
   /** true when it is fine to leave the editor (saved, discarded, or nothing to save). */
   async function confirmLeave(): Promise<boolean> {
     if (!dirty) return true;
     const r = await confirm3('Save your changes?', `“${entry?.title ?? nameOf(path)}” has changes that are not saved yet.`, 'Save', 'Don’t save');
-    if (r === 'ok') { await save(); return !dirty && !conflict; }
+    if (r === 'ok') { await saveEdit(); return !dirty && !conflict; }
     if (r === 'alt') { draft = entry?.raw ?? ''; base = entry?.etag ?? null; dirty = false; conflict = null; return true; }
     return false;
   }
@@ -118,13 +142,18 @@
     return () => { clearLeaveGuard(tab.id, confirmLeave); window.removeEventListener('beforeunload', unload); mq?.removeEventListener('change', media); };
   });
 
-  /** Properties panel, "Mark as reviewed", AI tidy: one immediate, deliberate save. */
-  async function saveRaw(raw: string) {
+  /** Properties panel, "Mark as reviewed", AI tidy: one immediate, deliberate save, recorded with `note`. */
+  async function saveRaw(raw: string, note: string) {
     if (!requireWrite()) return;
-    draft = raw;
+    const by = await signer();
+    if (by === null) return;
+    const text = stamp(raw, { by, date: today(), note });
+    draft = text;
     dirty = true;
-    await save(raw, base);
+    await save(text, base);
   }
+
+  const detailChanged = (raw: string, key: string) => saveRaw(raw, `Changed ${key.replace(/_/g, ' ')}`);
 
   function keepMine() { save(draft, conflict!.etag); comparing = false; }
   function useTheirs() { draft = conflict!.theirs; base = conflict!.etag; dirty = false; conflict = null; comparing = false; }
@@ -145,8 +174,9 @@
     }
     const out = renderMarkdown(bodyOf(scaledRaw(entry, factor, units, portion), entry.body_line), path);
     // the recipe's author, small, right under its title
-    const by = entry.frontmatter?.author;
-    if (!by || typeof by !== 'string') return out;
+    const names = authorsOf(entry.frontmatter?.author);
+    if (!names.length) return out;
+    const by = new Intl.ListFormat(undefined, { type: 'conjunction' }).format(names);
     const esc = by.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
     return out.replace('</h1>', `</h1><p class="byline">By ${esc}</p>`);
   });
@@ -286,7 +316,7 @@
       {#if entry.kind === 'note' && mode !== 'read'}
         <span class="save small muted" aria-live="polite">{saving ? 'Saving…' : dirty ? 'Unsaved changes' : 'Saved'}</span>
         <button class="btn" onclick={() => setMode('read')}>Done</button>
-        <button class="btn primary" disabled={!dirty || saving || !!conflict} onclick={() => save()} title="Save (⌘S)"><Icon name="check" size={16} /> Save</button>
+        <button class="btn primary" disabled={!dirty || saving || !!conflict} onclick={saveEdit} title="Save (⌘S)"><Icon name="check" size={16} /> Save</button>
       {/if}
       {#if entry.kind === 'note' && mode === 'read' && entry.recipe}<button class="btn primary" onclick={() => (cooking = true)}><Icon name="chef" /> Cook mode</button>{/if}
       <button class="btn icon" aria-label="More" onclick={moreMenu}><Icon name="more" /></button>
@@ -306,7 +336,7 @@
       {#if entry.frontmatter?.needs_review && mode === 'read'}
         <div class="banner row no-print">
           <span>This recipe was converted without clear Ingredients / Directions sections, so scaling and cook mode may be limited. You can tidy it in Edit.</span>
-          {#if canWrite()}<button class="btn" onclick={() => saveRaw(setProp(entry.raw ?? '', 'needs_review', undefined))}>Mark as reviewed</button>{/if}
+          {#if canWrite()}<button class="btn" onclick={() => saveRaw(setProp(entry.raw ?? '', 'needs_review', undefined), 'Marked as reviewed')}>Mark as reviewed</button>{/if}
         </div>
       {/if}
 
@@ -327,19 +357,19 @@
               {/each}
             </div>
           {/if}
-          <div class="details"><Properties {entry} editable={canWrite()} onchange={saveRaw} collapsible /></div>
+          <div class="details"><Properties {entry} editable={canWrite()} onchange={detailChanged} collapsible /></div>
         </div>
       {/if}
 
       <div class="body">
         {#if mode !== 'read'}
           <div class="editpane no-print">
-            <Editor bind:this={editor} value={draft} onchange={onEdit} onsave={() => save()} onfiles={onImages} notePath={path} />
+            <Editor bind:this={editor} value={draft} onchange={onEdit} onsave={saveEdit} onfiles={onImages} notePath={path} />
           </div>
         {/if}
         {#if mode !== 'edit'}
           <article class="reader">
-            {#if mode === 'read' && !entry.recipe}<Properties {entry} editable={canWrite()} onchange={saveRaw} />{/if}
+            {#if mode === 'read' && !entry.recipe}<Properties {entry} editable={canWrite()} onchange={detailChanged} />{/if}
             {#if asking && mode === 'read'}
               <form class="ask card no-print" onsubmit={aiAsk}>
                 <div class="row"><input class="field grow" placeholder="Ask about this recipe — e.g. can I make it the day before?" bind:value={question} />
@@ -350,6 +380,7 @@
             {/if}
             <div class="prose">{@html html}</div>
             {#if mode === 'read'}<Nutrition data={entry.frontmatter?.nutrition} />{/if}
+            {#if mode === 'read' && entry.recipe}<MadeToday {entry} />{/if}
             {#if mode === 'read' && origPdf && !entry.recipe}
               {#if canWrite()}<p class="no-print"><button class="btn" disabled={converting} onclick={() => convertPdf(origPdf!)}>Convert to an editable recipe…</button></p>{/if}
               <PdfView path={origPdf} />
@@ -379,7 +410,7 @@
 
   {#if aiProposal !== null}
     <Merge theirs={entry.raw ?? ''} mine={aiProposal} leftLabel="Current recipe" rightLabel="AI suggestion (edit freely)" accept="Save suggestion"
-      onaccept={(t) => { aiProposal = null; saveRaw(t); }} oncancel={() => (aiProposal = null)} />
+      onaccept={(t) => { aiProposal = null; saveRaw(t, 'Accepted an AI suggestion'); }} oncancel={() => (aiProposal = null)} />
   {/if}
   {#if aiBusy && !asking}<div class="busy" role="status">Asking AI…</div>{/if}
   {#if comparing && conflict}

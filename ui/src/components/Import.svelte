@@ -5,12 +5,13 @@
   import Editor from './Editor.svelte';
   import Merge from './Merge.svelte';
   import Nutrition from './Nutrition.svelte';
-  import { api } from '../lib/api';
+  import { api, saveFile } from '../lib/api';
+  import { stamp, today } from '../lib/credit';
   import { app, go, noteHash, toast, loadVault, canWrite } from '../lib/state.svelte';
   import { importer, enqueueUrls, enqueueFiles, enqueueText, convert, keep, retry, remove, type QueueItem, type LogStep } from '../lib/importer.svelte';
   import { renderMarkdown } from '../lib/markdown';
-  import { splitRaw } from './Properties.svelte';
-  import { requireWrite } from '../lib/ops';
+  import { splitRaw } from '../lib/frontmatter';
+  import { requireWrite, signer } from '../lib/ops';
 
   let busy = $state('');
   let urls = $state('');
@@ -67,11 +68,23 @@
     showPaste = false;
   }
 
+  /** The history comment for an import: where the recipe came from. */
+  function importedFrom(it: QueueItem) {
+    if (it.kind === 'url' && it.url) { try { return `Imported from ${new URL(it.url).hostname.replace(/^www\./, '')}`; } catch {} }
+    if (it.label === 'Pasted text.txt') return 'Imported from pasted text';
+    return it.kind === 'vault' ? `Converted from ${it.label}` : `Imported from ${it.label}`;
+  }
+
   async function keepItem(it: QueueItem) {
+    const by = await signer();
+    if (by === null) return;
+    const note = importedFrom(it);
     busy = 'Saving…';
     try {
       const path = await keep(it.id, folder);
       await loadVault();
+      const e = app.byPath[path];
+      if (by && e?.raw !== undefined) { await saveFile(path, stamp(e.raw, { by, date: today(), note, added: true }), e.etag); await loadVault(); }
       toast('Saved — the original file is kept as is', 'ok');
       if (!importer.queue.length) go(noteHash(path));
     } catch (err: any) { toast(err.message, 'error'); }
@@ -91,10 +104,13 @@
   async function save() {
     if (!cur?.review || !cur.job) return;
     const { review: rv, job, id } = cur;
+    const by = await signer();
+    if (by === null) return;
+    const markdown = stamp(rv.md, { by, date: today(), note: importedFrom(cur), added: true });
     busy = 'Saving…';
     try {
       const images = Object.keys(rv.chosen).map(Number).filter((i) => rv.chosen[i] && !rv.hidden[i]);
-      const r = await api('POST', `/api/import/${job.job}/save`, { folder, name: rv.name, markdown: rv.md, images, cover: rv.cover !== null && rv.chosen[rv.cover] ? rv.cover : null });
+      const r = await api('POST', `/api/import/${job.job}/save`, { folder, name: rv.name, markdown, images, cover: rv.cover !== null && rv.chosen[rv.cover] ? rv.cover : null });
       remove(id, false);
       await loadVault();
       tab = 'edit';
@@ -159,7 +175,7 @@
 <div class="page">
   {#if !canWrite()}
     <h1>Add recipes</h1>
-    <p class="muted">Importing needs editing rights. {#if app.session.pin_set}<button class="btn" onclick={() => (app.pinPrompt = true)}>Unlock editing</button>{/if}</p>
+    <p class="muted">Importing needs editing rights: set a family PIN in the Recipes app on the Mac, then sign in again here.</p>
   {:else if cur && cur.review && cur.job}
     {@const rv = cur.review}
     {@const job = cur.job}

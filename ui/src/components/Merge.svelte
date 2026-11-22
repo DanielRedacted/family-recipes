@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, getContext } from 'svelte';
+  import { app, type Tab } from '../lib/state.svelte';
+  import { modal } from '../lib/modal';
   import { MergeView } from '@codemirror/merge';
   import { EditorView } from '@codemirror/view';
   import { EditorState } from '@codemirror/state';
@@ -12,6 +14,7 @@
     theirs: string; mine: string; leftLabel?: string; rightLabel?: string; accept?: string;
     onaccept: (text: string) => void; oncancel: () => void;
   } = $props();
+  const tab = getContext<Tab>('tab'); // hidden, not closed, while another tab shows
 
   let host: HTMLDivElement;
   let mv: MergeView;
@@ -28,8 +31,8 @@
   });
 </script>
 
-<div class="back" role="presentation">
-  <div class="box card" role="dialog" aria-modal="true" aria-label="Compare versions">
+<dialog class="modal-host" aria-label="Compare versions" use:modal={{ onclose: oncancel, active: tab.id === app.tab }}>
+  <div class="box card">
     <div class="row head">
       <strong class="half">{leftLabel}</strong><strong class="half">{rightLabel}</strong>
     </div>
@@ -41,11 +44,10 @@
       <button class="btn primary" onclick={() => onaccept(mv.b.state.doc.toString())}>{accept}</button>
     </div>
   </div>
-</div>
+</dialog>
 
 <style>
-  .back { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); z-index: 100; display: grid; place-items: center; padding: 16px; }
-  .box { width: min(1200px, 100%); height: min(86vh, 900px); display: flex; flex-direction: column; overflow: hidden; }
+  .box { width: min(1200px, calc(100vw - 32px)); height: min(86vh, 900px); display: flex; flex-direction: column; overflow: hidden; }
   .head, .foot { padding: 12px 16px; border-bottom: 1px solid var(--border); }
   .foot { border-top: 1px solid var(--border); border-bottom: 0; }
   .half { flex: 1; }

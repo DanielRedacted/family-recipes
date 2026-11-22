@@ -9,12 +9,15 @@
       { id: 'folder', label: 'Recipes folder', icon: 'folder', on: admin },
       { id: 'app', label: 'Desktop app', icon: 'home', on: admin && app.session.shell },
       { id: 'devices', label: 'Phones & tablets', icon: 'lock', on: admin },
+      { id: 'people', label: 'People', icon: 'users', on: admin },
       { id: 'ai', label: 'AI assistant', icon: 'chef', on: admin },
       { id: 'recent', label: 'Recent changes', icon: 'clock', on: true },
       { id: 'trash', label: 'Trash', icon: 'trash', on: canWrite() },
+      { id: 'help', label: 'Help', icon: 'book', on: true },
     ].filter((s) => s.on);
   }
-  export const currentSection = () => app.route.path || 'general';
+  // #/settings/help/<page> is still the Help section
+  export const currentSection = () => app.route.path.split('/')[0] || 'general';
 </script>
 
 <script lang="ts">

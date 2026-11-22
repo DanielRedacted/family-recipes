@@ -2,11 +2,13 @@ import { api } from './api';
 import type { Entry, Session } from './types';
 import { buildIndex, aliasesOf } from './search';
 import { parse as parseYaml } from 'yaml';
+import { loadMessages } from './board.svelte';
+import type { Made } from './made';
 
 export interface FolderMeta { emoji?: string; color?: string }
 
 export const app = $state({
-  session: { role: 'reader', pin_set: false, ai: false, shell: false, version: '' } as Session,
+  session: { role: 'reader', user: null, pin_set: false, ai: false, shell: false, version: '' } as Session,
   files: [] as Entry[],
   byPath: {} as Record<string, Entry>,
   folders: [] as string[],
@@ -15,10 +17,11 @@ export const app = $state({
   folderMeta: {} as Record<string, FolderMeta>,
   loaded: false,
   offline: false,
+  /** meals made (lib/made.ts), oldest first */
+  made: [] as Made[],
   route: { view: 'folder', path: '' } as Route,
   sidebar: false, // mobile drawer open
   toasts: [] as { id: number; text: string; kind: string }[],
-  pinPrompt: false,
   switcher: false,
   /** open tabs (the strip above the page column) and the active one's id */
   tabs: [] as Tab[],
@@ -36,6 +39,18 @@ export const prefs = $state({
 export function setUnits(u: 'us' | 'metric') {
   prefs.units = u;
   try { localStorage.setItem('units', u); } catch {}
+}
+
+/** Favorites: the signed-in person's own (recipe paths), kept in this browser. Bookmarks are everyone's
+ * (`favorite: true` in the recipe, the key kept from before; see ops.ts). */
+export const favorites = $state({ paths: [] as string[] });
+const favKey = () => `favorites:${app.session.user?.id ?? ''}`;
+function loadFavorites() {
+  try { const v = JSON.parse(localStorage.getItem(favKey()) || '[]'); favorites.paths = Array.isArray(v) ? v.filter((p) => typeof p === 'string') : []; } catch { favorites.paths = []; }
+}
+export function setFavorites(paths: string[]) {
+  favorites.paths = paths;
+  try { localStorage.setItem(favKey(), JSON.stringify(paths)); } catch {}
 }
 
 export function toast(text: string, kind: 'info' | 'error' | 'ok' = 'info') {
@@ -231,6 +246,9 @@ export function moveTab(id: number, to: number) {
 
 /** `from` (a file or folder) moved to `to`, or went to the trash (null): every tab showing it follows. */
 export function retarget(from: string, to: string | null) {
+  // ponytail: only renames made on this device; a recipe renamed elsewhere drops out of Favorites
+  const moved = (p: string) => (to !== null && (p === from || p.startsWith(from + '/')) ? to + p.slice(from.length) : p);
+  if (favorites.paths.some((p) => moved(p) !== p)) setFavorites(favorites.paths.map(moved));
   const map = (hash: string) => {
     const r = parseRoute(hash);
     if ((r.view !== 'note' && r.view !== 'folder') || (r.path !== from && !r.path.startsWith(from + '/'))) return hash;
@@ -285,6 +303,7 @@ export function retarget(from: string, to: string | null) {
 
 export async function loadSession() {
   try { app.session = await api<Session>('GET', '/api/session'); } catch { /* offline */ }
+  loadFavorites();
 }
 
 let loading: Promise<void> | null = null;
@@ -309,13 +328,19 @@ export function loadVault(): Promise<void> {
   return loading;
 }
 
+export async function loadMade() {
+  try { app.made = await api<Made[]>('GET', '/api/made'); } catch { /* offline: keep what's shown */ }
+}
+
 export function listenForChanges() {
   let es: EventSource | null = null;
   const connect = () => {
     es = new EventSource('/api/events');
     es.addEventListener('vault', () => loadVault());
+    es.addEventListener('messages', () => loadMessages());
+    es.addEventListener('made', () => loadMade());
     es.onerror = () => { es?.close(); setTimeout(connect, 5000); };
-    es.onopen = () => loadVault();
+    es.onopen = () => { loadVault(); loadMessages(); loadMade(); };
   };
   connect();
 }

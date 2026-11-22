@@ -5,9 +5,14 @@ Preserving my mom and grandma's recipes.
 The family cookbook as a folder of plain-text recipes, with an app to browse, search, read, cook
 from, edit, import and manage them.
 
-- **On the Mac:** `Recipes.app` (Tauri). Closing the window keeps it running in the menu bar.
+- **On the Mac:** `Recipes.app` (Tauri). Closing the window keeps it running in the menu bar. With
+  *Open Recipes at login* on, it starts in the menu bar without a window.
 - **On phones, tablets and other computers:** `http://recipes.local` in any browser, with nothing to
-  set up. Read-only until the PIN set on the Mac is entered. After a one-time certificate step it is
+  set up. Each device signs in once with a name (no password) and the family PIN set on the Mac; without
+  a PIN they can read but not edit. The Mac's Settings → People lists everyone, their devices and
+  what each of them changed. Each person also gives a full name, which the recipes record: who
+  imported a recipe, who wrote it, and a dated history of changes with a comment for each
+  ([docs/FORMAT.md](docs/FORMAT.md)). On the Mac, "Editing as" chooses whose name its changes carry. After a one-time certificate step it is
   also installable from `https://recipes.local` as a full-screen app (PWA) that keeps working for
   reading when the Mac is asleep.
 - **The files:** `~/Recipes` (changeable in Settings). Markdown, one file per recipe, folder = category.
@@ -19,8 +24,12 @@ from, edit, import and manage them.
   key). Only ever proposes changes you accept.
 
 What it does: a folder column that follows the open recipe and cards (with emoji and colours you
-can change), bookmarks, a suggested dinner on the home page with Random beside it (filters: kind of recipe, default Dinner;
-protein; folder; bookmarked; Random shows every match as a shuffled grid), each recipe's author under
+can change), bookmarks for everyone and each person's own favorites (kept in their browser), a
+kitchen whiteboard on the home page (notes that last today, until a chosen date or until removed),
+a suggested dinner on the home page with Random beside it (filters: kind of recipe, default Dinner;
+protein; folder; bookmarked; Random shows every match as a shuffled grid), "Made today" under each
+recipe and in cook mode (any device can log a meal; after a dinner with a protein, dinners with that
+protein aren't suggested for 3 days unless it's chosen in the Protein filter), each recipe's author under
 its title and the website it came from, ⌘K search (recipes, folders, ingredients), a reader with serving scaler (every set of
 ingredients scales; yields such as "2 dozen" count as 24), US or metric units (chosen in Settings; units are written one
 way, in lower case, with amounts in bold: `docs/FORMAT.md`) and cook mode, ingredient
@@ -33,7 +42,8 @@ ingredient catalogue with pictures that also feeds suggestions while typing, tab
 with its own page and Back button, ⌘[),
 links to web pages marked ↗ and opened in the browser, and an importer for web pages (schema.org, WP Recipe Maker incl. its
 REST data, nutrition and equipment), PDFs, Word files, photos and pasted text — several at once,
-each with a step log.
+each with a step log, in-app feedback (search "feedback" or ⇧⌘F; appended to `FEEDBACK.md` in the recipes folder, so it syncs to GitHub), and a Help section in Settings (a searchable user guide for everyone, plus technical
+pages for admins; the pages are `docs/help/*.md`).
 
 ## The recipes are not in this repository
 
@@ -70,7 +80,7 @@ image or the Downloads folder.
 The app isn't notarized by Apple, so the first launch needs one extra step: right-click Recipes in
 Applications → **Open** → **Open**. (Or, in Terminal: `xattr -cr /Applications/Recipes.app`.)
 The first start opens a short setup: recipes folder, open at login, sharing with phones and
-tablets, and an optional editing PIN. All of it can be changed later in Settings.
+tablets, and an optional family PIN. All of it can be changed later in Settings.
 
 When a new version is out, the app says so a few seconds after it opens: **Update and restart**
 downloads it, asks about any unsaved edit, and restarts into the new version. Settings → App →
@@ -123,6 +133,7 @@ ui/                 Svelte 5 + Vite frontend (embedded into the binary), PWA
 scripts/release.mjs build, sign and publish a release (see Release)
 deploy/linux/       Linux / Raspberry Pi notes and the old projects' deploy files (not used on macOS)
 docs/FORMAT.md      the recipe file format
+docs/help/          the in-app Help pages (Settings → Help)
 ```
 
 ## Tests
@@ -141,7 +152,7 @@ node e2e/import.mjs <admin-url> <vault> <outdir>       # importer (needs interne
 ## Network sharing, in short
 
 The app serves itself over plain HTTP on port 80, so any device on the home network opens
-`http://recipes.local` with no setup (the PIN and the session cookie then cross the Wi-Fi
+`http://recipes.local` with no setup (the PIN, names and the session cookie then cross the Wi-Fi
 unencrypted, as with a home file share). It also makes its own certificate authority (limited to
 `recipes.local` and home-network addresses), serves HTTPS on port 443, and advertises
 `recipes.local` through macOS Bonjour. The HTTPS address is only needed for the installable offline

@@ -1,6 +1,6 @@
 <script lang="ts" module>
   /** the home page's pick, kept while the app is open so coming back home doesn't reshuffle it */
-  let kept: { path: string; matches?: string[] | null } | null = null;
+  let kept: { path: string; matches?: string[] | null; chosen?: boolean } | null = null;
   /** the Random card's filters, kept the same way ('' = any) */
   const filters = { tag: 'Dinner', protein: '', folder: '', fav: false };
 </script>
@@ -8,7 +8,9 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { untrack, getContext } from 'svelte';
-  import { app, noteHash, folderHash, canWrite, nameOf, dirOf, toast, type Tab } from '../lib/state.svelte';
+  import { app, noteHash, folderHash, canWrite, nameOf, dirOf, toast, favorites as myFavorites, type Tab } from '../lib/state.svelte';
+  import Board from './Board.svelte';
+  import { board } from '../lib/board.svelte';
   import Crumbs from './Crumbs.svelte';
   import CardIcon from './CardIcon.svelte';
   import { fileUrl } from '../lib/api';
@@ -16,6 +18,7 @@
   import { plusMenu, entryItems } from '../lib/ops';
   import { openMenu } from '../lib/menu.svelte';
   import { tagsOf } from '../lib/search';
+  import { PROTEINS, blockedProteins } from '../lib/made';
   import { iconOf, cardColor } from '../lib/icons';
   import type { Entry } from '../lib/types';
 
@@ -30,8 +33,11 @@
     .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })));
   const folderIcon = (dir: string) => iconOf(nameOf(dir), app.folderMeta[dir]?.emoji);
   const noteIcon = (f: Entry) => (f.kind === 'note' ? iconOf(f.title, f.frontmatter?.emoji, dirOf(f.path) ? folderIcon(dirOf(f.path)) : null) : null);
-  const favorites = $derived(path ? [] : app.files.filter((f) => f.kind === 'note' && f.frontmatter?.favorite === true)
-    .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })));
+  const byTitle = (a: Entry, b: Entry) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' });
+  const isFav = (f: Entry) => myFavorites.paths.includes(f.path);
+  /** everyone's bookmarks (`favorite: true`, the key kept from before) and this person's favorites */
+  const bookmarks = $derived(path ? [] : app.files.filter((f) => f.kind === 'note' && f.frontmatter?.favorite === true).sort(byTitle));
+  const favorites = $derived(path ? [] : myFavorites.paths.map((p) => app.byPath[p]).filter((f) => f?.kind === 'note').sort(byTitle));
   const menuFor = (p: string, folder: boolean) => (e: MouseEvent) => openMenu(e, entryItems(p, folder));
   const countIn = (dir: string) => app.files.filter((f) => f.path.startsWith(dir + '/')).length;
 
@@ -46,9 +52,13 @@
   const meta = (f: Entry) => String(f.frontmatter?.total_time ?? f.frontmatter?.cook_time ?? '');
   // ---------- home: a suggested recipe (dinner unless the filters say otherwise) ----------
   const TAGS = ['Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack', 'Side', 'Bread', 'Dough', 'Drink', 'Sauce'];
-  const PROTEINS = ['Chicken', 'Beef', 'Pork', 'Turkey', 'Seafood', 'Eggs', 'Beans'];
   const recipes = $derived(app.files.filter((f) => f.kind === 'note' && f.recipe));
   const hasTag = (f: Entry, t: string) => tagsOf(f).some((x) => x.toLowerCase() === t.toLowerCase());
+  // dinners with a protein made in the last few days aren't suggested, unless that protein is chosen
+  // (or nothing else is left)
+  const blocked = $derived(blockedProteins(app.made));
+  const avoid = (f: Entry) => hasTag(f, 'Dinner') && blocked.some((p) => hasTag(f, p));
+  const allowed = (list: Entry[]) => { const ok = list.filter((f) => !avoid(f)); return ok.length ? ok : list; };
   let pickTag = $state(filters.tag);
   let pickProtein = $state(filters.protein);
   let pickFolder = $state(filters.folder);
@@ -61,18 +71,28 @@
   $effect(() => {
     if (path || pick || !app.loaded) return;
     const dinners = recipes.filter((f) => hasTag(f, 'Dinner'));
-    const p = anyOf(dinners.length ? dinners : recipes);
+    const p = anyOf(allowed(dinners.length ? dinners : recipes));
     if (p) pick = kept = { path: p };
+  });
+  // the suggestion showing was just made (or shares its protein): show another dinner
+  $effect(() => {
+    if (path || !picked || pick?.chosen || !avoid(picked)) return;
+    const p = anyOf(recipes.filter((f) => hasTag(f, 'Dinner') && !avoid(f)));
+    if (p) untrack(() => {
+      matches = matches && matches.filter((m) => app.byPath[m] && !avoid(app.byPath[m]));
+      pick = kept = { path: p, matches };
+    });
   });
   function randomize() {
     Object.assign(filters, { tag: pickTag, protein: pickProtein, folder: pickFolder, fav: pickFav });
-    const pool = recipes.filter((f) => (!pickTag || hasTag(f, pickTag)) && (!pickProtein || hasTag(f, pickProtein))
+    const all = recipes.filter((f) => (!pickTag || hasTag(f, pickTag)) && (!pickProtein || hasTag(f, pickProtein))
       && (!pickFolder || f.path.startsWith(pickFolder + '/')) && (!pickFav || f.frontmatter?.favorite === true));
+    const pool = pickProtein ? all : allowed(all);
     if (!pool.length) return toast('No recipe matches those filters');
     for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
     if (pool.length > 1 && pool[0].path === pick?.path) [pool[0], pool[1]] = [pool[1], pool[0]]; // a new suggestion each time
     matches = pool.slice(1).map((f) => f.path);
-    pick = kept = { path: pool[0].path, matches };
+    pick = kept = { path: pool[0].path, matches, chosen: !!pickProtein };
   }
   function showFolders() {
     matches = null;
@@ -91,6 +111,11 @@
   const badge = (f: Entry) => (f.kind === 'pdf' ? 'PDF' : f.kind === 'image' ? 'Image' : f.kind === 'other' ? nameOf(f.path).split('.').pop()?.toUpperCase() : f.recipe ? '' : 'Note');
 </script>
 
+{#snippet marks(f: Entry)}
+  {#if f.frontmatter?.favorite === true}<span class="star" title="Bookmarked" aria-label="Bookmarked"><Icon name="bookmark" size={14} /></span>{/if}
+  {#if isFav(f)}<span class="star" title="Favorite" aria-label="Favorite"><Icon name="star" size={14} /></span>{/if}
+{/snippet}
+
 {#snippet card(f: Entry)}
   {@const img = cover(f)}
   {@const ic = noteIcon(f)}
@@ -102,7 +127,7 @@
       <div class="ph" style="background:{cardColor(f.title, f.frontmatter?.color)}"><CardIcon icon={ic} size={44} /></div>
     {/if}
     <div class="info">
-      <span class="rtitle">{#if img && ic}<CardIcon icon={ic} size={16} /> {/if}{f.title}{#if f.frontmatter?.favorite === true}<span class="star" title="Bookmarked" aria-label="Bookmarked"><Icon name="bookmark" size={14} /></span>{/if}</span>
+      <span class="rtitle">{#if img && ic}<CardIcon icon={ic} size={16} /> {/if}{f.title}{@render marks(f)}</span>
       {#if meta(f)}<span class="muted small">{meta(f)}</span>{/if}
       <span class="tags">
         {#if badge(f)}<span class="tag badge">{badge(f)}</span>{/if}
@@ -120,10 +145,11 @@
     <Crumbs dir={path} />
     <span class="bar-name">{path ? nameOf(path) : 'Recipes'}{#if path && files.length}<span class="n" aria-label="{files.length} items">{files.length}</span>{/if}</span>
     <span class="spacer"></span>
+    {#if !path && app.session.user}
+      <button class="btn" aria-label="Write on the whiteboard" title="Write on the whiteboard" onclick={() => (board.compose = true)}><Icon name="message" /></button>
+    {/if}
     {#if canWrite()}
       <button class="btn primary add" aria-label="Add" title="Add a recipe, files or a folder" onclick={(e) => plusMenu(e, path)}><Icon name="plus" /></button>
-    {:else if app.session.pin_set}
-      <button class="btn" onclick={() => (app.pinPrompt = true)}><Icon name="lock" /> Unlock editing</button>
     {/if}
     <div class="seg" role="group" aria-label="View">
       <button class="btn" class:on={view === 'cards'} onclick={() => (view = 'cards')} aria-label="Cards"><Icon name="grid" size={16} /></button>
@@ -138,6 +164,7 @@
     <p class="muted">This folder no longer exists. <a href="#/">Back to all recipes</a></p>
   {:else}
     {#if !path && app.offline}<p class="muted">Offline — showing the last saved copy.</p>{/if}
+    {#if !path}<Board />{/if}
 
     {#if !path && recipes.length}
       <section class="suggest" aria-label="Suggested recipe">
@@ -172,12 +199,18 @@
       </div>
     {:else}
     {#if favorites.length}
-      <h2 class="sub" class:first={!recipes.length}>Bookmarks</h2>
+      <h2 class="sub" class:first={!recipes.length}>Favorites</h2>
       <div class="grid">
         {#each favorites as f (f.path)}{@render card(f)}{/each}
       </div>
-      {#if subfolders.length}<h2 class="sub">Folders</h2>{/if}
     {/if}
+    {#if bookmarks.length}
+      <h2 class="sub" class:first={!recipes.length && !favorites.length}>Bookmarks</h2>
+      <div class="grid">
+        {#each bookmarks as f (f.path)}{@render card(f)}{/each}
+      </div>
+    {/if}
+    {#if (bookmarks.length || favorites.length) && subfolders.length}<h2 class="sub">Folders</h2>{/if}
 
     {#if subfolders.length}
       <div class="folders">
@@ -206,7 +239,7 @@
           <tbody>
             {#each files as f (f.path)}
               <tr oncontextmenu={menuFor(f.path, false)}>
-                <td class="name"><CardIcon icon={noteIcon(f)} size={16} /> <a href={noteHash(f.path)}>{f.title}</a>{#if f.frontmatter?.favorite === true}<span class="star" aria-label="Bookmarked"><Icon name="bookmark" size={14} /></span>{/if} {#if badge(f)}<span class="tag badge">{badge(f)}</span>{/if}</td>
+                <td class="name"><CardIcon icon={noteIcon(f)} size={16} /> <a href={noteHash(f.path)}>{f.title}</a>{@render marks(f)} {#if badge(f)}<span class="tag badge">{badge(f)}</span>{/if}</td>
                 <td>{f.frontmatter?.total_time ?? f.frontmatter?.cook_time ?? ''}</td>
                 <td class="acts no-print"><button class="btn ghost icon" aria-label="Actions for {f.title}" onclick={menuFor(f.path, false)}><Icon name="more" size={16} /></button></td>
               </tr>
@@ -249,7 +282,8 @@
   /* item count in the corner; it gives way to the ⋯ button, which shares the corner on hover */
   .folder .count { position: absolute; top: 8px; right: 12px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; transition: opacity 0.1s; }
   .wrap:hover .folder .count, .wrap:focus-within .folder .count { opacity: 0; }
-  @media (hover: none) { .folder .count { right: 42px; } .wrap:hover .folder .count { opacity: 1; } }
+  /* on touch the ⋯ button always shows, so the count moves to the bottom corner */
+  @media (hover: none) { .folder .count { top: auto; bottom: 12px; } .wrap:hover .folder .count { opacity: 1; } }
   .star { display: inline-flex; vertical-align: -2px; color: var(--accent); margin-left: 4px; }
   .sub.first { margin-top: 0; }
   .suggest { margin-bottom: 8px; padding-top: 16px; } /* room under the breadcrumb row */

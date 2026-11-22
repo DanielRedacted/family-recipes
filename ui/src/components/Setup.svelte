@@ -74,9 +74,9 @@
         <Network status={s.network} lan={s.lan} keepAwake={s.keep_awake} onchange={put} />
       </section>
       <section class="card">
-        <h2>Editing PIN</h2>
-        <p class="muted small">Other devices can always read recipes. With the PIN they can also edit, import and delete. Leave it empty to keep them read-only.</p>
-        <input class="field" type="password" placeholder="Choose a PIN (6+ characters, optional)" bind:value={pin} autocomplete="new-password" aria-label="Editing PIN" />
+        <h2>Family PIN</h2>
+        <p class="muted small">Asked once on each phone, tablet or other computer when someone signs in with their name. With it, everyone signed in can edit, import and delete. Leave it empty to keep other devices read-only.</p>
+        <input class="field" type="password" placeholder="Choose a PIN (6+ characters, optional)" bind:value={pin} autocomplete="new-password" aria-label="Family PIN" />
         {#if !pinOk}<p class="muted small">Use at least 6 characters.</p>{/if}
       </section>
       <div class="row finish">

@@ -6,3 +6,5 @@ ui/dist/*
 *.log
 ui/test-results/
 .agents/skills/
+graphify-out/
+.claude/docs-checked

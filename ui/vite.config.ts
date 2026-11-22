@@ -33,7 +33,7 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//, /^\/auth/, /^\/ca\.crt/],
         runtimeCaching: [
           // the whole vault (titles, text, recipes) -> offline reading + search
-          { urlPattern: ({ url }) => url.pathname === '/api/vault' || url.pathname === '/api/session' || url.pathname === '/api/ingredients', handler: 'NetworkFirst',
+          { urlPattern: ({ url }) => ['/api/vault', '/api/session', '/api/ingredients', '/api/messages'].includes(url.pathname), handler: 'NetworkFirst',
             options: { cacheName: 'vault', networkTimeoutSeconds: 4 } },
           { urlPattern: ({ url }) => url.pathname.startsWith('/api/files/'), handler: 'StaleWhileRevalidate',
             options: { cacheName: 'files', expiration: { maxEntries: 400 } } },
@@ -42,5 +42,6 @@ export default defineConfig({
     }),
   ],
   build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 2000 },
-  server: { proxy: { '/api': 'http://127.0.0.1:8640', '/auth': 'http://127.0.0.1:8640' } },
+  // fs.allow: the Help pages are read from ../docs
+  server: { fs: { allow: ['..'] }, proxy: { '/api': 'http://127.0.0.1:8640', '/auth': 'http://127.0.0.1:8640' } },
 });

@@ -194,6 +194,16 @@ components:
     backgroundColor: "{colors.card-yellow}"
     textColor: "{colors.text}"
     rounded: "{rounded.pill}"
+  whiteboard-note:
+    backgroundColor: "{colors.card-yellow}"
+    textColor: "{colors.text}"
+    typography: "{typography.recipe-body}"
+    rounded: "{rounded.lg}"
+    padding: 16px
+  sign-in:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.text}"
+    typography: "{typography.display}"
   tree-row:
     backgroundColor: transparent
     textColor: "{colors.text}"
@@ -413,7 +423,8 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   2px purple outline. Use the native `select` for short choices (text type, theme, units); inside a row of other
   controls, the borderless `plain-select` (the Random filters).
 - **Cards.** Folder cards are pastel (`card-*`), show an icon, the name in serif and a bare item
-  count in the top-right corner (it gives way to the ⋯ button on hover). Recipe cards are all one height:
+  count in the top-right corner (it gives way to the ⋯ button on hover; on touch screens, where ⋯
+  always shows, the count sits in the bottom-right corner instead). Recipe cards are all one height:
   the picture (or the card's pastel with its 44px icon in the top-left corner, 14px × 16px in) fills
   the card, 186px tall everywhere (room for the icon above the fullest text), and the title in serif (two lines at most), one details line (the time, never the yield or batch size), one row of tags and a bookmark icon for a
   bookmarked recipe sit on it at the bottom. The suggested card on the home page stretches to the height of
@@ -444,6 +455,19 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   padding, so it lines up with its grid column. After Random, the other matching recipes replace
   Bookmarks and Folders as a shuffled card grid under "N more matches", with a ghost "Show folders"
   button (tapping Home does the same).
+- **Whiteboard.** On the home page, above Suggested, only while it has notes: a grid of
+  `whiteboard-note`s (the yellow pastel, serif text, the writer, time and how long it stays in a muted
+  line, a ghost ✕). A speech-bubble icon button in the home toolbar opens the compose modal: a
+  textarea and three radios (Today only, Until a date with a native date field, Until someone removes it).
+- **Sign-in.** A full-screen page like the first-start setup (`sign-in`): the app icon, "Who's cooking?"
+  in display serif, the family PIN field when a PIN is set, a wrapping row of name buttons, then a field
+  and a `button-primary` to add a new name.
+- **Credits.** Saving an edit opens the standard modal with a text field ("What changed?") and a
+  "Credit me as an author" checkbox. Under a recipe's More: an "Added by" property chip and a History
+  list (muted date, name · comment, newest first). The byline lists several authors ("By A and B").
+  On the Mac, "Editing as" is a `plain-select` at the foot of the folder column and in Settings → People.
+- **Bookmarks and favorites.** Bookmarks (everyone's) carry the bookmark icon, favorites (one
+  person's) the star; a card can show both. The home page lists Favorites, then Bookmarks.
 - **Plain menus (`plain-select`).** A native `select` without the boxed field: no border or fill,
   the value in purple ink with the system's arrow. Used for the Random filters.
 - **Cook mode.** A full-screen view with large checkable ingredient and step lists that keeps the
@@ -461,5 +485,6 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
 - Don't use the card pastels to mean anything (status, category); they are the family's choice.
 - Do make every control reachable at phone width and at least 36px (40px on touch) tall.
 - Don't add shadows to show hierarchy; use the paper tones and 1px borders.
-- Do follow the device's light or dark setting, and check both.
+- Do check every change in both light and dark. Light is the default whatever the device's setting;
+  dark applies only when chosen in Settings.
 - Don't load web fonts or remote assets; the app must look the same offline.

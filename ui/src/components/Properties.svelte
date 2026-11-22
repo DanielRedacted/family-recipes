@@ -1,40 +1,23 @@
 <script lang="ts" module>
-  import { Document, parseDocument } from 'yaml';
-
   export const LABELS: Record<string, string> = {
     tags: 'Tags', yield: 'Yield', servings: 'Servings', prep_time: 'Prep', cook_time: 'Cook', total_time: 'Total', additional_time: 'Additional',
     source: 'Source', author: 'Author', original: 'Original file', needs_review: 'Needs review', created: 'Created',
     emoji: 'Icon', color: 'Card colour', nutrition: 'Nutrition', favorite: 'Bookmarked', note: 'Note', aliases: 'Also called',
+    added_by: 'Added by', changes: 'History',
   };
-
-  /** Split raw text into [yaml, body]; yaml is '' when there is no frontmatter. */
-  export function splitRaw(raw: string): [string, string] {
-    const m = raw.match(/^---\r?\n([\s\S]*?\r?\n)?---[ \t]*(?:\r?\n|$)/);
-    return m ? [m[1] ?? '', raw.slice(m[0].length)] : ['', raw];
-  }
-
-  /** Set (or with value===undefined delete) one frontmatter key, keeping comments and order. */
-  export function setProp(raw: string, key: string, value: unknown): string {
-    const [yaml, body] = splitRaw(raw);
-    // a new block-style map for a note without properties ("favorite: true", not "{ favorite: true }")
-    const doc = yaml.trim() ? parseDocument(yaml) : new Document({});
-    if (value === undefined || value === '' || (Array.isArray(value) && !value.length)) doc.delete(key);
-    else doc.set(key, value);
-    const out = doc.contents && (doc.contents as any).items?.length ? String(doc) : '';
-    const fm = out && out.trim() !== '{}' ? `---\n${out.endsWith('\n') ? out : out + '\n'}---\n` : '';
-    return fm + (fm && body && !body.startsWith('\n') ? '\n' : '') + body;
-  }
 </script>
 
 <script lang="ts">
   import type { Entry } from '../lib/types';
+  import { setProp } from '../lib/frontmatter';
   import { tagsOf } from '../lib/search';
   import { vaultTarget } from '../lib/markdown';
   import { noteHash } from '../lib/state.svelte';
   import Icon from './Icon.svelte';
 
   /** `collapsible`: inside a recipe's card, where the add (+) pills, source, tags and original file wait behind More */
-  let { entry, editable, onchange, collapsible = false }: { entry: Entry; editable: boolean; onchange: (raw: string) => void; collapsible?: boolean } = $props();
+  /** `onchange` gets the new text and the property that changed */
+  let { entry, editable, onchange, collapsible = false }: { entry: Entry; editable: boolean; onchange: (raw: string, key: string) => void; collapsible?: boolean } = $props();
   let open = $state(false);
   /** a missing standard property being filled in from its chip */
   let adding = $state<string | null>(null);
@@ -52,7 +35,8 @@
   const fm = $derived(entry.frontmatter ?? {});
   const keys = $derived(Object.keys(fm));
   // shown elsewhere: tags as chips, nutrition as its own table, icon/colour on the cards
-  const HIDDEN = ['tags', 'needs_review', 'original', 'nutrition', 'emoji', 'color', 'favorite', 'author'];
+  // added_by and changes: under More, with the source
+  const HIDDEN = ['tags', 'needs_review', 'original', 'nutrition', 'emoji', 'color', 'favorite', 'author', 'added_by', 'changes'];
   const fmtVal = (v: unknown) => (Array.isArray(v) ? v.join(', ') : v === true ? 'yes' : v === false ? 'no' : v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
   function update(key: string, text: string) {
@@ -60,13 +44,16 @@
     if (key === 'tags' || key === 'aliases') v = text.split(',').map((s) => s.trim()).filter(Boolean);
     else if (key === 'needs_review' || key === 'favorite') v = text.trim() && !/^(no|false)$/i.test(text.trim()) ? true : undefined;
     else if (/^\d+(\.\d+)?$/.test(text.trim())) v = Number(text.trim());
-    onchange(setProp(entry.raw ?? '', key, v));
+    onchange(setProp(entry.raw ?? '', key, v), key);
   }
 
   // in a recipe's card the details show at once; the rest waits behind More
   const shown = $derived(keys.filter((k) => !HIDDEN.includes(k) && !(collapsible && k === 'source')));
   const orig = $derived(typeof fm.original === 'string' ? vaultTarget(fm.original, '') : null);
-  const hasMore = $derived(!!fm.source || missing.length > 0 || tagsOf(entry).length > 0 || !!orig);
+  /** the recipe's change history, newest first (lib/credit.ts) */
+  const history = $derived((Array.isArray(fm.changes) ? fm.changes : []).filter((c: any) => c && typeof c === 'object').slice().reverse() as { by?: string; date?: string; note?: string }[]);
+  const addedBy = $derived(typeof fm.added_by === 'string' ? fm.added_by : '');
+  const hasMore = $derived(!!fm.source || !!addedBy || history.length > 0 || missing.length > 0 || tagsOf(entry).length > 0 || !!orig);
 </script>
 
 {#snippet prop(k: string)}
@@ -89,6 +76,7 @@
       {#if !collapsible || open}
       <div class="chips more">
         {#if collapsible && fm.source}{@render prop('source')}{/if}
+        {#if addedBy}<span class="chip"><span class="k">Added by</span>{addedBy}</span>{/if}
         {#each missing as k (k)}
           {#if adding === k}
             <span class="chip adding"><span class="k">{LABELS[k]}</span>
@@ -103,6 +91,12 @@
         {#each tagsOf(entry) as t}<span class="chip tag">#{t}</span>{/each}
         {#if orig}<a class="chip" href={noteHash(orig)}><Icon name="paperclip" size={14} /> Original file</a>{/if}
       </div>
+      {#if history.length}
+        <p class="muted small hhead">History</p>
+        <ol class="history" aria-label="History">
+          {#each history as c}<li><span class="muted">{c.date ?? ''}</span> {[c.by, c.note].filter(Boolean).join(' · ')}</li>{/each}
+        </ol>
+      {/if}
       {/if}
     {#if entry.frontmatter_error}<p class="warn small">Properties block could not be read: {entry.frontmatter_error}</p>{/if}
   </section>
@@ -122,4 +116,6 @@
   .inline { border: 0; background: var(--surface); border-radius: 8px; padding: 2px 8px; width: 9em; font: inherit; }
   .inline:focus { outline: 2px solid var(--accent); }
   .warn { color: var(--danger); }
+  .hhead { margin: 12px 0 4px; }
+  .history { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 200px; overflow-y: auto; }
 </style>

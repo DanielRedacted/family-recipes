@@ -1,6 +1,6 @@
 //! HTTP API + embedded UI. One router serves the desktop window (loopback) and LAN devices.
 
-use crate::auth::{self, Caller, Role};
+use crate::auth::{self, Caller, Role, Who};
 use crate::vault::{self, Index, PdfText, VaultPath};
 use anyhow::{Context, Result};
 use axum::body::{Body, Bytes};
@@ -73,6 +73,9 @@ pub struct Settings {
     /// Sync the recipes folder with its GitHub repository (see git.rs).
     #[serde(default)]
     pub git_sync: bool,
+    /// The person the desktop window edits as (users.rs); None = the built-in "Admin".
+    #[serde(default)]
+    pub editing_as: Option<String>,
 }
 fn yes() -> bool {
     true
@@ -274,8 +277,7 @@ fn spawn_watcher(state: Arc<AppState>) -> Result<()> {
 pub fn router(state: Arc<AppState>) -> Router {
     let api = Router::new()
         .route("/api/ping", get(|| async { "ok" }))
-        .route("/api/session", get(session).delete(logout))
-        .route("/api/session/pin", post(login))
+        .route("/api/session", get(session).post(login).delete(logout))
         .route("/api/vault", get(vault_payload))
         .route("/api/events", get(events))
         .route("/api/files/{*path}", get(get_file).put(put_file).delete(delete_file))
@@ -305,10 +307,11 @@ pub async fn serve(app: Router, listener: tokio::net::TcpListener, kind: Listene
 
 // ---------- session ----------
 
-async fn session(State(s): St, Caller(role): Caller) -> Response {
+async fn session(State(s): St, Caller(role): Caller, Extension(Who(who)): Extension<Who>) -> Response {
     let st = s.settings.read().unwrap();
     Json(json!({
         "role": role,
+        "user": who,
         "pin_set": st.pin_hash.is_some(),
         "ai": st.ai.enabled,
         "shell": s.shell.is_some() && role == Role::Admin,
@@ -323,30 +326,50 @@ struct PinBody {
     pin: String,
 }
 
-async fn login(State(s): St, Extension(l): Extension<Listener>, ConnectInfo(addr): ConnectInfo<SocketAddr>, Json(b): Json<PinBody>) -> Res {
+#[derive(Deserialize)]
+struct SignInBody {
+    name: String,
+    /// needed when the name is new
+    #[serde(default)]
+    full_name: String,
+    #[serde(default)]
+    pin: String,
+}
+
+/// Sign this device in as a person (added if new), with the family PIN when one is set.
+async fn login(State(s): St, Extension(l): Extension<Listener>, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, Json(b): Json<SignInBody>) -> Res {
     let ip = addr.ip();
-    if let Err(wait) = s.limiter.check(ip) {
-        return Err(err(StatusCode::TOO_MANY_REQUESTS, format!("too many attempts, wait {wait} s")));
-    }
+    crate::users::clean_name(&b.name)?;
     let (hash, pin_gen) = {
         let st = s.settings.read().unwrap();
         (st.pin_hash.clone(), st.pin_gen)
     };
-    let Some(hash) = hash else { return Err(err(StatusCode::CONFLICT, "no PIN has been set in the desktop app")) };
-    let ok = tokio::task::spawn_blocking(move || auth::verify_pin(&b.pin, &hash)).await.unwrap_or(false);
-    if !ok {
-        s.limiter.fail(ip);
-        return Err(err(StatusCode::UNAUTHORIZED, "wrong PIN"));
+    if let Some(hash) = hash {
+        if b.pin.is_empty() {
+            return Err(err(StatusCode::UNAUTHORIZED, "enter the family PIN"));
+        }
+        if let Err(wait) = s.limiter.check(ip) {
+            return Err(err(StatusCode::TOO_MANY_REQUESTS, format!("too many attempts, wait {wait} s")));
+        }
+        let pin = b.pin.clone();
+        let ok = tokio::task::spawn_blocking(move || auth::verify_pin(&pin, &hash)).await.unwrap_or(false);
+        if !ok {
+            s.limiter.fail(ip);
+            return Err(err(StatusCode::UNAUTHORIZED, "wrong PIN"));
+        }
+        s.limiter.success(ip);
     }
-    s.limiter.success(ip);
-    let v = auth::make_session(&s.cookie_key, pin_gen);
+    let ua = headers.get(header::USER_AGENT).and_then(|v| v.to_str().ok()).unwrap_or("");
+    let user = crate::users::sign_in(&s, &b.name, &b.full_name, ua, &ip.to_string())?;
+    let v = auth::make_session(&s.cookie_key, pin_gen, &user.id);
+    let age = auth::SESSION_DAYS * 86400;
     // `__Host-` cookies must be Secure, which browsers refuse over plain HTTP
     let cookie = if l == Listener::LanHttp {
-        format!("{}={v}; Path=/; HttpOnly; SameSite=Strict; Max-Age={}", auth::HTTP_SESSION_COOKIE, 90 * 86400)
+        format!("{}={v}; Path=/; HttpOnly; SameSite=Strict; Max-Age={age}", auth::HTTP_SESSION_COOKIE)
     } else {
-        format!("{}={v}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age={}", auth::SESSION_COOKIE, 90 * 86400)
+        format!("{}={v}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age={age}", auth::SESSION_COOKIE)
     };
-    Ok(([(header::SET_COOKIE, cookie)], Json(json!({"role": "writer"}))).into_response())
+    Ok(([(header::SET_COOKIE, cookie)], Json(json!({ "user": { "id": user.id, "name": user.name, "full_name": user.full_name } }))).into_response())
 }
 
 async fn logout(Extension(l): Extension<Listener>) -> Response {
@@ -389,7 +412,10 @@ async fn vault_payload(State(s): St, headers: HeaderMap) -> Response {
 
 async fn events(State(s): St) -> Sse<impl futures_util::Stream<Item = Result<Event, std::convert::Infallible>>> {
     let rx = BroadcastStream::new(s.events.subscribe());
-    let stream = rx.filter_map(|m| m.ok()).map(|etag| Ok(Event::default().event("vault").data(etag)));
+    // a new vault payload's etag, or the name of what else changed (the whiteboard, the meals made)
+    let stream = rx.filter_map(|m| m.ok()).map(|m| {
+        Ok(if m == crate::board::EVENT || m == crate::made::EVENT { Event::default().event(&m).data("1") } else { Event::default().event("vault").data(m) })
+    });
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
@@ -613,6 +639,7 @@ async fn settings_get(State(s): St, caller: Caller) -> Res {
         "network": lan,
         "autostart": s.shell.as_ref().map(|sh| sh.autostart(None)),
         "git": crate::git::status(&s),
+        "editing_as": st.editing_as,
     }))
     .into_response())
 }
@@ -624,6 +651,8 @@ struct SettingsPut {
     keep_awake: Option<bool>,
     vault: Option<PathBuf>,
     setup_done: Option<bool>,
+    /// a person's id, or "" for nobody
+    editing_as: Option<String>,
 }
 
 async fn settings_put(State(s): St, caller: Caller, Json(b): Json<SettingsPut>) -> Res {
@@ -641,6 +670,9 @@ async fn settings_put(State(s): St, caller: Caller, Json(b): Json<SettingsPut>) 
         }
         if let Some(d) = b.setup_done {
             st.setup_done = d;
+        }
+        if let Some(id) = b.editing_as {
+            st.editing_as = (!id.is_empty()).then_some(id);
         }
         if let Some(v) = b.vault {
             if !v.is_dir() {

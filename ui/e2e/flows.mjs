@@ -144,7 +144,7 @@ await page.goto(new URL('/#/n/Pies/Pumpkin%20Pie.md', url).href);
 await page.waitForSelector('.prose h1');
 await page.click('header button[aria-label="More"]');
 assert.equal(await page.locator('.menu button:has-text("Download")').count(), 0, 'no Download');
-await menuItem('Bookmark');
+await menuItem('Bookmark for everyone');
 await page.waitForTimeout(800);
 assert.match(fs.readFileSync(pie, 'utf8'), /^---\n(?:.*\n)*favorite: true\n(?:.*\n)*---\n/, 'favorite saved as a property (block style)');
 await page.goto(new URL('/#/', url).href);
@@ -155,7 +155,7 @@ await page.screenshot({ path: `${out}/bookmarks.png` });
 // renamed recipes are still found by their old names (aliases:)
 await page.click('aside button[aria-label="Search"]');
 await page.fill('input[aria-label="Search"]', 'Tigernut');
-await page.waitForSelector('[role=dialog][aria-label=Search] >> text=Grain and Sugar Free Pumpkin Muffins');
+await page.waitForSelector('dialog[aria-label=Search] >> text=Grain and Sugar Free Pumpkin Muffins');
 await page.keyboard.press('Escape');
 
 // Settings has its own navigation column; recent changes and trash are pages in it

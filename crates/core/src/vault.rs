@@ -175,7 +175,7 @@ pub fn read_entry(root: &Path, p: VaultPath, prev: Option<&Entry>, pdf: Option<P
 /// AGENTS.md and CLAUDE.md (instructions for agents).
 pub(crate) fn hidden(e: &walkdir::DirEntry) -> bool {
     let name = e.file_name().to_string_lossy();
-    name.starts_with('.') || (e.depth() == 1 && (name == "AGENTS.md" || name == "CLAUDE.md"))
+    name.starts_with('.') || (e.depth() == 1 && (name == "AGENTS.md" || name == "CLAUDE.md" || name == crate::feedback::FILE))
 }
 
 /// Full scan; entries whose size+mtime are unchanged are reused from `prev`.

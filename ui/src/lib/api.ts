@@ -32,5 +32,5 @@ export function fileUrl(path: string): string {
 /** Save a note (or any file). `etag` null = create only. Returns the new etag and final path. */
 export async function saveFile(path: string, body: string | Blob, etag: string | null, unique = false) {
   const headers: Record<string, string> = etag ? { 'If-Match': `"${etag}"` } : { 'If-None-Match': '*' };
-  return api<{ path: string; etag: string }>('PUT', fileUrl(path) + (unique ? '?unique=1' : ''), body, headers);
+  return api<{ path: string; etag: string }>('PUT', fileUrl(path) + (unique ? '?unique=true' : ''), body, headers);
 }

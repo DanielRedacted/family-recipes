@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { app, toast, loadSession, loadVault, noteHash, dirOf, prefs, setUnits } from '../lib/state.svelte';
+  import { app, toast, loadSession, loadVault, noteHash, dirOf, prefs, setUnits, canWrite } from '../lib/state.svelte';
   import { api } from '../lib/api';
   import { shell } from '../lib/ops';
   import { confirmIt } from '../lib/dialog.svelte';
@@ -8,6 +8,8 @@
   import Network from './Network.svelte';
   import GitHub from './GitHub.svelte';
   import Trash from './Trash.svelte';
+  import Users from './Users.svelte';
+  import Help from './Help.svelte';
   import SettingsNav, { settingsSections, currentSection } from './SettingsNav.svelte';
 
   // one page per section (#/settings/<section>); an unknown or hidden section shows General
@@ -24,6 +26,8 @@
     try { localStorage.setItem('theme', theme); } catch {}
     if (theme === 'system') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', theme);
+    // the browser's own bar (theme-color, set first in theme.js) takes the page colour
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
   });
 
   const admin = $derived(app.session.role === 'admin');
@@ -37,11 +41,11 @@
   }
 
   async function savePin(clear = false) {
-    if (clear && !(await confirmIt('Remove the PIN?', 'Other devices will no longer be able to unlock editing.', 'Remove PIN', true))) return;
+    if (clear && !(await confirmIt('Remove the PIN?', 'Every phone and tablet signs in again and can then only read recipes.', 'Remove PIN', true))) return;
     try {
       await api('PUT', '/api/settings/pin', { pin: clear ? '' : pin });
       pin = '';
-      toast(clear ? 'PIN removed' : 'PIN saved — all devices must enter it again', 'ok');
+      toast(clear ? 'PIN removed — every device signs in again' : 'PIN saved — every device signs in again with it', 'ok');
       await refresh();
       await loadSession();
     } catch (e: any) { toast(e.message, 'error'); }
@@ -73,12 +77,14 @@
     return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : new Date(t * 1000).toLocaleDateString();
   };
 
-  async function lockDevice() { await api('DELETE', '/api/session'); await loadSession(); toast('This device is read-only again'); }
+  async function signOut() { await api('DELETE', '/api/session'); await loadSession(); }
 </script>
 
 <div class="mnav"><SettingsNav compact /></div>
 {#if sec === 'trash'}
   <Trash />
+{:else if sec === 'help'}
+  <Help />
 {:else}
 <div class="page">
   <h1>{title}</h1>
@@ -102,15 +108,9 @@
   {#if !admin}
     <section class="card">
       <h2>This device</h2>
-      {#if app.session.role === 'writer'}
-        <p>Editing is unlocked on this device.</p>
-        <button class="btn" onclick={lockDevice}>Lock this device</button>
-      {:else if app.session.pin_set}
-        <p>Read-only. Enter the PIN from the Recipes app on the Mac to edit, import and delete.</p>
-        <button class="btn primary" onclick={() => (app.pinPrompt = true)}>Unlock editing</button>
-      {:else}
-        <p>Read-only. To allow editing from this device, set a PIN in the Recipes app on the Mac.</p>
-      {/if}
+      {#if app.session.user}<p>Signed in as <strong>{app.session.user.name}</strong>.</p>{/if}
+      {#if !canWrite()}<p class="muted small">Read-only: editing from phones and tablets needs a family PIN, set in the Recipes app on the Mac.</p>{/if}
+      <div class="row"><button class="btn" onclick={signOut}>Sign out</button></div>
       {#if location.protocol === 'http:'}
         <p class="muted small">To add Recipes to the home screen as an app that keeps working while the Mac is asleep, do the one-time setup.</p>
         <a class="btn" href="/setup">Install as an app</a>
@@ -126,6 +126,8 @@
       </ul>
     {:else}<p class="muted small">Nothing has been changed since the recipes were added.</p>{/if}
   </section>
+  {:else if sec === 'people'}
+    <Users />
   {:else if !s}
     <p class="muted">Loading…</p>
   {:else if sec === 'folder'}
@@ -157,8 +159,8 @@
     <section class="card">
       <p class="muted small">Phones, tablets and other computers on the same Wi-Fi can open the recipes.</p>
       <Network status={s.network} lan={s.lan} keepAwake={s.keep_awake} onchange={put} />
-      <h3>Editing PIN</h3>
-      <p class="muted small">Other devices can always read recipes. With the PIN they can also edit, import and delete. {s.pin_set ? 'A PIN is set.' : 'No PIN is set, so other devices are read-only.'}</p>
+      <h3>Family PIN</h3>
+      <p class="muted small">Asked once on each phone, tablet or other computer when someone signs in with their name. With it, everyone signed in can edit, import and delete. {s.pin_set ? 'A PIN is set.' : 'No PIN is set, so other devices can read recipes and use the whiteboard, but not edit.'}</p>
       <form class="row" onsubmit={(e) => { e.preventDefault(); savePin(); }}>
         <input class="field w" type="password" placeholder={s.pin_set ? 'New PIN' : 'Choose a PIN (6+ characters)'} bind:value={pin} autocomplete="new-password" aria-label="PIN" />
         <button class="btn primary" disabled={pin.trim().length < 6}>{s.pin_set ? 'Change PIN' : 'Set PIN'}</button>

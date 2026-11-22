@@ -1,8 +1,11 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, getContext } from 'svelte';
   import type { Entry } from '../lib/types';
   import { groupLines, boldQty, type Units } from '../lib/scale';
   import { renderInline, autoLink } from '../lib/markdown';
+  import MadeToday from './MadeToday.svelte';
+  import { app, type Tab } from '../lib/state.svelte';
+  import { modal } from '../lib/modal';
 
   let { entry, factor, units, portion = 0, onclose }: { entry: Entry; factor: number; units: Units; portion?: number; onclose: () => void } = $props();
   const r = $derived(entry.recipe!);
@@ -10,21 +13,20 @@
   let tab = $state<'ing' | 'steps'>('ing');
   let awake = $state(false);
   let lock: any = null;
-  let el: HTMLElement | undefined = $state();
+  // a modal dialog (Esc closes it); hidden, not ended, while another tab shows
+  const page = getContext<Tab>('tab');
 
   onMount(() => {
     const nav: any = navigator;
     nav.wakeLock?.request('screen').then((l: any) => { lock = l; awake = true; }).catch(() => {});
-    const key = (e: KeyboardEvent) => e.key === 'Escape' && !el?.closest('[inert]') && onclose(); // not a cook mode in another tab
-    window.addEventListener('keydown', key);
-    return () => { lock?.release?.(); window.removeEventListener('keydown', key); };
+    return () => lock?.release?.();
   });
 
   const strip = (t: string) => t.replace(/^\*\*Step \d+\*\*\s*/, '');
   const nextStep = $derived(r.steps.flatMap((g) => g.items).find((s) => !done['s' + s.line])?.line);
 </script>
 
-<div class="cook" bind:this={el} role="dialog" aria-modal="true" aria-label="Cook mode">
+<dialog class="cook" aria-label="Cook mode" use:modal={{ onclose, active: page.id === app.tab }}>
   <header class="row">
     <h1>{entry.title}</h1>
     <span class="spacer"></span>
@@ -69,10 +71,11 @@
       {/each}
     </section>
   </div>
-</div>
+  <MadeToday {entry} />
+</dialog>
 
 <style>
-  .cook { position: fixed; inset: 0; z-index: 60; background: var(--bg); overflow-y: auto; padding: calc(12px + env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) 40px max(24px, env(safe-area-inset-left)); font-family: var(--serif); }
+  .cook { position: fixed; inset: 0; width: auto; height: auto; max-width: none; max-height: none; margin: 0; border: 0; color: var(--text); background: var(--bg); overflow-y: auto; padding: calc(12px + env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) 40px max(24px, env(safe-area-inset-left)); font-family: var(--serif); }
   header { position: sticky; top: 0; background: var(--bg); padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   h1 { margin: 0; font-size: 1.7rem; }
   .pill { background: var(--accent-soft); color: var(--accent-ink); padding: 2px 12px; border-radius: 12px; font-family: var(--sans); }

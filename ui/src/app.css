@@ -58,6 +58,15 @@ h1, h2, h3, h4 { font-family: var(--serif); font-weight: 600; line-height: 1.25;
 .btn:disabled { opacity: 0.5; cursor: default; }
 .btn.icon { padding: 6px; min-width: 36px; justify-content: center; }
 .btn.on { background: var(--accent-soft); border-color: var(--accent); }
+
+/* a native modal <dialog> (lib/modal.ts): only a frame; the .card inside it is the box */
+dialog.modal-host {
+  padding: 0; border: 0; background: none; color: var(--text); overflow: visible;
+  max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px);
+}
+dialog.modal-host::backdrop { background: rgba(0, 0, 0, 0.35); overflow: hidden; overscroll-behavior: contain; }
+dialog:modal { overscroll-behavior: contain; }
+.form-error { margin: 0; color: var(--danger); }
 input.field, select.field, textarea.field {
   width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
 }
@@ -98,11 +107,11 @@ select.plain-select:focus-visible { outline: 2px solid var(--accent); outline-of
 .prose th, .prose td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
 .prose th { background: var(--sunken); }
 .prose thead tr:not(:has(th:not(:empty))) { display: none; }
-.prose a.wikilink, .prose a.internal { text-decoration: none; border-bottom: 1px dashed var(--accent); }
+.prose a.wikilink, .prose a.internal { text-decoration: underline dashed var(--accent) 1px; text-underline-offset: 0.2em; }
 /* a link to a web page (not a recipe): ↗ after it, opens in the browser */
 a.ext::after { content: "↗"; display: inline-block; margin-left: 2px; font-size: 0.75em; color: var(--muted); text-decoration: none; }
 @media print { a.ext::after { content: none; } }
-.prose a.wikilink.missing { color: var(--muted); border-bottom-color: var(--muted); cursor: help; }
+.prose a.wikilink.missing { color: var(--muted); text-decoration-color: var(--muted); cursor: help; }
 
 @media print {
   .no-print, nav, aside, header, .toolbar { display: none !important; }

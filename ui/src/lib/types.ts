@@ -23,6 +23,8 @@ export interface Entry {
 
 export interface Session {
   role: 'reader' | 'writer' | 'admin';
+  /** who this device is signed in as (the desktop app is "Admin"); null before signing in */
+  user: { id: string; name: string; full_name: string } | null;
   pin_set: boolean;
   ai: boolean;
   shell: boolean;
