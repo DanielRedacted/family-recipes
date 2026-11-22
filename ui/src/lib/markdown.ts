@@ -138,6 +138,17 @@ export function autoLink(text: string, self: string): string {
   return `${text.slice(0, m.index)}[${text.slice(m.index, end)}](${noteHash(m.path)})${text.slice(end)}`;
 }
 
+/** The recipe an ingredient line uses as an ingredient: one it links to, else one it names (`autoMatch`). */
+export function subRecipeOf(text: string, from: Entry): Entry | null {
+  const wiki = text.match(/\[\[([^\]|#\n]+)/);
+  const link = text.match(/\]\(<?([^)>\s]+)>?\)/);
+  const path = wiki ? resolveLink(wiki[1].trim())?.path
+    : link ? vaultTarget(link[1], dirOf(from.path))
+    : autoMatch(text, from.path)?.path;
+  const e = path ? app.byPath[path] : undefined;
+  return e?.recipe && e.path !== from.path ? e : null;
+}
+
 /** `f` links to `path`: a [[wiki link]], a Markdown link to the file, or an ingredient named after it. */
 export function linksTo(f: Entry, path: string): boolean {
   if (f.links?.some((l) => resolveLink(l)?.path === path)) return true;

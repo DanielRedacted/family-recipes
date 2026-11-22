@@ -8,7 +8,7 @@ import type { Made } from './made';
 export interface FolderMeta { emoji?: string; color?: string }
 
 export const app = $state({
-  session: { role: 'reader', user: null, pin_set: false, ai: false, shell: false, version: '' } as Session,
+  session: { role: 'reader', user: null, pin_set: false, ai: false, calendar: false, shell: false, version: '' } as Session,
   files: [] as Entry[],
   byPath: {} as Record<string, Entry>,
   folders: [] as string[],
@@ -73,7 +73,7 @@ export function parseRoute(hash = location.hash): Route {
   }
   if (view === 'f') return { view: 'folder', path, hash };
   if (view === 'trash') return { view: 'settings', path: 'trash', hash };
-  if (['settings', 'import', 'search', 'ingredients'].includes(view)) return { view, path, hash };
+  if (['settings', 'import', 'search', 'ingredients', 'calendar'].includes(view)) return { view, path, hash };
   return { view: 'folder', path: '', hash };
 }
 

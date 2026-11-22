@@ -18,6 +18,14 @@ describe('blockedProteins', () => {
   });
 });
 
+it('a guessed meal blocks nothing and leaves the button pressable', () => {
+  const sat = at(2026, 11, 21);
+  const log = [{ ...made(sat, ['Dinner', 'Pork']), assumed: true }];
+  expect(blockedProteins(log, sat)).toEqual([]);
+  expect(madeToday(log, 'Meat/Chops.md', sat)).toBe(false);
+  expect(madeToday(log, 'Meat/Chops.md', sat, true)).toBe(true);
+});
+
 it('madeToday is by local calendar day', () => {
   const log = [made(at(2026, 11, 21, 8), ['Dinner'])];
   expect(madeToday(log, 'Meat/Chops.md', at(2026, 11, 21, 23))).toBe(true);

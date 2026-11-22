@@ -1,13 +1,13 @@
 ---
 title: Ingredients
-summary: See every ingredient in the cookbook, find the recipes that use it, and read nutrition.
+summary: See every ingredient in the cookbook, find the recipes that use it, and how nutrition is worked out.
 audience: everyone
 order: 45
 ---
 
 ## Open the Ingredients page
 
-Tap **Ingredients** at the bottom of the folder column. On a phone, tap **Folders** in the bottom bar first.
+Tap the carrot button at the bottom of the folder column. On a phone, tap **Folders** in the bottom bar first.
 
 Search finds ingredients too: type a name and pick the line marked "ingredient", and the Ingredients page opens on it.
 
@@ -29,6 +29,15 @@ When you edit a recipe's ingredient list, the app suggests units after you type 
 
 ## Nutrition
 
-Some recipes come with nutrition facts, usually ones imported from a recipe website that publishes them. When a recipe has them, a **Nutrition** table appears below the recipe when you read it, with the serving size beside the heading when it's known.
+Below each recipe is a **Nutrition Facts** label, laid out like the one on food packages. The app works it out from the ingredients each time you open the recipe, using values from the US Department of Agriculture (USDA FoodData Central). Nothing is written into the recipe, so changing an ingredient changes the label straight away.
 
-The numbers are copied from where the recipe came from; the app doesn't work them out. Recipes typed in by hand or imported from a document usually have none. When you import a recipe, you can see its nutrition on the **Preview** tab before saving (see [Importing recipes](#/settings/help/importing)).
+- It follows **−** and **+** and the portion chips, like the ingredient amounts.
+- When the recipe says how many it serves (or how many it makes, such as 24 cookies), the label is per serving and shows the **% Daily Value**. When it doesn't, the label is for the whole recipe; type a number in **Servings per recipe** to split it. That number isn't saved.
+- An ingredient that is a recipe of its own, such as mayonnaise or pie crust, is worked out from that recipe's ingredients, not from a store-bought version. This works when the ingredient links to the recipe, or has the same name as it.
+- Some lines can't be counted: ones with no amount ("salt to taste"), optional ones, ones for frying or garnish, and ingredients that aren't in the app's list yet. **Not counted** under the label lists them and why. Cooking, frying and draining aren't taken into account, so the label is an estimate.
+
+Recipes imported from a website get a label worked out from their ingredients too. If the website published its own nutrition, you can see those numbers on the **Preview** tab before saving (see [Importing recipes](#/settings/help/importing)). They're kept in the recipe, but the label doesn't use them.
+
+### Which food an ingredient counts as
+
+Open an ingredient on this page to see the USDA food it counts as in nutrition. On the Mac you can tap **Change…** to search USDA for a better match (this needs the USDA key in **Settings → Nutrition**), **Don't count** to leave it out, and **Undo** to go back. Ingredients the app found on its own are marked "found automatically" so you can check them.

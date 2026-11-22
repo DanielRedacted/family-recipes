@@ -11,7 +11,8 @@ A family cookbook app: a folder of Markdown recipes, browsed and edited in a Tau
 - `crates/core/`: the whole server as a library. `vault.rs` (folder index, file writes, trash),
   `recipe.rs` (recipe structure parser), `server.rs` (axum HTTP API and the embedded UI), `auth.rs`,
   `ingredient.rs` (ingredient catalogue), `import.rs` / `extract.rs` / `schema.rs` (importer),
-  `ai.rs`, `lan.rs` (TLS, Bonjour), `git.rs` (GitHub sync through bundled libgit2). `src/bin/recipes-server.rs` is the headless server for
+  `ai.rs`, `lan.rs` (TLS, Bonjour), `git.rs` (GitHub sync through bundled libgit2), `calendar.rs`
+  (the Mac's calendar, read-only through EventKit). `src/bin/recipes-server.rs` is the headless server for
   development and tests.
 - `src-tauri/`: the desktop shell only (window, menu-bar item, the `Shell` trait for Finder,
   dialogs, print, opening URLs, updates).
@@ -29,14 +30,15 @@ A family cookbook app: a folder of Markdown recipes, browsed and edited in a Tau
 ## The recipes are not here
 
 The app ships empty. The family recipes live in a separate private repository; on the owner's Mac
-`~/Recipes` is a clone of it, with the original conversions on its `original-markdown` branch and the
-conversion and checking tools in `~/Recipes/.tools/` (`verify.py`, `convert.py`, `techniques.txt`).
+`~/Recipes` is a clone of it. Its `main` holds only what the family uses (recipes, `attachments/`,
+`.folders.yaml`). The original conversions are on its `original-markdown` branch; the agent notes and
+tools are on its `tools` branch, checked out as a worktree at `../recipe-tools/` next to this repository.
 
-- Never copy recipes into this repository.
-- The recipes repository has its own `AGENTS.md` (format, tags, authors, the no-changed-information
-  rule) and a `clean-up-recipe` skill in `.agents/skills/`; agents working on recipes follow those.
-  The app hides `AGENTS.md` and `CLAUDE.md` at the top of the recipes folder (`vault::hidden`), and
-  every dot-folder.
+- Never copy recipes into this repository, and never put tools or agent files on the recipes' `main`.
+- `../recipe-tools/` has the recipes' own `AGENTS.md` (format, tags, authors, the no-changed-information
+  rule), the `clean-up-recipe` skill in `.agents/skills/`, and `.tools/` (`verify.py`, `convert.py`,
+  `techniques.txt`); agents working on recipes follow those. The app still hides `AGENTS.md` and
+  `CLAUDE.md` at the top of a recipes folder (`vault::hidden`), and every dot-folder.
 - **Feedback log:** `FEEDBACK.md` at the top of the recipes folder (hidden like `AGENTS.md`) is where
   the app appends feedback (`crates/core/src/feedback.rs`, `ui/src/components/Feedback.svelte`). To work
   through it when asked: `git -C ~/Recipes pull`, read it, make the changes in this repository, then
@@ -45,7 +47,6 @@ conversion and checking tools in `~/Recipes/.tools/` (`verify.py`, `convert.py`,
   owner's permission.
 - `~/Recipes` is the owner's live data. Don't edit it unless asked; if asked, commit there locally
   and leave pushing to the owner.
-- The sibling folder `home-recipes/` next to this repository is read-only.
 
 ## Rules for recipe text
 
@@ -54,8 +55,8 @@ conversion and checking tools in `~/Recipes/.tools/` (`verify.py`, `convert.py`,
   dropping words or inventing values are not.
 - Prove it after any change to recipe files:
   ```sh
-  python3 -I ~/Recipes/.tools/verify.py /tmp/originals/recipes ~/Recipes   # every original word kept
-  python3 -I ~/Recipes/.tools/verify.py --since HEAD ~/Recipes             # nothing but spelling changed
+  python3 -I ../recipe-tools/.tools/verify.py /tmp/originals/recipes ~/Recipes   # every original word kept
+  python3 -I ../recipe-tools/.tools/verify.py --since HEAD ~/Recipes             # nothing but spelling changed
   ```
   (`git -C ~/Recipes archive origin/original-markdown | tar -x -C /tmp/originals` gets the originals.)
   If a legitimate formatting change fails the check, extend `verify.py` with a narrow, explicit
@@ -144,7 +145,7 @@ covers, and follow it together with this file; where they disagree, this file an
   frontmatter by the UI when it saves (`Note.svelte` `saveEdit`/`saveRaw`, `ops.ts` `newNote`, `Import.svelte`),
   using the full name from `signer()` in `ops.ts`. The desktop window credits the person chosen as
   "Editing as" (`settings.editing_as`). Frontmatter helpers live in `ui/src/lib/frontmatter.ts`.
-  `~/Recipes/.tools/verify.py` treats these keys as app-owned (`APP_PROPS`).
+  `../recipe-tools/.tools/verify.py` treats these keys as app-owned (`APP_PROPS`).
 - **Bookmarks vs favorites.** Bookmarks are everyone's: `favorite: true` in the recipe (the key kept
   from before; `isBookmarked` in `ops.ts`). Favorites are one person's, in their browser's
   localStorage (`favorites:<person id>`, `isFavorite`).
@@ -164,13 +165,20 @@ covers, and follow it together with this file; where they disagree, this file an
   `go()` from `state.svelte.ts`; it respects the unsaved-changes guard and the Back history counter.
   All link clicks go through one handler in `App.svelte` (app pages in the app, web pages in the
   browser).
+- **Calendar access** (`calendar.rs`): the app is signed ad-hoc with the hardened runtime, so it needs
+  the calendars entitlement in `src-tauri/Entitlements.plist` as well as the usage strings in `Info.plist`;
+  without it macOS refuses silently. `GET /api/calendar/calendars` shows macOS's permission prompt, so
+  tests answer the calendar routes themselves (`e2e/calendar.mjs`) and never call EventKit. A bare
+  binary (`target/debug/recipes-app`, `recipes-server`) is credited to the app that launched it (VS Code,
+  Terminal), which has no calendar usage text, so macOS says no without asking: check calendar access
+  in a built `Recipes.app` (`npm run app` in `ui/`).
 - **Node:** `scripts/normalize-units.ts` relies on Node's built-in TypeScript support (Node 23.6+).
 
 ## Tests
 
 ```sh
 cargo test -p recipes-core
-VAULT=~/Recipes cargo test -p recipes-core -- --ignored --skip dump_vault   # the real recipes parse
+VAULT=~/Recipes TECHNIQUES="$PWD/../recipe-tools/.tools/techniques.txt" cargo test -p recipes-core -- --ignored --skip dump_vault   # the real recipes parse
 cd ui && npx vitest run && npm run check
 ```
 
@@ -184,7 +192,7 @@ target/debug/recipes-server --vault /tmp/e2e-vault --data /tmp/e2e-data --port 0
 # skip the first-start setup page (it covers the window): with the cookie from opening the admin URL,
 # PUT /api/settings {"setup_done": true} with header X-Recipes: 1
 cd ui && node e2e/flows.mjs "<admin-url>" /tmp/e2e-vault /tmp/e2e-out
-node e2e/editor.mjs … && node e2e/ingredients.mjs … && node e2e/accounts.mjs …  # fresh vault copy each
+node e2e/editor.mjs … && node e2e/ingredients.mjs … && node e2e/accounts.mjs … && node e2e/calendar.mjs …  # fresh vault and data copy each
 ```
 
 `e2e/import.mjs` needs the internet and two source files from the recipes repository

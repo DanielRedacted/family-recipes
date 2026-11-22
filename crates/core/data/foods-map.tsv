@@ -1,0 +1,679 @@
+key	fdcId	description	each	comment
+salt	173468	Salt, table		
+egg	171287	Egg, whole, raw, fresh	large	
+butter	173410	Butter, salted		
+sugar	169655	Sugars, granulated		granulated sugar; no tbsp portion (tsp and cup listed)
+vanilla	173471	Vanilla extract		
+all purpose flour	168894	Wheat flour, white, all-purpose, enriched, bleached		enriched, bleached all-purpose
+water	174158	Water, bottled, generic		chosen for its cup/fl oz/ml portions; tap water (173647) is nutritionally equivalent
+milk	171265	Milk, whole, 3.25% milkfat, with added vitamin D		
+baking powder	172803	Leavening agents, baking powder, double-acting, sodium aluminum sulfate		
+baking soda	175040	Leavening agents, baking soda		
+onion	170000	Onions, raw	medium (2-1/2" dia)	
+olive oil	171413	Oil, olive, salad or cooking		
+flour	168894	Wheat flour, white, all-purpose, enriched, bleached		enriched, bleached all-purpose
+cinnamon	171320	Spices, cinnamon, ground		
+garlic	169230	Garlic, raw	clove	no head portion
+brown sugar	168833	Sugars, brown		cup/tsp portions are "packed"/"unpacked" only
+pepper	170931	Spices, pepper, black		
+cayenne	170932	Spices, pepper, red or cayenne		
+lemon juice	167747	Lemon juice, raw		fresh (raw) lemon juice
+black pepper	170931	Spices, pepper, black		
+garlic powder	171325	Spices, garlic powder		
+honey	169640	Honey		
+walnut	170187	Nuts, walnuts, english		English walnuts; cup portions are by cut (chopped, pieces, halves, ground)
+chicken broth	174536	Soup, chicken broth, ready-to-serve		ready-to-serve; no can portion
+garlic clove	169230	Garlic, raw	clove	
+mayonnaise				the book has a Mayonnaise recipe: worked out from it
+paprika	171329	Spices, paprika		
+sour cream	171257	Cream, sour, cultured		
+sunflower lecithin				no sunflower lecithin in SR Legacy
+egg white	172183	Egg, white, raw, fresh	large	
+unsalted butter	173430	Butter, without salt		
+buttermilk	170874	Milk, buttermilk, fluid, cultured, lowfat		cultured lowfat buttermilk (typical store buttermilk); whole buttermilk is 172225
+cane sugar	169655	Sugars, granulated		granulated sugar; no tbsp portion (tsp and cup listed)
+cilantro	169997	Coriander (cilantro) leaves, raw		fresh; portions are only "sprigs" and 0.25 cup; no handful/bare-count portion
+coconut oil	171412	Oil, coconut		
+cream cheese	173418	Cheese, cream		only package portion is "package, small (3 oz)"; 8 oz package lines need the oz
+cumin	170923	Spices, cumin seed		SR lists only cumin seed (tsp/tbsp portions are "whole"); ground cumin weighs more per tsp
+kosher salt	173468	Salt, table		table salt used for kosher/sea salt (sodium per tsp is lower for coarse salt; volume lines will overstate)
+oil	172336	Oil, canola		unspecified oil: canola used
+yeast	175043	Leavening agents, yeast, baker's, active dry		active dry yeast
+celery	169988	Celery, raw	stalk, medium (7-1/2" - 8" long)	stalk/stick = one medium stalk; no bunch portion
+confectioners sugar	169656	Sugars, powdered		powdered sugar; cup portions are "sifted"/"unsifted" only; lb/#each lines need weight
+onion powder	171327	Spices, onion powder		
+active dry yeast	175043	Leavening agents, yeast, baker's, active dry		active dry yeast
+carrot	170393	Carrots, raw	medium	
+date sugar				no SR Legacy date sugar (dried ground dates); Dates, deglet noor differs in moisture
+egg yolk	172184	Egg, yolk, raw, fresh	large	
+granulated garlic	171325	Spices, garlic powder		garlic powder used for granulated garlic
+green onion	170005	Onions, spring or scallions (includes tops and bulb), raw	medium (4-1/8" long)	no bunch portion
+ground cinnamon	171320	Spices, cinnamon, ground		
+ground clove	171321	Spices, cloves, ground		
+white vinegar	172237	Vinegar, distilled		distilled
+blueberry	171711	Blueberries, raw		
+cream tartar	175041	Leavening agents, cream of tartar		
+dried oregano	171328	Spices, oregano, dried		dried
+ginger	169231	Ginger root, raw		fresh ginger root: 4 of 7 lines say grated/minced/sliced; the baking/dressing lines likely mean ground (170926)
+gluten	168147	Vital wheat gluten		no household portions in SR: only gram lines can be weighed
+half half	171255	Cream, fluid, half and half		
+italian seasoning				seasoning blend; not in SR Legacy
+sprouted spelt flour				no sprouted spelt flour in SR Legacy
+tapioca syrup				no tapioca syrup in SR Legacy
+white pepper	170933	Spices, pepper, white		
+almond	170567	Nuts, almonds		cup portions are by cut (whole, slivered, sliced, ground)
+bay leaf	170917	Spices, bay leaf		no whole-leaf portion (only crumbled tsp/tbsp): bare-count lines can't be weighed
+cornstarch	169698	Cornstarch		only a cup portion
+dijon mustard				no Dijon in SR Legacy; only yellow prepared mustard (172234)
+ground black pepper	170931	Spices, pepper, black		
+lard	171401	Lard		
+nut				unspecified nuts
+oregano	171328	Spices, oregano, dried		dried
+parsley	170416	Parsley, fresh		fresh (lines are chopped); "1 tsp Parsley" may mean dried (170930)
+pecan	170182	Nuts, pecans		cup portions are "chopped"/"halves"
+potato	170026	Potatoes, flesh and skin, raw	Potato medium (2-1/4" to 3-1/4" dia)	
+sodium ascorbate				additive (vitamin C); not in SR Legacy
+sprouted spelt				no sprouted spelt flour in SR Legacy
+bread flour	168896	Wheat flour, white, bread, enriched		
+cake flour	169723	Wheat flour, white, cake, enriched		cup portion is "unsifted, dipped"
+chicken breast	171077	Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw	piece	raw skinless boneless; the can and cooked lines differ; piece = 272 g
+chili powder	171319	Spices, chili powder		
+creamy peanut butter	174266	Peanut butter, smooth style, with salt (Includes foods for USDA's Food Distribution Program)		smooth, salted
+green chily	170426	Peppers, hot chili, green, canned, pods, excluding seeds, solids and liquids	pepper	canned green chiles; the "2 green chilies" line may be fresh
+heavy cream	170859	Cream, fluid, heavy whipping		cup portion is named "cup, fluid (yields 2 cups whipped)"
+nutmeg	171326	Spices, nutmeg, ground		
+oats	173904	Cereals, oats, regular and quick, not fortified, dry		
+parmesan	171247	Cheese, parmesan, grated		grated
+potassium				salt substitute (potassium chloride); not in SR Legacy
+romano cheese	171249	Cheese, romano		no cup/tbsp portion; only oz lines can be weighed
+soy sauce	174277	Soy sauce made from soy and wheat (shoyu)		shoyu (soy and wheat)
+tomato	170457	Tomatoes, red, ripe, raw, year round average	medium whole (2-3/5" dia)	raw; "can of diced tomatoes" lines have no can portion
+almond extract				no almond extract in SR Legacy
+apple cider vinegar	173469	Vinegar, cider		
+banana	173944	Bananas, raw	medium (7" to 7-7/8" long)	
+brown rice syrup				no brown rice syrup in SR Legacy
+cheese	173414	Cheese, cheddar (Includes foods for USDA's Food Distribution Program)		vague: cheddar assumed (lines list cheddar first / mac and cheese)
+chicken	171054	Chicken, broilers or fryers, meat only, cooked, roasted		cooked roasted meat (lines with amounts are shredded cooked chicken); the whole raw chicken line can't be weighed
+cocoa	169593	Cocoa, dry powder, unsweetened		natural (not Dutch) unsweetened
+cocoa powder	169593	Cocoa, dry powder, unsweetened		natural (not Dutch) unsweetened
+ground beef	174036	Beef, ground, 80% lean meat / 20% fat, raw		80/20 raw
+ground ginger	170926	Spices, ginger, ground		
+half & half	171255	Cream, fluid, half and half		
+instant yeast	175043	Leavening agents, yeast, baker's, active dry		SR has no instant yeast; active dry used (same dried yeast)
+kale	168421	Kale, raw		
+monk fruit				no monk fruit sweetener in SR Legacy
+nutritional yeast				no nutritional yeast in SR Legacy
+olive	169094	Olives, ripe, canned (small-extra large)	large	ripe (black) canned olives; no can portion
+parmesan cheese	171247	Cheese, parmesan, grated		grated
+peanut butter	174266	Peanut butter, smooth style, with salt (Includes foods for USDA's Food Distribution Program)		smooth, salted
+potato flour	168446	Potato flour		
+red pepper flakes	170932	Spices, pepper, red or cayenne		crushed red pepper ~ ground red/cayenne pepper; flakes are lighter per tsp
+rice	168877	Rice, white, long-grain, regular, raw, enriched		white long-grain raw; one line is "Rice (or red) vinegar" (parse error) and one is cooked rice for serving
+shrimp	175179	Crustaceans, shrimp, raw		raw; no cup portion (the pre-cooked cup line can't be weighed)
+smooth peanut butter	174266	Peanut butter, smooth style, with salt (Includes foods for USDA's Food Distribution Program)		smooth, salted
+stevia	170679	Sweetener, herbal extract powder from Stevia leaf		stevia leaf extract powder; only a "package" (1 g) portion, so tsp lines can't be weighed
+thyme	170938	Spices, thyme, dried		dried; two lines are fresh (sprigs, chopped) - fresh is 173470; no sprig portion
+unsweetened cocoa powder	169593	Cocoa, dry powder, unsweetened		natural (not Dutch) unsweetened
+vegetable oil	172370	Oil, vegetable, soybean, refined		soybean oil (US "vegetable oil")
+whole egg	171287	Egg, whole, raw, fresh	large	
+yellow onion	170000	Onions, raw	medium (2-1/2" dia)	
+active sourdough starter				sourdough starter
+bell pepper	170427	Peppers, sweet, green, raw	medium (approx 2-3/4" long, 2-1/2" dia)	green used; lines mix red and green (same weights)
+boiling water	174158	Water, bottled, generic		same as water
+cabbage	169975	Cabbage, raw	head, medium (about 5-3/4" dia)	
+cajun seasoning				seasoning blend (recipe gives its own mix); not in SR Legacy
+cayenne pepper	170932	Spices, pepper, red or cayenne		
+cheddar cheese	173414	Cheese, cheddar (Includes foods for USDA's Food Distribution Program)		
+coconut flour				no coconut flour in SR Legacy
+flaky sea salt	173468	Salt, table		table salt used; flaky salt is much lighter per tsp, so tsp lines overstate; "to taste" lines have no amount
+graham cracker crumb	174957	Cookies, graham crackers, plain or honey (includes cinnamon)		use the "cup, crushed" portion
+granulated onion	171327	Spices, onion powder		onion powder used for granulated onion
+ground nutmeg	171326	Spices, nutmeg, ground		
+hemp seed	170148	Seeds, hemp seed, hulled		hulled
+light brown sugar	168833	Sugars, brown		cup/tsp portions are "packed"/"unpacked" only
+milk half				not one ingredient ("milk and/or half and half")
+molasses	168820	Molasses		
+mushroom	169251	Mushrooms, white, raw	medium	
+panko bread crumb	174928	Bread, crumbs, dry, grated, plain		plain dry crumbs; panko is much lighter per cup, so cup lines (108 g) will overstate
+pinto bean	175199	Beans, pinto, mature seeds, raw (Includes foods for USDA's Food Distribution Program)		dry beans (Beans for Canning cooks them from dry); the qt line in the chili may mean cooked/home-canned (175200)
+potassium chloride				salt substitute (potassium chloride); not in SR Legacy
+red bell pepper	170108	Peppers, sweet, red, raw	medium (approx 2-3/4" long, 2-1/2 dia.)	
+red pepper sauce	174527	Sauce, ready-to-serve, pepper or hot		Frank's RedHot style hot sauce
+rice vinegar				no rice vinegar in SR Legacy
+rolled oats	173904	Cereals, oats, regular and quick, not fortified, dry		
+rosemary	171333	Spices, rosemary, dried		dried; the Turkey line is fresh (173473)
+hotsauce	174527	Sauce, ready-to-serve, pepper or hot		hot sauce (the parser used to drop "hot")
+semi sweet chocolate chips	167976	Candies, semisweet chocolate		semisweet; cup portions are "cup chips (6 oz package)", "cup mini chips", "cup large chips"
+semisweet chocolate	167976	Candies, semisweet chocolate		semisweet; cup portions are "cup chips (6 oz package)", "cup mini chips", "cup large chips"
+sesame oil	171016	Oil, sesame, salad or cooking		
+spelt flour				SR has only whole spelt grain (169745); its cup weight is for grain, not flour
+spinach	168462	Spinach, raw		
+sweetened condensed milk	171275	Milk, canned, condensed, sweetened		no can portion; lines state 14 oz
+tigernut flour				no tigernut flour in SR Legacy
+tomatillo	168566	Tomatillos, raw	medium	
+tomato paste	170459	Tomato products, canned, paste, without salt added (Includes foods for USDA's Food Distribution Program)		
+tomato sauce	170054	Tomato products, canned, sauce		no 15 oz can portion
+turmeric	172231	Spices, turmeric, ground		
+unbleached all purpose flour	168936	Wheat flour, white, all-purpose, enriched, unbleached		
+vinegar	172237	Vinegar, distilled		distilled
+virgin olive oil	171413	Oil, olive, salad or cooking		
+white onion	170000	Onions, raw	medium (2-1/2" dia)	
+whole milk	171265	Milk, whole, 3.25% milkfat, with added vitamin D		
+yellow mustard	172234	Mustard, prepared, yellow		
+zucchini	169291	Squash, summer, zucchini, includes skin, raw	medium	
+all purpose einkorn flour				no einkorn flour in SR Legacy
+allulose fruit				not one ingredient (allulose or monk fruit); neither in SR Legacy
+almond flour	170567	Nuts, almonds	cup, ground	ground almonds ("cup, ground" = 95 g); SR has no almond flour; blanched flour is close in nutrients
+apple	171688	Apples, raw, with skin (Includes foods for USDA's Food Distribution Program)	medium (3" dia)	
+ascorbic acid				additive (vitamin C); not in SR Legacy
+avocado	171705	Avocados, raw, all commercial varieties	avocado, NS as to Florida or California	
+bacon	168322	Pork, cured, bacon, pre-sliced, cooked, pan-fried	slice	cooked (pan-fried), as the recipes use it
+basil	171317	Spices, basil, dried		dried (tsp line); the "1 bunch fresh basil" line has no portion
+beef broth	171538	Soup, beef broth or bouillon canned, ready-to-serve		
+beef stock	172883	Soup, stock, beef, home-prepared		
+beer	168746	Alcoholic beverage, beer, regular, all		
+berry				unspecified berries
+black olive	169094	Olives, ripe, canned (small-extra large)	large	ripe (black) canned olives; no can portion
+boneless				parse leftover ("boneless, skinless chicken breasts")
+brown cane sugar	168833	Sugars, brown		generic brown sugar; cup portions are "packed"/"unpacked" only
+buckwheat cereal	170286	Buckwheat		whole buckwheat used for dry buckwheat cereal (granules); no cereal entry in SR
+canned pumpkin	168450	Pumpkin, canned, without salt		canned, without salt; no can portion (15 oz lines need the oz)
+chia oil				no chia oil in SR Legacy
+chocolate chips	167976	Candies, semisweet chocolate		semisweet; cup portions are "cup chips (6 oz package)", "cup mini chips", "cup large chips"
+citric acid				additive; not in SR Legacy
+coconut milk	170173	Nuts, coconut milk, canned (liquid expressed from grated meat and water)		canned; no can portion (14 oz lines need the oz)
+collagen	169599	Gelatins, dry powder, unsweetened		unflavoured gelatin used for collagen peptides (same protein); owner to confirm
+confectioner s sugar	169656	Sugars, powdered		powdered sugar; cup portions are "sifted"/"unsifted" only; lb/#each lines need weight
+cream	170859	Cream, fluid, heavy whipping		assumed heavy whipping cream; cup portion is "cup, fluid ..."
+cream mushroom soup	171155	Soup, cream of mushroom, canned, condensed		condensed; no can portion (10.75 oz lines need the oz)
+crust pie shell pastry				the book has a Pie Crust recipe: link the line to it to count it
+deveined shrimp	175179	Crustaceans, shrimp, raw		raw; no cup portion (the pre-cooked cup line can't be weighed)
+dried basil	171317	Spices, basil, dried		
+dry mustard	170929	Spices, mustard seed, ground		
+evaporated milk	171276	Milk, canned, evaporated, with added vitamin D and without added vitamin A		
+fish sauce	174531	Sauce, fish, ready-to-serve		
+flaked coconut	170577	Nuts, coconut meat, dried (desiccated), sweetened, flaked, packaged		sweetened, packaged (typical baking flaked coconut)
+flax meal	169414	Seeds, flaxseed		use the ground tsp/tbsp portions
+frozen				parse leftover: lines are "frozen raspberries" and "frozen, grated butter"
+ginger root	169231	Ginger root, raw		
+gloves garlic	169230	Garlic, raw	clove	
+granulated cane sugar	169655	Sugars, granulated		granulated sugar; no tbsp portion (tsp and cup listed)
+ground dry mustard	170929	Spices, mustard seed, ground		
+ground flaxseed	169414	Seeds, flaxseed		use the ground tsp/tbsp portions
+guittard milk chocolate chips	167587	Candies, milk chocolate		cup portion is "cup chips"
+hard egg	173424	Egg, whole, cooked, hard-boiled	large	
+jalepeno	168576	Peppers, jalapeno, raw	pepper	
+jalepeno sauce	174527	Sauce, ready-to-serve, pepper or hot		generic hot pepper sauce used for jalapeno sauce
+lecithin	171426	Oil, soybean lecithin		soy lecithin; the family elsewhere uses sunflower lecithin (no SR entry)
+lemon peel	167749	Lemon peel, raw		
+liquid				not one ingredient (water, brine or beer)
+lo han				no monk fruit sweetener in SR Legacy
+loosely				not an ingredient
+lupin flour				no lupin flour in SR Legacy
+marinated artichoke heart				no marinated (oil-packed) artichoke hearts in SR Legacy
+mashed banana	173944	Bananas, raw	medium (7" to 7-7/8" long)	
+milk chocolate chips	167587	Candies, milk chocolate		cup portion is "cup chips"
+monterey jack cheese	170844	Cheese, monterey		
+mozzarella	171244	Cheese, mozzarella, low moisture, part-skim		low-moisture part-skim (typical shredded); cup portion is "cup, shredded"
+mozzarella cheese	171244	Cheese, mozzarella, low moisture, part-skim		low-moisture part-skim (typical shredded); cup portion is "cup, shredded"
+old fashioned oats	173904	Cereals, oats, regular and quick, not fortified, dry		
+orange juice	169098	Orange juice, raw (Includes foods for USDA's Food Distribution Program)		fresh (raw) orange juice
+orange zest	169103	Orange peel, raw		"zest from 1 orange" has no portion
+pearled barley	170284	Barley, pearled, raw		raw
+pitted olive	169094	Olives, ripe, canned (small-extra large)	large	ripe (black) canned olives; no can portion
+pizza dough				no raw pizza dough in SR Legacy
+pumpkin	168450	Pumpkin, canned, without salt		canned, without salt; no can portion (15 oz lines need the oz)
+pumpkin puree	168450	Pumpkin, canned, without salt		canned, without salt; no can portion (15 oz lines need the oz)
+pumpkin seed	170556	Seeds, pumpkin and squash seed kernels, dried		dried kernels (pepitas)
+red wine	173190	Alcoholic beverage, wine, table, red		
+roma tomato	170457	Tomatoes, red, ripe, raw, year round average	Italian tomato	
+romo house blend				house seasoning blend
+romo house seasoning				house seasoning blend
+salt ground black pepper				not one ingredient ("salt and pepper to taste")
+salted butter	173410	Butter, salted		
+sea salt	173468	Salt, table		table salt used for kosher/sea salt (sodium per tsp is lower for coarse salt; volume lines will overstate)
+sea salt ground black pepper				not one ingredient ("salt and pepper to taste")
+sesame seed	170150	Seeds, sesame seeds, whole, dried		
+slivered almond	170567	Nuts, almonds	cup, slivered	use the "cup, slivered" portion
+swiss cheese	171251	Cheese, swiss	slice (1 oz)	
+turkey	171481	Turkey, whole, meat only, cooked, roasted		cooked roasted meat; no cup portion, so "cups chopped turkey" lines can't be weighed; whole-bird line not meant
+vital wheat gluten	168147	Vital wheat gluten		no household portions in SR: only gram lines can be weighed
+water only				parse leftover ("water only if needed"), no amount
+whey protein powder	173180	Beverages, Protein powder whey based		
+white chocolate chips	167571	Candies, white chocolate		no package portion (12-ounce package lines need the oz)
+wine vinegar	172240	Vinegar, red wine		red wine vinegar
+wonton wrapper	172802	Wonton wrappers (includes egg roll wrappers)	wrapper, wonton (3-1/2" square)	
+cooking oil	172336	Oil, canola		unspecified oil: canola used
+corn starch	169698	Cornstarch		only a cup portion; one line is "or tapioca starch"
+ketchup	168556	Catsup		
+syrup				unspecified syrup (caramel/crepe lines; may be corn, brown rice or tapioca syrup)
+bread crumb	174928	Bread, crumbs, dry, grated, plain		plain dry crumbs
+heavy whipping cream	170859	Cream, fluid, heavy whipping		cup portion is named "cup, fluid (yields 2 cups whipped)"
+italian sausage	171631	Sausage, Italian, pork, mild, raw		mild pork, raw; one line is "or smoked chicken sausage"
+marshmallow	167995	Candies, marshmallows	regular	large marshmallow = SR "regular" (7.2 g)
+active starter				sourdough starter
+ale	168746	Alcoholic beverage, beer, regular, all		regular beer used for ale; portions are fl oz/can (no cup)
+all purpose	168894	Wheat flour, white, all-purpose, enriched, bleached		enriched, bleached all-purpose
+allulose with monk fruit				allulose/monk fruit sweetener; not in SR Legacy
+almond extract save				no almond extract in SR Legacy ("Save $" is a parse leftover)
+almond meal	170567	Nuts, almonds	cup, ground	ground almonds, as for almond flour; no tbsp portion
+almond paste	170160	Nuts, almond paste		
+aluminum free baking powder	172804	Leavening agents, baking powder, double-acting, straight phosphate		aluminum-free = straight phosphate baking powder
+amish friendship bread starter				bread starter
+ancho chile	169396	Peppers, ancho, dried	pepper	dried ancho
+anchovy paste				no anchovy paste in SR Legacy
+andouille sausage	174584	Sausage, smoked link sausage, pork		no andouille in SR: smoked pork link sausage used
+anise seed	171316	Spices, anise seed		tsp portion is "tsp, whole"
+ap	168894	Wheat flour, white, all-purpose, enriched, bleached		AP = all-purpose flour
+ap four	168894	Wheat flour, white, all-purpose, enriched, bleached		misspelling of "AP flour"
+apple cider	173933	Apple juice, canned or bottled, unsweetened, without added ascorbic acid		unsweetened bottled apple juice (no cider entry); portions are cup/fl oz, qt line converts
+applesauce	171695	Applesauce, canned, unsweetened, without added ascorbic acid (Includes foods for USDA's Food Distribution Program)		unsweetened assumed
+arrowhead mill	169696	Corn flour, masa, unenriched, white		line is "Arrowhead Mills or Bob's Red Mill masa harina": unenriched white masa (non-GMO brands are unenriched)
+arrowroot	170684	Arrowroot flour		arrowroot flour; line lists tapioca starch or cornstarch as alternatives
+arrowroot powder	170684	Arrowroot flour		arrowroot flour; only a cup portion
+baby sweet bell pepper	170108	Peppers, sweet, red, raw	small	mini sweet peppers; SR's smallest pepper (74 g) is larger than a mini pepper, so the count overstates
+baking cocoa	169593	Cocoa, dry powder, unsweetened		natural (not Dutch) unsweetened
+baking soda save	175040	Leavening agents, baking soda		"Save $" is a parse leftover
+bamboo shoot	169212	Bamboo shoots, canned, drained solids		canned (how bamboo shoots are sold in the US); cup portion is "cup (1/8" slices)"
+bittersweet chocolate	170272	Chocolate, dark, 60-69% cacao solids		bittersweet = dark 60-69% cacao
+black bean paste				Chinese black bean paste; not in SR Legacy
+black beluga lentil	172420	Lentils, raw		dry lentils (no beluga entry)
+black cod	175134	Fish, sablefish, raw		sablefish, raw; SR "fillet" is a whole side (0.5 fillet = 193 g), so the 4 portion fillets aren't weighed
+blackberry	173946	Blackberries, raw		
+blocks cream cheese	173418	Cheese, cream		line gives 8 oz per block (weighed from the oz)
+blue cheese	172175	Cheese, blue		
+blue cheese dressing	173562	Salad dressing, blue or roquefort cheese dressing, commercial, regular		commercial, regular
+bone broth	172884	Soup, stock, chicken, home-prepared		animal not stated: home-prepared chicken stock assumed
+bone in				parse leftover: line is "bone-in, country style pork ribs" (167895 if fixed)
+bone in pork chop	168238	Pork, fresh, loin, center loin (chops), bone-in, separable lean and fat, raw	chop without refuse (Yield from 1 raw chop, with refuse, weighing 259g)	center loin, bone-in, lean and fat, raw; 199 g edible per chop
+bone on thin center cut pork chop	168238	Pork, fresh, loin, center loin (chops), bone-in, separable lean and fat, raw		center loin chop, bone-in, raw; the lb weight includes bone, so it overstates a little
+boneless chicken thighs skin removed	173627	Chicken, broilers or fryers, dark meat, thigh, meat only, raw		thigh meat only, raw
+boneless short rib	170826	Beef, chuck, short ribs, boneless, separable lean and fat, trimmed to 0" fat, all grades, raw		boneless, lean and fat, all grades, raw
+boneless skinless chicken breast	171477	Chicken, broilers or fryers, breast, meat only, cooked, roasted		line is cooked and shredded; cup portion is "cup, chopped or diced"
+boneless skinless chicken breasts cut into bite size piece	171077	Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw	piece	raw skinless boneless; piece = 272 g (as first pass)
+bourbon	174815	Alcoholic beverage, distilled, all (gin, rum, vodka, whiskey) 80 proof		distilled spirits, 80 proof
+broccoli	170379	Broccoli, raw		raw
+broccoli stem	169331	Broccoli, stalks, raw		raw stalks; no cup portion (only "stalk")
+bromated				parse leftover: line is "non-bromated, non-enriched AP flour" (169761 if fixed)
+brown rice				not one ingredient ("brown rice or tapioca syrup"); neither syrup in SR Legacy
+buds garlic	169230	Garlic, raw	clove	"bud" read as clove; if it means a whole head the count is far low
+burger bun	172796	Rolls, hamburger or hotdog, plain	roll 1 serving	plain hamburger roll (44 g); "large" buns weigh more
+butter cut into cube	173410	Butter, salted		salted
+butter extract				no butter extract in SR Legacy
+buttermilk powder	171274	Milk, buttermilk, dried		dried buttermilk
+caesar salad dressing	169055	Salad dressing, caesar dressing, regular		commercial regular; line is "or pesto sauce"
+canned pineapple juice	168187	Pineapple juice, canned or bottled, unsweetened, with added ascorbic acid		canned, unsweetened, with added vitamin C (as most brands)
+canned tomato paste	170459	Tomato products, canned, paste, without salt added (Includes foods for USDA's Food Distribution Program)		
+cannellini bean	175204	Beans, white, mature seeds, canned		cannellini = white kidney beans, canned; weighed from the 15.5 oz cans
+caramels into quarters into	167974	Candies, caramels	piece	caramel candies (key is a parse leftover of "caramels")
+cassava flour				no cassava flour in SR Legacy (only raw cassava root)
+cauliflower	169986	Cauliflower, raw	head medium (5-6" dia.)	
+celery seed	170920	Spices, celery seed		
+celery stalk	169988	Celery, raw	stalk, medium (7-1/2" - 8" long)	
+cheddar	173414	Cheese, cheddar (Includes foods for USDA's Food Distribution Program)	cup, shredded	line is "grated cheddar and/or mozzarella": cheddar used
+cheese powder				no cheese powder in SR Legacy
+chia soaked in additional cup very water	170554	Seeds, chia seeds, dried		chia seeds (the soaking water adds nothing); only an oz portion, so the cup line can't be weighed
+chicken bone broth	172884	Soup, stock, chicken, home-prepared		home-prepared chicken stock (line is "bone broth or stock")
+chicken drumstick	172373	Chicken, broilers or fryers, drumstick, meat and skin, raw	drumstick with skin	raw, meat and skin (fried chicken)
+chicken piece	171447	Chicken, broilers or fryers, meat and skin, raw		raw meat and skin; the lb weight includes bone, so it overstates
+chicken stock	172884	Soup, stock, chicken, home-prepared		home-prepared
+chicken tenderized skinned breast	171077	Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw	piece	raw skinless boneless; piece = 272 g (as first pass)
+chicken tenderloin	171077	Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw		tenderloins are breast meat; raw; line is "or chicken breast"
+chicken thigh	172385	Chicken, broilers or fryers, thigh, meat and skin, raw	thigh with skin	raw, meat and skin (fried chicken)
+chickpea	175206	Chickpeas (garbanzo beans, bengal gram), mature seeds, canned, solids and liquids		canned, solids and liquids; weighed from the 15 oz can
+chili pepper	170932	Spices, pepper, red or cayenne		"1 tsp chili peppers" read as crushed dried chili = red/cayenne pepper
+chili power	171319	Spices, chili powder		misspelling of "chili powder"
+chilled whipping cream	170859	Cream, fluid, heavy whipping		heavy whipping cream assumed (light whipping is 170858); cup portion is "cup, fluid ..."
+chinese sauce				"Chinese hot sauce" (unspecified), measured in drops
+chive	169994	Chives, raw	tbsp chopped	fresh; line is "chives or parsley"
+chocolate sandwich cooky	172718	Cookies, chocolate sandwich, with creme filling, regular	cookie	Oreo-type, regular; 3 cookies = 36 g
+chuck roast	169493	Beef, chuck, blade roast, separable lean and fat, trimmed to 1/8" fat, all grades, raw		chuck blade roast, lean and fat, all grades, raw; bone-in weight includes bone
+chunky peanut butter	174265	Peanut butter, chunk style, with salt		chunk style, salted
+cilantro leaf	169997	Coriander (cilantro) leaves, raw		fresh; no tbsp portion (only sprigs and 0.25 cup)
+cinnamon graham cracker	174957	Cookies, graham crackers, plain or honey (includes cinnamon)	cracker	SR graham entry includes cinnamon
+cinnamon red candy	167990	Candies, hard		red hots = cinnamon hard candy; no cup portion
+clam	171976	Mollusks, clam, mixed species, canned, drained solids		canned, drained solids; no can portion (lines say 6.5 oz cans, need the oz)
+clear vanilla extract	172235	Vanilla extract, imitation, alcohol		clear vanilla is imitation (alcohol) vanilla
+coconut almond milk				coconut-almond milk blend; no SR equivalent
+coconut amino				no coconut aminos in SR Legacy
+coconut cream	170580	Nuts, coconut cream, raw (liquid expressed from grated meat)		unsweetened coconut cream (SR's canned coconut cream 170171 is sweetened); weighed from the 14 oz can
+coconut extract				no coconut extract in SR Legacy
+coconut oil add tbsp water	171412	Oil, coconut		coconut oil (the 1 tbsp water adds nothing)
+coconut sugar				no coconut sugar in SR Legacy
+cognac	174815	Alcoholic beverage, distilled, all (gin, rum, vodka, whiskey) 80 proof		distilled spirits, 80 proof (line is "Cognac or brandy")
+cooky				unspecified cookies ("crushed non-GMO cookies")
+cooled gelatin				prepared gelatin (gelatin + water), egg substitute
+coriander seed	170922	Spices, coriander seed		
+corn tortilla	175036	Tortillas, ready-to-bake or -fry, corn	tortilla	
+cornmeal	168867	Cornmeal, degermed, enriched, yellow		degermed, enriched, yellow (typical store cornmeal)
+cornstartch	169698	Cornstarch		misspelling of "cornstarch"; only a cup portion
+costco pesto	171579	Sauce, pesto, ready-to-serve, refrigerated		Kirkland pesto is refrigerated: generic refrigerated basil pesto; only a 0.25 cup portion
+cottage cheese	172182	Cheese, cottage, lowfat, 2% milkfat		line says 2%; weighed from the 16 oz
+course ground chuck	174036	Beef, ground, 80% lean meat / 20% fat, raw		misspelling of "coarse"; ground chuck ~ 80/20 raw
+cream celery soup	171540	Soup, cream of celery, canned, condensed		condensed; weighed from the 10.75 oz can
+cream chicken soup	171146	Soup, cream of chicken, canned, condensed		condensed; weighed from the 10.75 oz can
+cremini mushroom	168434	Mushrooms, brown, italian, or crimini, raw		raw
+crisco cooking oil	172370	Oil, vegetable, soybean, refined		Crisco vegetable oil is soybean oil
+crystal louisiana sauce	174527	Sauce, ready-to-serve, pepper or hot		Louisiana-style hot sauce
+cube butter	173410	Butter, salted	stick	one cube = one stick
+cupsups all purpose flour save	168894	Wheat flour, white, all-purpose, enriched, bleached		parse leftover: "2 1/2 cups" was read as a count, so the line can't be weighed until the parse is fixed
+cut up bacon	168322	Pork, cured, bacon, pre-sliced, cooked, pan-fried		cooked (pan-fried), as first pass; no cup portion
+cut up chicken	171054	Chicken, broilers or fryers, meat only, cooked, roasted		cooked roasted meat; cup portion is "cup, chopped or diced"
+dark chocolate	170274	Candies, chocolate, dark, NFS (45-59% cacao solids 90%; 60-69% cacao solids 5%; 70-85% cacao solids 5%)		dark chocolate NFS; line is "or semi sweet chocolate chips"; no cup portion
+deli ham	173863	Ham, sliced, pre-packaged, deli meat (96%fat free, water added)		pre-packaged deli ham; slice = 13 g
+diastatic malt	169740	Barley malt flour		diastatic malt powder = barley malt flour; no tbsp portion
+hotdog	172968	Frankfurter, meat	serving (1 hot dog)	hot dogs ("hot" lost in parsing); key renamed after the parser kept the phrase whole
+double acting baking powder	172803	Leavening agents, baking powder, double-acting, sodium aluminum sulfate		
+dried				parse leftover: line is "dried, ground lupini" (172423 lupins, raw, if fixed)
+dried ancho peppers stems seeds removed	169396	Peppers, ancho, dried	pepper	dried ancho
+dried basilshopping list	171317	Spices, basil, dried		dried ("shopping list" is a link leftover)
+dried blueberry	168158	Blueberries, dried, sweetened		dried, sweetened; only a 0.25 cup portion
+dried california				no dried California/New Mexico chile in SR Legacy
+dried chiles de arbol	168570	Peppers, hot chile, sun-dried	pepper	generic sun-dried hot chile (0.5 g each, small like de arbol)
+dried chive	170075	Chives, freeze-dried		freeze-dried chives
+dried cranberry	171723	Cranberries, dried, sweetened (Includes foods for USDA's Food Distribution Program)		dried, sweetened
+dried guajillo peppers stems seeds removed				no guajillo in SR Legacy
+dried marjoram leaf	170928	Spices, marjoram, dried		
+dried mexican oregano	171328	Spices, oregano, dried		SR has only common oregano (Mexican oregano is a different plant)
+dried oreganoshopping list	171328	Spices, oregano, dried		dried ("shopping list" is a link leftover)
+dried parsley	170930	Spices, parsley, dried		
+dried pepper flakes	170932	Spices, pepper, red or cayenne		crushed red pepper ~ ground red/cayenne pepper; flakes are lighter per tsp
+dried sage	170935	Spices, sage, ground		ground sage
+dried split pean	172428	Peas, green, split, mature seeds, raw		misspelling of "split peas"; dry green split peas
+dried sweet cherry	171708	Cherries, tart, dried, sweetened (Includes foods for USDA's Food Distribution Program)		SR has only tart dried cherries (sweetened); sweet dried cherries are similar but not the same
+dried thyme	170938	Spices, thyme, dried		dried
+dried thymeshopping list	170938	Spices, thyme, dried		dried ("shopping list" is a link leftover)
+dry active yeast	175043	Leavening agents, yeast, baker's, active dry		
+dry barley	170284	Barley, pearled, raw		pearled assumed
+dry black lentil	172420	Lentils, raw		dry lentils
+dry bread	174924	Bread, white, commercially prepared (includes soft bread crumbs)		white sandwich bread; slice = 29 g
+dry buckwheat cereal	170286	Buckwheat		whole buckwheat used for buckwheat hot cereal, as first pass
+dry dill	171322	Spices, dill weed, dried		dried dill weed
+dry white whine	174837	Alcoholic beverage, wine, table, white		misspelling of "dry white wine"
+dry yeast	175043	Leavening agents, yeast, baker's, active dry		active dry yeast
+egg noodle	169731	Noodles, egg, dry, enriched		dry, enriched; cup = 38 g
+egg white powder	173427	Egg, white, dried, powder, stabilized, glucose reduced		dried egg white powder; cup portion is "cup, sifted"
+eggs whisked	171287	Egg, whole, raw, fresh	large	
+eqq yolk	172184	Egg, yolk, raw, fresh	large	misspelling of "egg yolk"
+extra virgin olive oil	171413	Oil, olive, salad or cooking		
+fage yogurt	171304	Yogurt, Greek, plain, whole milk		Fage Total (whole milk) assumed; 0% is 170894, 2%-type lowfat 170903
+fancy crab meat	171966	Crustaceans, crab, blue, canned		canned crab; weighed from the 4 oz can
+nonfat cottage cheese	172181	Cheese, cottage, nonfat, uncreamed, dry, large or small curd		line says non-fat: SR's nonfat cottage cheese is the uncreamed dry-curd one, leaner than retail nonfat; key renamed after the parser kept the phrase whole
+fetticinni	169736	Pasta, dry, enriched		misspelling of "fettuccine"; dry enriched pasta
+filtered water	174158	Water, bottled, generic		same as water
+fine salt	173468	Salt, table		
+fine sea salt	173468	Salt, table		table salt used for sea salt
+firm butter	173410	Butter, salted		salted
+firm tomato	170457	Tomatoes, red, ripe, raw, year round average	medium whole (2-3/5" dia)	raw
+flavoring				unspecified candy flavoring
+flour blended into	168894	Wheat flour, white, all-purpose, enriched, bleached		all-purpose
+flour mixed with water	168894	Wheat flour, white, all-purpose, enriched, bleached		all-purpose
+flour thicken	168894	Wheat flour, white, all-purpose, enriched, bleached		all-purpose
+flour tortilla	173242	Tortillas, ready-to-bake or -fry, flour, without added calcium	tortilla (approx 7-8" dia)	
+french bread	172675	Bread, french or vienna (includes sourdough)		SR slice is 139 g (a large loaf slice); 1-inch baguette slices weigh far less, so slice lines overstate
+frozen blueberry	173950	Blueberries, frozen, unsweetened (Includes foods for USDA's Food Distribution Program)		frozen, unsweetened; cup portion is "cup, unthawed"
+frozen peas carrot	170425	Peas and carrots, frozen, unprepared		frozen, unprepared
+frying chicken	171447	Chicken, broilers or fryers, meat and skin, raw	chicken, bone removed	whole fryer, raw meat and skin; 0.5 chicken = 460 g edible
+frying oil	172336	Oil, canola		unspecified oil: canola used
+full fat cream cheese	173418	Cheese, cream		
+garlic powdershopping list	171325	Spices, garlic powder		("shopping list" is a link leftover)
+gelatin	169599	Gelatins, dry powder, unsweetened		unflavoured; only package and "envelope (1 tbsp)" portions
+ghirardelli milk chocolate chips	167587	Candies, milk chocolate		cup portion is "cup chips"
+ginger bug				ginger-bug ferment (a starter)
+ginger powder	170926	Spices, ginger, ground		
+gluten free corn meal	168867	Cornmeal, degermed, enriched, yellow		degermed, enriched, yellow (as cornmeal)
+gluten free crispy rice cereal	173887	Cereals ready-to-eat, RALSTON CRISP RICE		SR has no Rice Krispies cereal: Ralston crisp rice used
+gluten free oats	173904	Cereals, oats, regular and quick, not fortified, dry		
+gorgonzola	172175	Cheese, blue		gorgonzola is a blue cheese: blue cheese used
+gorgonzola crumble	172175	Cheese, blue		blue cheese; cup portion is "cup, crumbled, not packed"
+graham cracker	174957	Cookies, graham crackers, plain or honey (includes cinnamon)	cracker	
+granulated sugar granulated sugar	169655	Sugars, granulated		granulated sugar
+granulated white cane sugar	169655	Sugars, granulated		granulated sugar
+grassfed butter	173410	Butter, salted		salted assumed
+green				parse leftover: line is "Green (Anaheim) chilies, roasted"; no Anaheim in SR (170497 green chili, raw, is closest)
+green bean	169142	Beans, snap, green, canned, regular pack, solids and liquids		canned, regular pack, solids and liquids; weighed from the 14.5 oz cans
+green bell pepper	170427	Peppers, sweet, green, raw	medium (approx 2-3/4" long, 2-1/2" dia)	
+green chili salsa	171824	Sauce, salsa, verde, ready-to-serve		salsa verde used for green chili salsa
+green curry paste				no curry paste in SR Legacy
+green salt				house salt blend (line: Real Salt + potassium chloride)
+ground allspice	171315	Spices, allspice, ground		
+ground black peppershopping list	170931	Spices, pepper, black		("shopping list" is a link leftover)
+ground pepper	170931	Spices, pepper, black		black pepper
+ground pork	167902	Pork, fresh, ground, raw		raw
+ground turkey	171505	Turkey, Ground, raw		raw; weighed from the stated 3 lb
+guittard brand milk chocolate baking chips	167587	Candies, milk chocolate		milk chocolate; cup portion is "cup chips"
+guittard semi sweet chocolate chips	167976	Candies, semisweet chocolate		semisweet
+half n half	171255	Cream, fluid, half and half		
+ham bone				ham bone/hock for flavour; no fair SR match or weight
+hamburger	174036	Beef, ground, 80% lean meat / 20% fat, raw		hamburger = ground beef, 80/20 raw
+healthy oil	172336	Oil, canola		unspecified oil: canola used
+heinz ketchup	168556	Catsup		
+hemp oil				no hemp or pumpkin seed oil in SR Legacy
+himalayan salt	173468	Salt, table		table salt used for Himalayan salt
+house seasoning				house seasoning blend
+ice water	174158	Water, bottled, generic		same as water
+instant white rice	169709	Rice, white, long-grain, precooked or instant, enriched, dry		instant, dry
+iodized salt	173468	Salt, table		line says non-iodized salt
+italian seasoned breadcrumb	172806	Bread, crumbs, dry, grated, seasoned		seasoned dry crumbs
+jalapeno	168576	Peppers, jalapeno, raw	pepper	raw (line: roasted and peeled)
+jalapeno sauce	174527	Sauce, ready-to-serve, pepper or hot		generic hot pepper sauce, as first pass; line is "or Red Hot"
+jalapenos slice	168576	Peppers, jalapeno, raw		raw; line counts slices and SR has no per-slice portion, so it can't be weighed
+jovial whole grain einkorn flour				no einkorn flour in SR Legacy
+juice from lemon	167747	Lemon juice, raw		fresh lemon juice
+juice sweetened with sugar				unspecified juice
+just like sugar				branded chicory-root sweetener; not in SR Legacy
+knox gelatin	169599	Gelatins, dry powder, unsweetened		unflavoured gelatin
+knox gelatin with	169599	Gelatins, dry powder, unsweetened	envelope (1 tbsp)	a Knox package is one 7 g envelope (SR's "package (1 oz)" is larger)
+kodiak buttermilk mix				branded protein pancake mix; not in SR Legacy
+lean ground beef	174030	Beef, ground, 90% lean meat / 10% fat, raw		90/10 raw assumed; line is "or beef & turkey"
+lecithen	171426	Oil, soybean lecithin		misspelling of "lecithin"; soy lecithin, as first pass
+lemon	167746	Lemons, raw, without peel	fruit (2-1/8" dia)	whole lemons in the turkey cavity, mostly not eaten
+light				parse leftover: line is "packed light or dark brown sugar" (168833 if fixed)
+light corn syrup	168837	Syrups, corn, light		
+light miso	172442	Miso		
+light olive	171413	Oil, olive, salad or cooking		olive oil; line is "light olive or avocado oil"
+light soy sauce	174277	Soy sauce made from soy and wheat (shoyu)		shoyu used for Chinese light soy sauce
+lime juice	168156	Lime juice, raw		fresh
+lo han natural sweetener				no monk fruit sweetener in SR Legacy
+lohan				no monk fruit sweetener in SR Legacy
+loose basil leaf	172232	Basil, fresh	cup leaves, whole	fresh basil leaves
+low sodium chicken broth	171609	Soup, chicken broth, low sodium, canned		
+lukewarm milk	171265	Milk, whole, 3.25% milkfat, with added vitamin D		whole milk
+lukewarm water	174158	Water, bottled, generic		same as water
+mahi mahi fillet	171959	Fish, mahimahi, raw		raw; line says 4 oz each but SR fillet is 204 g, so the count isn't weighed
+mandarin orange	168184	Tangerines, (mandarin oranges), canned, juice pack, drained		canned (juice pack, drained) assumed for salad mandarins; raw is 169105
+marinara	171192	Sauce, pasta, spaghetti/marinara, ready-to-serve		ready-to-serve marinara; only a 0.5 cup serving portion
+marinara sauce	171192	Sauce, pasta, spaghetti/marinara, ready-to-serve		ready-to-serve marinara
+marjoram	170928	Spices, marjoram, dried		dried
+marsala wine	175112	Alcoholic beverage, wine, dessert, dry		dry dessert (fortified) wine; SR has no Marsala
+masa harina	169696	Corn flour, masa, unenriched, white		unenriched white masa (non-GMO brands are unenriched); enriched is 169694
+mayonnaise dressing				not one ingredient ("mayonnaise or salad dressing"; the mayonnaise is a house recipe)
+meat stock	172883	Soup, stock, beef, home-prepared		meat not stated: home-prepared beef stock assumed
+mexican oregano	171328	Spices, oregano, dried		SR has only common oregano (Mexican oregano is a different plant)
+milk thoroughly				parse leftover ("1/4 milk thoroughly"), no unit
+mini chocolate chips	167976	Candies, semisweet chocolate		semisweet; cup portion is "cup mini chips"
+mini marshmallow	167995	Candies, marshmallows		cup portion is "cup of miniature"; no tbsp
+mirin				no mirin in SR Legacy
+monk fruit powder				no monk fruit sweetener in SR Legacy
+mulato chile	169396	Peppers, ancho, dried	pepper	mulato is a dried poblano like ancho; SR has only ancho; line is "or guajillo"
+mustard	172234	Mustard, prepared, yellow		yellow prepared mustard
+nacho ring				unidentified snack ("nacho rings")
+natural country sausage	172934	Pork sausage, link/patty, unprepared		pork breakfast sausage, raw
+natural unsweetened cocoa powder	169593	Cocoa, dry powder, unsweetened		natural (not Dutch) unsweetened
+now brand brown rice syrup				no brown rice syrup in SR Legacy
+nutella	168000	Chocolate-flavored hazelnut spread		chocolate hazelnut spread; only a 2 tbsp serving portion
+nutella spread	168000	Chocolate-flavored hazelnut spread		chocolate hazelnut spread
+oil blend				house oil blend, no unit
+oil flavor & color				candy flavouring oil and colouring
+oil like olive	171413	Oil, olive, salad or cooking		line is "non-GMO oil like olive": olive oil
+old bay seasoning				seasoning blend; not in SR Legacy
+old fashioned whole rolled oats	173904	Cereals, oats, regular and quick, not fortified, dry		
+olive brine				olive brine; not in SR Legacy
+olive oil shopping list	171413	Oil, olive, salad or cooking		("shopping list" is a link leftover)
+onion powdershopping list	171327	Spices, onion powder		("shopping list" is a link leftover)
+packs koolaid				branded drink mix; not in SR Legacy
+packs oz packages instant yeast	175043	Leavening agents, yeast, baker's, active dry	packet	SR has no instant yeast: active dry used; 1/4 oz package = 7.2 g packet
+panko	174928	Bread, crumbs, dry, grated, plain		plain dry crumbs; panko is much lighter per cup, so cup lines (108 g) will overstate
+panko breadcrumb	174928	Bread, crumbs, dry, grated, plain		plain dry crumbs; panko is much lighter per cup, so cup lines (108 g) will overstate
+parmigiano reggiano	171247	Cheese, parmesan, grated		grated parmesan
+part triple sec				no orange liqueur in SR Legacy; "parts" can't be weighed
+parts lime juice	168156	Lime juice, raw		fresh; measured in "parts" (a ratio), so it can't be weighed
+parts simple syrup				simple syrup is sugar + water (a recipe); "parts" can't be weighed
+parts tequila	174815	Alcoholic beverage, distilled, all (gin, rum, vodka, whiskey) 80 proof		distilled spirits, 80 proof; measured in "parts" (a ratio), so it can't be weighed
+pasilla chile	168579	Peppers, pasilla, dried	pepper	dried pasilla
+pasta	169736	Pasta, dry, enriched	cup shells	dry pasta; line is "small shells or macaroni" (cup elbows = 122 g vs shells 64 g)
+peanut powder	174267	Peanut flour, defatted		powdered peanut = defatted peanut flour
+pepita	170556	Seeds, pumpkin and squash seed kernels, dried		dried kernels (pepitas)
+pepper flake	170932	Spices, pepper, red or cayenne		crushed red pepper ~ ground red/cayenne pepper; flakes are lighter per tsp
+philadelphia cream cheese	173418	Cheese, cream		weighed from the 8 oz packages
+pho bouillon seasoning cube				pho seasoning cube (spiced); SR's beef bouillon cube (171561) is not the same
+pickled jalapeno ring	170080	Peppers, jalapeno, canned, solids and liquids	cup, sliced	canned (pickled) jalapenos
+pineapple	169126	Pineapple, canned, juice pack, solids and liquids		crushed, canned in juice, solids and liquids; weighed from the 20 oz can
+pineapple rings in juice	169126	Pineapple, canned, juice pack, solids and liquids		canned in juice, solids and liquids; weighed from the 20 oz can
+pinto beans juice	175201	Beans, pinto, mature seeds, canned, solids and liquids		cooked beans with their liquid: canned solids and liquids used
+popcorn kernel				SR has only popped popcorn; unpopped kernels weigh far more per cup
+popped popcorn	167959	Snacks, popcorn, air-popped		air-popped
+pork fat	167811	Pork, fresh, backfat, raw		raw pork backfat; no tbsp portion; line is "or minced fatty bacon"
+powder				parse leftover: line is "clove powder" (171321 if fixed)
+powdered sugar save	169656	Sugars, powdered		cup portions are "sifted"/"unsifted" only
+powdered sweetener				unspecified sugar-free sweetener
+prepared horseradish	173472	Horseradish, prepared		
+psyllium powder				supplement; not in SR Legacy
+pure almond extract				no almond extract in SR Legacy
+pure maple syrup	169661	Syrups, maple		
+purified water	174158	Water, bottled, generic		same as water
+quick cooking oats	173904	Cereals, oats, regular and quick, not fortified, dry		
+quinoa flour				SR has only quinoa grain (168874); its cup weight is for grain, not flour
+raisin	168165	Raisins, dark, seedless (Includes foods for USDA's Food Distribution Program)		dark seedless; no tbsp portion
+raspberry jell o	168775	Gelatin desserts, dry mix		gelatin dessert dry mix (Jell-O type)
+real salted butter	173410	Butter, salted		
+red				parse leftover: line is "red hot" (hot sauce, 174527 if fixed)
+red cabbage	169977	Cabbage, red, raw	head, medium (about 5" dia)	raw
+red chili flakes	170932	Spices, pepper, red or cayenne		crushed red pepper ~ ground red/cayenne pepper; flakes are lighter per tsp
+red onion	170000	Onions, raw	cup, chopped	no red onion in SR: onions, raw used
+red pepper	170932	Spices, pepper, red or cayenne		line is "crushed red pepper" (flakes)
+red raspberry	167755	Raspberries, raw		raw; line is "fresh or frozen"; no tbsp portion
+red wine vinegar	172240	Vinegar, red wine		
+red wine vinegarshopping list	172240	Vinegar, red wine		("shopping list" is a link leftover)
+red yellow sweet pepper	170108	Peppers, sweet, red, raw	cup, sliced	red and yellow peppers: red used (yellow 169383 has no cup portion)
+regular flour	168894	Wheat flour, white, all-purpose, enriched, bleached		all-purpose
+relish	168561	Pickle relish, sweet		sweet pickle relish
+reserved chicken broth				broth reserved from cooking the recipe's own chicken; counting it would double-count
+rice flour	169714	Rice flour, white, unenriched		white rice flour
+rice in cups liquid with tsp salt	168877	Rice, white, long-grain, regular, raw, enriched		white long-grain raw (measured before cooking); the 1 1/2 tsp salt in the line is not counted
+rice krispy	173887	Cereals ready-to-eat, RALSTON CRISP RICE		SR has no Rice Krispies cereal: Ralston crisp rice used
+rice wine vinegar				no rice vinegar in SR Legacy
+riced cauliflower	169986	Cauliflower, raw		raw; cup portion is "cup chopped (1/2" pieces)" (riced packs denser)
+roasted				parse leftover: line is "roasted, lightly salted cashews" (169421 if fixed)
+roasted garlic	169230	Garlic, raw	clove	raw garlic weight (roasting loses some water)
+roma tomatoes quartered	170457	Tomatoes, red, ripe, raw, year round average	Italian tomato	
+romano	171249	Cheese, romano		line is "Romano or Parmesan": romano used; no cup portion
+root beer tea				root beer tea blend; not in SR Legacy
+round red				parse leftover: line is "round red or white potatoes" (170028 white potato, raw, if fixed)
+rumford baking powder	172804	Leavening agents, baking powder, double-acting, straight phosphate		Rumford is aluminum-free (straight phosphate)
+rumsford baking powder	172804	Leavening agents, baking powder, double-acting, straight phosphate		misspelling of Rumford; straight phosphate
+sacha inchi powder				no sacha inchi in SR Legacy
+safflower oil	171027	Oil, safflower, salad or cooking, high oleic (primary safflower oil of commerce)		high-oleic safflower (oil of commerce); line is "safflower and/or sunflower oil"
+sage	170935	Spices, sage, ground		ground sage
+sage leaf				fresh sage; SR has only dried ground sage (170935)
+sage seasoning				not one ingredient ("sage or poultry seasoning")
+sake	167723	Alcoholic beverage, rice (sake)		
+salted peanut	172431	Peanuts, spanish, oil-roasted, with salt		Spanish peanuts, oil-roasted, salted (the candy peanut); has a cup portion
+salted pretzel	167555	Snacks, pretzels, hard, plain, salted		hard, salted; no cup portion
+scoop whey protein	173180	Beverages, Protein powder whey based		no scoop portion (only 0.33 cup = 32 g), so scoop lines can't be weighed
+seeds from chile				chile seeds; not in SR Legacy
+semisweet chocolate chips	167976	Candies, semisweet chocolate		cup portions are "cup chips (6 oz package)", "cup mini chips", "cup large chips"
+serrano	169395	Peppers, serrano, raw	pepper	raw
+serrano chili	169395	Peppers, serrano, raw	pepper	raw
+serrano chily	169395	Peppers, serrano, raw	pepper	raw
+serrano pepper	169395	Peppers, serrano, raw	pepper	raw
+serving				not an ingredient (nutrition note)
+shaoxing wine				no Shaoxing (Chinese rice) wine in SR Legacy
+sharp cheddar	173414	Cheese, cheddar (Includes foods for USDA's Food Distribution Program)	cup, shredded	cheddar; "1 cup cold sharp cheddar" read as shredded
+shell noodle	169736	Pasta, dry, enriched		dry enriched pasta
+sherry	175112	Alcoholic beverage, wine, dessert, dry		dry sherry = dry dessert (fortified) wine
+skim milk	171269	Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)		
+slivered				parse leftover: line is "slivered almonds or pistachios"
+smoked paprika	171329	Spices, paprika		SR paprika (no smoked entry)
+sockeye salmon filet	173691	Fish, salmon, sockeye, raw	fillet	raw; SR fillet = 2 x 198 g half fillets (a whole side)
+sour cream added at end	171257	Cream, sour, cultured		
+sourdough	174911	Bread, french or vienna, toasted (includes sourdough)	slice, medium	toasted sourdough slices
+sourdough starter discard				sourdough starter
+soy sauce use tamari	174277	Soy sauce made from soy and wheat (shoyu)		shoyu; tamari (174278) if made gluten-free
+spaghetti	169736	Pasta, dry, enriched		dry enriched pasta
+sprouted wheat flour				no sprouted wheat flour in SR Legacy
+sprouted whole grain spelt flour				no sprouted spelt flour in SR Legacy
+starter				sourdough starter
+sticky rice in	168883	Rice, white, glutinous, unenriched, uncooked		glutinous rice, uncooked (measured before cooking)
+sticky rice in cups water tsp salt	168883	Rice, white, glutinous, unenriched, uncooked		glutinous rice, uncooked; the 2 tsp salt in the line is not counted
+strawberry	167762	Strawberries, raw		raw
+sugar substitute				unspecified sugar substitute
+sun dried tomato	168567	Tomatoes, sun-dried		dry (not oil-packed); line is "or marinara"
+sweet baking chocolate	167977	Candies, sweet chocolate		German's-type sweet chocolate
+sweet cream salted butter	173410	Butter, salted		
+sweet paprika	171329	Spices, paprika		
+sweet potato flour				no sweet potato flour in SR Legacy
+sweet relish	168561	Pickle relish, sweet		
+sweetened coconut	168586	Nuts, coconut meat, dried (desiccated), sweetened, shredded		sweetened, shredded
+tabasco	174528	Sauce, ready-to-serve, pepper, TABASCO		
+taco seasoning				seasoning blend; not in SR Legacy
+tahini	170189	Seeds, sesame butter, tahini, from roasted and toasted kernels (most common type)		roasted-kernel tahini (most common)
+tahini seed				not one ingredient ("tahini or sesame seeds")
+talapia fillets cut into piece	175176	Fish, tilapia, raw	fillet	misspelling of "tilapia"; raw; fillet = 116 g
+tapioca				not one ingredient ("tapioca, brown rice or corn syrup"); no tapioca syrup in SR
+tapioca starch				no tapioca starch in SR (pearl tapioca 169717 is the same starch, but its cup weight is for pearls)
+tbsp frank's redhot original cayenne pepper sauce	174527	Sauce, ready-to-serve, pepper or hot		Frank's RedHot-style hot sauce, as first pass
+tempered				parse leftover: line is "tempered milk chocolate chips" (167587 if fixed)
+thawed pea				not one ingredient (peas, carrots and green beans)
+thick thai brand coconut milk	170173	Nuts, coconut milk, canned (liquid expressed from grated meat and water)		canned; weighed from the 14 oz cans
+thickened cream	170859	Cream, fluid, heavy whipping		line says heavy cream
+thin pork chop	168286	Pork, fresh, loin, center loin (chops), boneless, separable lean and fat, raw		boneless center loin chop, raw; SR chop is 170 g and thin-sliced chops weigh much less, so the count isn't weighed
+thyme leaf	173470	Thyme, fresh		fresh
+toasted oats	173904	Cereals, oats, regular and quick, not fortified, dry		rolled oats, toasted at home
+trimmed beef chuck roast	169493	Beef, chuck, blade roast, separable lean and fat, trimmed to 1/8" fat, all grades, raw		chuck blade roast, lean and fat (1/8" trim), raw
+tsp good seasons italian salad dressing mix				branded dressing mix; not in SR Legacy
+unflavored gelatin	169599	Gelatins, dry powder, unsweetened		only package and "envelope (1 tbsp)" portions
+unflavored powdered gelatin	169599	Gelatins, dry powder, unsweetened		only package and "envelope (1 tbsp)" portions
+unpopped popcorn				SR has only popped popcorn; unpopped kernels weigh far more per cup
+unrefined sea salt	173468	Salt, table		table salt used for sea salt
+unsalted				parse leftover: line is "unsalted, shelled raw pistachios" (170184 if fixed)
+unsweetened baking chocolate	167568	Baking chocolate, unsweetened, squares		
+unsweetened coconut	170170	Nuts, coconut meat, dried (desiccated), not sweetened		dried, unsweetened; weighed from the 44 g
+unsweetened kool aid				branded drink mix (for playdough); not in SR Legacy
+vanilla before boil	173471	Vanilla extract		
+vanilla save	173471	Vanilla extract		"Save $" is a parse leftover
+vegan worcestershire sauce	171610	Sauce, worcestershire		regular Worcestershire (contains anchovy); vegan versions differ slightly
+virgin coconut oil	171412	Oil, coconut		
+walnut piece	170187	Nuts, walnuts, english	cup pieces or chips	English walnuts
+wheat starch				no wheat starch in SR Legacy
+whey protein	173180	Beverages, Protein powder whey based		only a 0.33 cup portion
+whipped				parse leftover: line is "whipped, stabilized heavy cream" (170859 if fixed)
+whipped egg white	172183	Egg, white, raw, fresh	large	
+whisked egg	171287	Egg, whole, raw, fresh		beaten egg; cup portion is "cup (4.86 large eggs)"
+white cane sugar	169655	Sugars, granulated		granulated sugar
+white granulated sugar	169655	Sugars, granulated		granulated sugar; no tbsp portion (tsp and cup listed)
+white miso	172442	Miso		
+white miso paste	172442	Miso		
+white sugarshopping list	169655	Sugars, granulated		granulated; no tbsp portion ("shopping list" is a link leftover)
+white vinegar shopping list	172237	Vinegar, distilled		distilled ("shopping list" is a link leftover)
+white whole wheat	168893	Wheat flour, whole-grain (Includes foods for USDA's Food Distribution Program)		whole-grain wheat flour (white whole wheat is whole wheat from white wheat)
+white wine vinegar	172240	Vinegar, red wine		SR has only red wine vinegar (nutritionally negligible difference)
+whole almond	170567	Nuts, almonds	almond	blanched almonds, near the same
+whole black peppercorn	170931	Spices, pepper, black		no per-peppercorn portion: the count can't be weighed
+whole carrot	170393	Carrots, raw	medium	
+whole clove	171321	Spices, cloves, ground		no per-clove portion: the count can't be weighed
+whole onion	170000	Onions, raw	medium (2-1/2" dia)	
+whole pasteurized egg	171287	Egg, whole, raw, fresh	large	
+whole rosemary leaf	171333	Spices, rosemary, dried		dried, as first pass; fresh is 173473
+whole wheat flour	168893	Wheat flour, whole-grain (Includes foods for USDA's Food Distribution Program)		
+wholesome brand molasses	168820	Molasses		
+worcestershire	171610	Sauce, worcestershire		
+worcestershire sauce	171610	Sauce, worcestershire		
+worchestershire	171610	Sauce, worcestershire		misspelling of "Worcestershire"
+worchestershire sauce	171610	Sauce, worcestershire		misspelling of "Worcestershire"
+worchestshire	171610	Sauce, worcestershire		misspelling of "Worcestershire"
+xanthan gum				additive; not in SR Legacy
+yellow bell pepper	169383	Peppers, sweet, yellow, raw	pepper, large (3-3/4" long, 3" dia)	SR's only count portion for yellow is a large pepper
+yellow curry paste				no curry paste in SR Legacy
+yogurt sweetened with monk fruit				sweetened yogurt with monk fruit; not in SR Legacy
+yolk from pasteurized egg	172184	Egg, yolk, raw, fresh	large	

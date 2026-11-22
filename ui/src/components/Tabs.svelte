@@ -6,7 +6,7 @@
   import { openMenu } from '../lib/menu.svelte';
 
   const NAMES: Record<string, [string, string]> = {
-    settings: ['Settings', 'settings'], import: ['Import', 'plus'], ingredients: ['Ingredients', 'carrot'], search: ['Search', 'search'],
+    settings: ['Settings', 'settings'], import: ['Import', 'plus'], ingredients: ['Ingredients', 'carrot'], calendar: ['Calendar', 'calendar'], search: ['Search', 'search'],
   };
 
   /** what a tab shows: the page's name and icon, as the folder column shows them */

@@ -9,7 +9,7 @@ order: 15
 
 Each folder is a kind of recipe, such as Pies or Soups. On the Mac and on wide screens, the folders sit in a column on the left. Click a folder to open it and show its recipes, and click it again to close it. **Bookmarks** sits at the top of the column. When you open a recipe, the column opens its folder and scrolls to it.
 
-At the bottom of the column you'll find **Ingredients** (see [Ingredients](#/settings/help/ingredients)) and the gear button for Settings.
+At the bottom of the column you'll find the carrot button for [Ingredients](#/settings/help/ingredients), the calendar button for [the calendar](#/settings/help/calendar) and the gear button for Settings.
 
 **On phones and narrow windows**, the column is a drawer. Tap **Folders** in the bar along the bottom to open it, and tap outside it to close it. The bottom bar also has **Home** and **Search**.
 

@@ -18,6 +18,8 @@ pub struct IngredientLine {
     pub unit: Option<String>,
     pub name: String,
     pub note: Option<String>,
+    /// "large", "medium", "small" written before the name ("2 large eggs")
+    pub size: Option<String>,
 }
 
 /// Units as written → the one spelling the app writes (ui/src/lib/units.ts), shown in suggestions.
@@ -44,7 +46,12 @@ const DESCRIPTORS: &[&str] = &[
     "optional", "finely", "coarsely", "roughly", "thinly", "packed", "heaping", "level", "scant", "cold", "warm", "hot",
     "cooked", "uncooked", "raw", "ripe", "peeled", "seeded", "crushed", "large", "medium", "small", "extra", "about",
     "approximately", "room", "temperature", "to", "taste", "of", "a", "an", "the", "plus", "more", "for", "and", "or", "some",
+    "organic",
 ];
+
+/// Words that only mean something together, read before `DESCRIPTORS` drop "hot" or keep "non": "Hot Dogs"
+/// is not "dog", "non-fat" is not "fat", "non-GMO" says nothing about the food.
+const PHRASES: &[(&str, &str)] = &[("non gmo", ""), ("hot dog", "hotdog"), ("hot sauce", "hotsauce"), ("non fat", "nonfat")];
 
 /// Different names for the same thing (after normalising). Only true synonyms.
 const ALIASES: &[(&str, &str)] = &[
@@ -80,7 +87,12 @@ static UNIT: LazyLock<Regex> = LazyLock::new(|| {
 static CONTAINER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^(cans?|jars?|packages?|pkgs?|box(es)?|bags?|bottles?|cartons?|containers?)\s+(of\s+)?").unwrap());
 /// a package size after the count: "1 14-oz can", "2 8oz packages"
 static SIZE2: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^(\d+(?:\.\d+)?\s*-?\s*(?:fl\.?\s*oz|oz|ounces?|g|grams?|ml|lbs?|pounds?))\.?\s+").unwrap());
-static SIZE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^(large|medium|small|heaping|level|scant|generous|slight)\s+").unwrap());
+static SIZE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^(extra[- ]large|large|medium|small|jumbo|heaping|level|scant|generous|slight)\s+").unwrap());
+/// "1 - 15 oz can": a count, then a package size (not a range)
+static COUNT_SIZE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\d+)\s*[-–]\s*(\d+(?:\.\d+)?)$").unwrap());
+static SIZE_CONTAINER: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)^(?:fl\.?\s*oz|oz|ounces?|g|grams?|ml|lbs?|pounds?)\.?\s+(?:cans?|jars?|packages?|pkgs?|box(?:es)?|bags?|bottles?|cartons?|containers?)\b").unwrap()
+});
 /// What is left of a line split mid-amount ("+ 1 tbsp milk", "and 1/2 cup", "less 3 tbsp flour") or a
 /// label in front of it ("Optional: ½ tsp vanilla").
 static LEAD: LazyLock<Regex> = LazyLock::new(|| {
@@ -96,6 +108,8 @@ static NOT_INGREDIENT: LazyLock<Regex> = LazyLock::new(|| {
     let verbs = "add|bake|cook|mix|stir|preheat|pour|serve|fold|combine|place|let|heat|beat|blend|cover|remove|gently|melt|sift|shape|whip|make|marinate|build|reduce|thicken|line";
     Regex::new(&format!(r"(?i)^(?:(?:{verbs})\b|whisk\s+\S|(?:in|on)\s+(?:a|an|the|your)\b|try\b|day\s*\d|makes\b|serves\b)|preheat|minutes|degrees|[°˚]")).unwrap()
 });
+/// A nutrition statement among the ingredients ("1 serving (1 slice) equals 476 calories, …").
+static CALORIES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)\b(?:calories|kcal)\b").unwrap());
 /// Equipment ("mixing bowl and spoon"), singular; with `CONNECTORS` and `DESCRIPTORS` the only words of such a name.
 const EQUIPMENT: &[&str] = &[
     "bowl", "mixing", "microwave", "safe", "scissor", "mixer", "hand", "whisk", "spoon", "wooden", "measuring", "cup", "pan", "baking",
@@ -126,6 +140,11 @@ pub fn parse_line(text: &str) -> IngredientLine {
         out.qty = Some(c[1].trim().to_string());
         rest = &rest[c[0].len()..];
         rest = rest.trim_start_matches(['+', '-', '–']).trim_start(); // "3/4 - cup milk"
+        // "1 - 15 oz can chickpeas": one can of 15 oz, not the range 1 to 15
+        if let Some(r) = COUNT_SIZE.captures(&c[1]).filter(|_| SIZE_CONTAINER.is_match(rest)) {
+            out.qty = Some(r[1].to_string());
+            rest = &text[c.get(1).unwrap().start() + r.get(2).unwrap().start()..];
+        }
     }
     if let Some(c) = PAREN.captures(rest) {
         out.note = Some(c[1].trim().to_string());
@@ -139,6 +158,7 @@ pub fn parse_line(text: &str) -> IngredientLine {
         }
     }
     if let Some(c) = SIZE.captures(rest) {
+        out.size = Some(c[1].to_lowercase());
         rest = &rest[c[0].len()..];
     }
     if let Some(c) = UNIT.captures(rest) {
@@ -163,6 +183,16 @@ pub fn parse_line(text: &str) -> IngredientLine {
             } else if let Some(c) = UNIT.captures(rest).filter(|c| c[1].chars().count() >= 2) {
                 rest = &rest[c[0].len()..];
             }
+            // "1 ½ cups (150 g) lupin flour": the weight in brackets is a note, not the end of the name
+            if let Some(c) = PAREN.captures(rest).filter(|c| c[0].len() < rest.len()) {
+                let n = c[1].trim().to_string();
+                out.note = Some(out.note.take().map_or(n.clone(), |p| format!("{p}; {n}")));
+                rest = &rest[c[0].len()..];
+            }
+            if let Some(c) = SIZE.captures(rest).filter(|_| out.size.is_none()) {
+                out.size = Some(c[1].to_lowercase());
+                rest = &rest[c[0].len()..];
+            }
         }
     }
     let lower = rest.to_lowercase();
@@ -184,6 +214,112 @@ pub fn parse_line(text: &str) -> IngredientLine {
     out
 }
 
+/// What one ingredient line (or one portion of a table row) asks for, read for working out nutrition.
+#[derive(Serialize, Debug, Clone, PartialEq, Default)]
+pub struct Amount {
+    /// the amount as a number; a range counts its first number ("2-3" → 2). None when none is written.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub qty: Option<f64>,
+    /// one spelling (`UNITS`): "cup", "tbsp", "clove"…
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unit: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<String>,
+    /// the ingredient's normalised name (`key`); the first one when the line offers alternatives
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    /// a weight written for the whole amount: "1 ½ cups (150 g)" → 150, "2 (15 oz) cans" → 850
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grams: Option<f64>,
+    /// why the line is left out although it names an ingredient: "optional", "garnish", "for frying"…
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip: Option<String>,
+}
+
+static MIXED: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\d+)-(\d+\s*/\s*\d+)").unwrap());
+static RANGE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s*(?:\bto\b|\bor\b|–|-)\s*").unwrap());
+static PLUS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s*(?:\+|\band\b)\s*").unwrap());
+static NUMBER: LazyLock<Regex> =LazyLock::new(|| Regex::new(r"^(\d+(?:[.,]\d+)?)?\s*(?:-?\s*(\d+)\s*/\s*(\d+)|([½¼¾⅓⅔⅛⅜⅝⅞]))?$").unwrap());
+static WEIGHT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)^(?:about\s+|approx\.?\s+)?(\d+(?:\.\d+)?)\s*-?\s*(oz|ounces?|g|grams?|lbs?|pounds?|kg)\b").unwrap()
+});
+/// Not part of the dish as made: left out of nutrition.
+static LEFT_OUT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)\b(optional|if desired|for (?:garnish|serving|topping|frying|deep frying|dusting|brushing|greasing|rolling|the pan)|garnish)\b").unwrap()
+});
+
+/// "1 ½" → 1.5, "1-1/2" → 1.5, "2 ¼ to 2 ¾" → 2.25, "1 and 1/2" → 1.5, "a" → 1, "two" → 2.
+pub fn number(q: &str) -> Option<f64> {
+    let q = q.trim().to_lowercase();
+    let words = [("a", 1.0), ("an", 1.0), ("one", 1.0), ("two", 2.0), ("three", 3.0), ("four", 4.0), ("five", 5.0), ("six", 6.0),
+        ("seven", 7.0), ("eight", 8.0), ("nine", 9.0), ("ten", 10.0), ("twelve", 12.0), ("half", 0.5), ("dozen", 12.0)];
+    // "1-1/2" is a mixed number, not a range; a range or alternative counts its first number
+    let q = MIXED.replace(&q, "$1 $2");
+    let head = RANGE.split(&q).next().unwrap_or_default();
+    let mut total = 0.0;
+    for part in PLUS.split(head) {
+        if let Some(w) = words.iter().find(|w| w.0 == part) {
+            total += w.1;
+            continue;
+        }
+        let c = NUMBER.captures(part)?;
+        if c.get(1).is_none() && c.get(2).is_none() && c.get(4).is_none() {
+            return None;
+        }
+        let whole = c.get(1).map_or(Some(0.0), |m| m.as_str().replace(',', ".").parse().ok())?;
+        let frac = match (c.get(2), c.get(3), c.get(4)) {
+            (Some(a), Some(b), _) => a.as_str().parse::<f64>().ok()? / b.as_str().parse::<f64>().ok().filter(|b| *b > 0.0)?,
+            (_, _, Some(g)) => match g.as_str() { "½" => 0.5, "¼" => 0.25, "¾" => 0.75, "⅓" => 1.0 / 3.0, "⅔" => 2.0 / 3.0, "⅛" => 0.125, "⅜" => 0.375, "⅝" => 0.625, _ => 0.875 },
+            _ => 0.0,
+        };
+        total += whole + frac;
+    }
+    (total > 0.0).then_some(total)
+}
+
+/// Grams in the factor table of a weight unit.
+fn unit_grams(u: &str) -> Option<f64> {
+    match u.to_lowercase().trim_end_matches('s') {
+        "oz" | "ounce" => Some(28.3495),
+        "lb" | "pound" => Some(453.592),
+        "g" | "gram" => Some(1.0),
+        "kg" => Some(1000.0),
+        _ => None,
+    }
+}
+
+/// The amount one ingredient line asks for (`None` for a label, direction or equipment line).
+pub fn amount(text: &str) -> Option<Amount> {
+    // alternatives read against the foods the nutrition table knows ("milk and/or half and half")
+    let l = parse_line(text);
+    let key = names_in(text, crate::nutrition::known())
+        .first()
+        .and_then(|n| key(n))
+        // a long measured line names its ingredient first ("3 lb chicken tenderloins or chicken breast cut against the grain")
+        .or_else(|| l.qty.as_ref().and(ALT.split(&l.name).next()).filter(|n| !NOT_INGREDIENT.is_match(n)).and_then(key));
+    // a measured line naming nothing known ("3 tbsp non-GMO, low inflammatory oil") is still an ingredient
+    if key.is_none() && (l.qty.is_none() || l.name.is_empty() || NOT_INGREDIENT.is_match(&plain(text)) || CALORIES.is_match(text)) {
+        return None;
+    }
+    // a unit without a number is one of it ("Pinch of salt", "Tbsp sugar")
+    let qty = l.qty.as_deref().and_then(number).or(l.unit.as_ref().map(|_| 1.0));
+    // a weight in the note: per container or item when the amount is a count, else the same amount in grams
+    let per_item = matches!(l.unit.as_deref(), None | Some("can" | "jar" | "package" | "packet" | "envelope" | "box" | "bag"));
+    let grams = l.note.as_deref().and_then(|n| WEIGHT.captures(n)).and_then(|c| {
+        let g = c[1].parse::<f64>().ok()? * unit_grams(&c[2])?;
+        Some(if per_item { g * qty.unwrap_or(1.0) } else { g })
+    });
+    let skip = LEFT_OUT.captures(&plain(text)).map(|c| c[1].to_lowercase());
+    Some(Amount { qty, unit: l.unit, size: l.size, key, grams, skip })
+}
+
+/// Fill in `amounts` on every ingredient line of a parsed recipe: one per portion of a table row.
+pub fn annotate(r: &mut crate::recipe::Recipe) {
+    for it in r.ingredients.iter_mut().flat_map(|g| g.items.iter_mut()) {
+        it.amounts = if it.alts.is_empty() { vec![amount(&it.text)] } else { it.alts.iter().map(|a| amount(a)).collect() };
+    }
+}
+
 fn singular(w: &str) -> String {
     if KEEP.contains(&w) || w.len() <= 3 || w.ends_with("ss") || w.ends_with("us") {
         return w.to_string();
@@ -203,7 +339,10 @@ fn singular(w: &str) -> String {
 /// Normalised grouping key for an ingredient name ("All-Purpose Flour" → "all purpose flour").
 pub fn key(name: &str) -> Option<String> {
     use unicode_normalization::UnicodeNormalization;
-    let lower: String = name.nfkc().collect::<String>().to_lowercase().replace(['-', '/'], " ");
+    let mut lower: String = name.nfkc().collect::<String>().to_lowercase().replace(['-', '/'], " ");
+    for (from, to) in PHRASES {
+        lower = lower.replace(from, to);
+    }
     let lower = ABBR.replace_all(&lower, |c: &regex::Captures| c[0].chars().filter(|c| c.is_alphabetic()).collect::<String>());
     let words: Vec<String> = lower
         .split(|c: char| !(c.is_alphanumeric() || c == '&' || c == '\''))
@@ -235,8 +374,8 @@ fn keep(name: &str) -> bool {
 /// The line's name split into alternatives, each read again for an amount ("Garlic Powder or 2 garlic
 /// cloves" → "Garlic Powder", "garlic cloves"). Empty for labels, sentences and directions.
 fn alternatives(text: &str) -> Vec<String> {
-    if text.trim_end().trim_end_matches(['*', '_']).ends_with(':') || text.trim_start().starts_with("\\*") {
-        return vec![]; // a label inside the list ("Mix:") or a footnote ("\* Best blueberries are …")
+    if text.trim_end().trim_end_matches(['*', '_']).ends_with(':') || text.trim_start().starts_with("\\*") || CALORIES.is_match(text) {
+        return vec![]; // a label inside the list ("Mix:"), a footnote ("\* Best blueberries are …"), nutrition facts
     }
     let name = parse_line(text).name;
     if name.chars().count() > 50 || name.split_whitespace().count() > 6 || NOT_INGREDIENT.is_match(&name) {
@@ -477,6 +616,49 @@ mod tests {
     }
 
     #[test]
+    fn numbers() {
+        for (s, n) in [("1", 1.0), ("1 ½", 1.5), ("1½", 1.5), ("1/2", 0.5), ("1 1/2", 1.5), ("1-1/2", 1.5), ("2 ¼ to 2 ¾", 2.25),
+            ("3-4", 3.0), ("1 and 1/2", 1.5), ("1 + 1/2", 1.5), ("a", 1.0), ("One", 1.0), ("half", 0.5), ("2.5", 2.5), ("⅓", 1.0 / 3.0)] {
+            assert_eq!(number(s), Some(n), "{s}");
+        }
+        assert_eq!(number("a few"), None);
+        assert_eq!(number("several"), None);
+    }
+
+    #[test]
+    fn amounts() {
+        let a = |s: &str| amount(s).unwrap();
+        let x = a("1 ½ cups all-purpose flour, sifted");
+        assert_eq!((x.qty, x.unit.as_deref(), x.key.as_deref(), x.grams), (Some(1.5), Some("cup"), Some("all purpose flour"), None));
+        let x = a("2 large eggs, beaten");
+        assert_eq!((x.qty, x.unit, x.size.as_deref(), x.key.as_deref()), (Some(2.0), None, Some("large"), Some("egg")));
+        // a weight in brackets: the whole amount, or per container
+        let x = a("1 ½ cups (150 g) lupin flour");
+        assert_eq!((x.key.as_deref(), x.grams), (Some("lupin flour"), Some(150.0)));
+        assert_eq!(a("2 (15 oz) cans pumpkin").grams, Some(2.0 * 15.0 * 28.3495));
+        assert_eq!(a("1 14-oz can of coconut cream").grams, Some(14.0 * 28.3495));
+        // "1 - 15 oz can": one can, not 1 to 15
+        let x = a("1 - 15 oz can of chickpeas");
+        assert_eq!((x.qty, x.key.as_deref(), x.grams), (Some(1.0), Some("chickpea"), Some(15.0 * 28.3495)));
+        assert_eq!(p("3 - 15 oz cans black beans").0, Some("3"));
+        assert_eq!(a("3-4 cloves garlic").qty, Some(3.0));
+        // left out of nutrition, and why
+        assert_eq!(a("1 tsp MSG (optional)").skip.as_deref(), Some("optional"));
+        assert_eq!(a("Lard for frying").skip.as_deref(), Some("for frying"));
+        assert_eq!(a("Salt to taste").qty, None);
+        assert_eq!(a("1 1/4 tsp kosher salt, plus more to taste").skip, None);
+        // alternatives: the first one
+        assert_eq!(a("½ cup butter or ghee").key.as_deref(), Some("butter"));
+        assert_eq!(a("3 lb chicken tenderloins or chicken breast cut against the grain").key.as_deref(), Some("chicken tenderloin"));
+        // measured, but naming nothing the table could know: still an ingredient, so it's listed as not counted
+        assert_eq!(a("3 tbsp non-GMO, low inflammatory oil").key, None);
+        assert_eq!(a("1 ½ cups milk and/or half and half").key.as_deref(), Some("milk"));
+        assert!(amount("and 1/2 cup").is_none());
+        assert!(amount("Mix:").is_none());
+        assert!(amount("Preheat oven to 350").is_none());
+    }
+
+    #[test]
     fn keys() {
         assert_eq!(key("Eggs").as_deref(), Some("egg"));
         assert_eq!(key("large eggs").as_deref(), Some("egg"));
@@ -491,6 +673,11 @@ mod tests {
         assert_eq!(key("pure vanilla extract").as_deref(), Some("vanilla"));
         assert_eq!(key("A.P. flour").as_deref(), Some("all purpose flour"));
         assert_eq!(key("A P flour").as_deref(), Some("all purpose flour"));
+        assert_eq!(key("Hot Dogs").as_deref(), Some("hotdog"));
+        assert_eq!(key("hot sauce").as_deref(), Some("hotsauce"));
+        assert_eq!(key("hot water").as_deref(), Some("water"));
+        assert_eq!(key("non-fat cottage cheese").as_deref(), Some("nonfat cottage cheese"));
+        assert_eq!(key("non-GMO canola oil").as_deref(), Some("canola oil"));
     }
 
     fn n(s: &str) -> Vec<String> {
@@ -579,6 +766,8 @@ mod tests {
             // labels and suggestions
             "Day 1: Preparing the Starter", "Makes 3 cups", "Try adding RED FOOD COLORING", "Try adding sacha inchi",
             "Try substituting ¼ cup psyllium", "\\* Best blueberries are organic and small",
+            // a nutrition statement written among the ingredients
+            "1 serving (1 slice) equals 476 calories, 26 g fat (11 g saturated fat)",
             // equipment
             "scissors", "mixing bowl and spoon", "microwave-safe bowl", "medium-size d mixing bowl", "whisk or hand mixer",
             "measuring cup and spoons", "wooden spoon", "whisk",

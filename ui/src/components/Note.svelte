@@ -7,7 +7,8 @@
   import { renderMarkdown, scaledRaw, bodyOf, vaultTarget, linksTo } from '../lib/markdown';
   import { formatNum, parseYield, portionMultipliers, resolvePortion, yieldLabel, type Units } from '../lib/scale';
   import { openMenu, type MenuItem } from '../lib/menu.svelte';
-  import { entryItems, requireWrite, attachImage, shell, signer } from '../lib/ops';
+  import { entryItems, requireWrite, attachImage, shell, signer, assumeMade } from '../lib/ops';
+  import { ASSUME_AFTER_MIN, madeToday } from '../lib/made';
   import { confirm3, askCheck } from '../lib/dialog.svelte';
   import { stamp, today, creditedByDefault, authorsOf } from '../lib/credit';
   import Editor from './Editor.svelte';
@@ -139,7 +140,18 @@
     const media = () => { wide = mq?.matches ?? false; if (!wide && mode === 'split') mode = 'edit'; };
     window.addEventListener('beforeunload', unload);
     mq?.addEventListener('change', media);
-    return () => { clearLeaveGuard(tab.id, confirmLeave); window.removeEventListener('beforeunload', unload); mq?.removeEventListener('change', media); };
+    // probably cooked: a recipe read (or in cook mode) for ASSUME_AFTER_MIN minutes on screen, without
+    // "Made today", is logged as a guess, once per opening. Time counts only while this tab is the one
+    // shown and the page is visible. ponytail: 30 s ticks, so the count is accurate to half a minute.
+    let seen = 0, guessed = false;
+    const tick = setInterval(() => {
+      if (guessed || tab.id !== app.tab || document.visibilityState !== 'visible' || mode !== 'read' || !entry?.recipe) return;
+      seen += 0.5;
+      if (seen < ASSUME_AFTER_MIN) return;
+      guessed = true;
+      if (!madeToday(app.made, path, Date.now(), true)) assumeMade(path);
+    }, 30_000);
+    return () => { clearInterval(tick); clearLeaveGuard(tab.id, confirmLeave); window.removeEventListener('beforeunload', unload); mq?.removeEventListener('change', media); };
   });
 
   /** Properties panel, "Mark as reviewed", AI tidy: one immediate, deliberate save, recorded with `note`. */
@@ -379,7 +391,7 @@
               </form>
             {/if}
             <div class="prose">{@html html}</div>
-            {#if mode === 'read'}<Nutrition data={entry.frontmatter?.nutrition} />{/if}
+            {#if mode === 'read'}<Nutrition entry={entry.recipe ? entry : null} {factor} {portion} yields={baseYield} />{/if}
             {#if mode === 'read' && entry.recipe}<MadeToday {entry} />{/if}
             {#if mode === 'read' && origPdf && !entry.recipe}
               {#if canWrite()}<p class="no-print"><button class="btn" disabled={converting} onclick={() => convertPdf(origPdf!)}>Convert to an editable recipe…</button></p>{/if}

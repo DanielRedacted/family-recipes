@@ -53,7 +53,7 @@ Request bodies are limited to 30 MB, responses are compressed (gzip, brotli), an
 | Method | Path | Purpose | Who |
 |---|---|---|---|
 | GET | `/api/ping` | Answers `ok` (used to probe for HTTPS) | anyone |
-| GET | `/api/session` | Role, person, whether a PIN is set, AI on, shell available, version, whether the first-start setup is pending | anyone |
+| GET | `/api/session` | Role, person, whether a PIN is set, AI on, the Mac's calendar on (switched on with at least one calendar ticked), shell available, version, whether the first-start setup is pending | anyone |
 | POST | `/api/session` | Sign in `{name, full_name, pin}`: adds the person if the name is new (then `full_name` is required), checks the PIN when one is set, records the device, sets the session cookie | anyone |
 | DELETE | `/api/session` | Sign out (clears the cookie) | anyone |
 | GET | `/auth?k=<token>` | Exchanges the launch token for the admin cookie and redirects to `/` | loopback only |
@@ -74,6 +74,10 @@ Request bodies are limited to 30 MB, responses are compressed (gzip, brotli), an
 | POST | `/api/trash/restore` | Restore `{id}`; returns the restored path | Writer |
 | DELETE | `/api/trash` | Empty the trash | Admin |
 | GET | `/api/ingredients` | The ingredient catalogue and the known units, with an ETag | Reader |
+| GET | `/api/foods` | The nutrition table `{source, foods: {key: food or null}, own: [key…]}`, with an ETag: USDA values per 100 g (`n`), grams per ml (`ml`) and per item (`g`); `own` = keys looked up or chosen on this Mac | Reader |
+| GET | `/api/foods/search?q=` | USDA Foundation and SR Legacy foods matching `q` → `[{fdc, name, kind}]`; `400` without a USDA key | Admin |
+| PUT | `/api/foods/{key}` | Count an ingredient as USDA food `{fdc}`, or leave it out with `{fdc: null}` | Admin |
+| DELETE | `/api/foods/{key}` | Undo a lookup or choice (back to the shipped table; looked up again) | Admin |
 
 Paths are relative to the recipes folder, `/`-separated, without `..` or dot components (`VaultPath`).
 
@@ -96,10 +100,11 @@ Import runs as a job: start it, poll its status, then save. Nothing is written u
 
 | Method | Path | Purpose | Who |
 |---|---|---|---|
-| GET | `/api/settings` | Recipes folder, PIN set, AI settings and whether a key is saved, sharing and its status, keep awake, open at login, GitHub status, Editing as | Admin |
-| PUT | `/api/settings` | Change any of `ai`, `lan`, `keep_awake`, `vault`, `setup_done`, `editing_as` (`""` for nobody); starts or stops sharing as needed; returns the settings | Admin |
+| GET | `/api/settings` | Recipes folder, PIN set, AI settings and whether a key is saved, sharing and its status, keep awake, open at login, GitHub status, Editing as, `calendar` `{enabled, calendars}` | Admin |
+| PUT | `/api/settings` | Change any of `ai`, `calendar`, `lan`, `keep_awake`, `vault`, `setup_done`, `editing_as` (`""` for nobody); starts or stops sharing as needed; returns the settings | Admin |
 | PUT | `/api/settings/pin` | Set `{pin}` (6 characters or more), or remove it with `""`; signs every device out | Admin |
 | PUT | `/api/settings/ai-key` | Save `{key}` in the Keychain, or delete it with `""` | Admin |
+| PUT | `/api/settings/usda-key` | Save the USDA FoodData Central key `{key}` in the Keychain (starts lookups), or delete it with `""`. `GET /api/settings` reports `usda_key_set` and `nutrition_status` (the last lookup run's result or error) | Admin |
 | POST | `/api/setup/trust-local` | Trust the local CA in this Mac's login keychain (macOS asks for the password) | Admin |
 
 ### People
@@ -121,8 +126,21 @@ See [People](#/settings/help/people).
 | GET | `/api/messages` | The whiteboard notes still showing, newest first | anyone |
 | POST | `/api/messages` | Add a note `{text, expires}` (up to 500 characters; `expires` in Unix seconds, or none for until removed) | signed in |
 | DELETE | `/api/messages/{id}` | Remove any note | signed in |
-| GET | `/api/made` | The log of meals made | anyone |
-| POST | `/api/made` | Log the recipe `{path}` as made now; returns the whole log | anyone |
+| GET | `/api/made` | The log of meals made: `{at, path, title, tags, by?, assumed?}`, oldest first | anyone |
+| POST | `/api/made` | Log the recipe `{path, assumed}` as made now by the caller; returns the whole log. A guess (`assumed: true`, sent by the reader after `ASSUME_AFTER_MIN` minutes on screen) is skipped when the recipe was logged in the last 12 hours; a real entry replaces a guess from the last 12 hours | anyone |
+| PUT | `/api/made/{at}?path=` | Confirm a guess: it stops being `assumed` and is credited to the caller, keeping its time | anyone |
+| DELETE | `/api/made/{at}?path=` | Remove a guess. Real entries can't be removed (`400`) | anyone |
+
+### The Mac's calendar
+
+Read-only, through EventKit (`calendar.rs`). Off until `settings.calendar.enabled`; `calendars` lists the calendar ids to show; none are shown until one is ticked, and a calendar added later stays hidden. macOS grants access to every calendar at once; the server reads only the listed ones. Each request opens its own event store, so edits in Calendar.app show on the next request (the UI asks every minute).
+
+| Method | Path | Purpose | Who |
+|---|---|---|---|
+| GET | `/api/calendar?from=&to=` | Events between two Unix times (at most 62 days): `{title, start, end, all_day, calendar, location}`, all-day first, then by start. `[]` when off, when no calendar is ticked or when macOS hasn't allowed access | signed in |
+| GET | `/api/calendar/calendars` | `{access: "ok" \| "denied", calendars: [{id, title}]}`. The first call shows macOS's permission prompt and waits for the answer | Admin |
+
+The desktop app needs `NSCalendarsUsageDescription` / `NSCalendarsFullAccessUsageDescription` (`src-tauri/Info.plist`) and the `com.apple.security.personal-information.calendars` entitlement (`src-tauri/Entitlements.plist`), because it's signed with the hardened runtime. A process that isn't an app bundle (the headless `recipes-server`, or `target/debug/recipes-app` during development) is credited to the app that started it, such as Terminal or VS Code. Those have no calendar usage text, so macOS refuses without a prompt and lists that app under Privacy & Security → Calendars. Test the permission in a built `Recipes.app`; `tccutil reset Calendar <bundle id>` clears an entry.
 | POST | `/api/feedback` | Append `{kind, text, context}` to `FEEDBACK.md` in the recipes folder (`kind`: Bug, Idea or Other; text up to 5000 characters, context up to 2000) | signed in |
 
 ### AI

@@ -37,7 +37,9 @@ Ideas the earlier projects had, built or planned, that this app doesn't have. No
   assistant could share them. See [VOICE.md](../../VOICE.md).
 - **Temperature conversion** (°F ↔ °C) in metric mode. The app spells temperatures one way but
   doesn't convert them. [VOICE.md](../../VOICE.md) wanted one conversion path shared by the reader and voice.
-- **Cups ↔ grams per ingredient.** A bundled density table (about 150 ingredients, e.g. flour
+- **Cups ↔ grams per ingredient.** The weights now exist (USDA grams per cup and per item in
+  `crates/core/data/foods.json`, used for nutrition); the reader's Metric mode doesn't use them yet.
+  The original plan: a bundled density table (about 150 ingredients, e.g. flour
   120 g a cup, butter 227 g a cup), never an AI estimate. Until it exists, the answer to "how many
   grams in a cup of flour" is "it depends on the ingredient". See [VOICE.md](../../VOICE.md).
 - **Kitchen voice assistant.** A separate offline program: a wake word, speech recognition with a
@@ -82,7 +84,7 @@ Ideas the earlier projects had, built or planned, that this app doesn't have. No
   `fraction.rs` has the full set.
 - Not from the earlier projects, but found while checking scaling: "1 - 15 oz can of chickpeas"
   and "3 - 15 oz cans" read as the ranges 1–15 and 3–15, so they scale wrongly (`QTY_RX` in
-  `scale.ts`). So does "1 8 oz package cream cheese" ("½ 8 oz package" at ×½).
+  `scale.ts`; the server's `ingredient::parse_line` reads them right, for nutrition). So does "1 8 oz package cream cheese" ("½ 8 oz package" at ×½).
 - `import.rs` `slug()` doesn't fold accents for attachment names. `slug.rs` does.
 - No property-based tests; `cookbook` used `proptest`.
 - Card colours come from a hash of the name. `recipes` picked them by food (red for tomato and

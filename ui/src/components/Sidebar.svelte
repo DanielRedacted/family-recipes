@@ -1,8 +1,9 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import Tree, { buildTree, FAV, reveal } from './Tree.svelte';
+  import Tree, { buildTree, FAV, MINE, reveal, type TreeNode } from './Tree.svelte';
   import EditingAs from './EditingAs.svelte';
-  import { app, go } from '../lib/state.svelte';
+  import { app, go, favorites } from '../lib/state.svelte';
+  import type { Entry } from '../lib/types';
   import { upload, moveTo } from '../lib/ops';
   import { openSearch } from './Switcher.svelte';
   import { tick, untrack } from 'svelte';
@@ -10,10 +11,12 @@
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
   const tree = $derived.by(() => {
     const t = buildTree(app.folders, app.files);
-    const favs = app.files.filter((f) => f.kind === 'note' && f.frontmatter?.favorite === true)
-      .sort((a, b) => collator.compare(a.title, b.title))
+    const rows = (fs: Entry[]): TreeNode[] => fs.sort((a, b) => collator.compare(a.title, b.title))
       .map((f) => ({ name: f.path.slice(f.path.lastIndexOf('/') + 1), path: f.path, folder: false, children: [], kind: f.kind }));
+    const favs = rows(app.files.filter((f) => f.kind === 'note' && f.frontmatter?.favorite === true));
+    const mine = rows(favorites.paths.map((p) => app.byPath[p]).filter((f): f is Entry => f?.kind === 'note'));
     if (favs.length) t.children.unshift({ name: 'Bookmarks', path: FAV, folder: true, children: favs });
+    if (mine.length) t.children.unshift({ name: 'Favorites', path: MINE, folder: true, children: mine });
     return t;
   });
   let dropRoot = $state(false);
@@ -29,7 +32,7 @@
     untrack(() => reveal(path, view === 'folder'));
     tick().then(() => {
       const rows = treeEl?.querySelectorAll<HTMLElement>('[aria-current="page"]');
-      // the last match is the row in the folder tree (an earlier one may be in Bookmarks)
+      // the last match is the row in the folder tree (an earlier one may be in Favorites or Bookmarks)
       rows?.[rows.length - 1]?.scrollIntoView({ block: 'nearest' });
     });
   });
@@ -60,7 +63,8 @@
     <Tree node={tree} />
   </div>
   <div class="foot">
-    <button class="btn ghost" class:on={app.route.view === 'ingredients'} onclick={() => go('#/ingredients')}><Icon name="carrot" size={16} /> Ingredients</button>
+    <button class="btn ghost icon" class:on={app.route.view === 'ingredients'} title="Ingredients" aria-label="Ingredients" onclick={() => go('#/ingredients')}><Icon name="carrot" /></button>
+    <button class="btn ghost icon" class:on={app.route.view === 'calendar'} title="Calendar" aria-label="Calendar" onclick={() => go('#/calendar')}><Icon name="calendar" /></button>
     {#if app.session.role === 'admin'}<EditingAs />{/if}
     <span class="spacer"></span>
     <button class="btn ghost icon" title="Settings" aria-label="Settings" onclick={() => go('#/settings')}><Icon name="settings" /></button>

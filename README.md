@@ -29,7 +29,10 @@ kitchen whiteboard on the home page (notes that last today, until a chosen date 
 a suggested dinner on the home page with Random beside it (filters: kind of recipe, default Dinner;
 protein; folder; bookmarked; Random shows every match as a shuffled grid), "Made today" under each
 recipe and in cook mode (any device can log a meal; after a dinner with a protein, dinners with that
-protein aren't suggested for 3 days unless it's chosen in the Protein filter), each recipe's author under
+protein aren't suggested for 3 days unless it's chosen in the Protein filter; a recipe left open 20 minutes
+without it is logged as a guess), a Calendar page (week or month) of what was cooked, added and changed each
+day, with the Mac's Calendar.app events when turned on in Settings (read-only; today's events also show on the
+home page when there are any), each recipe's author under
 its title and the website it came from, ⌘K search (recipes, folders, ingredients), a reader with serving scaler (every set of
 ingredients scales; yields such as "2 dozen" count as 24), US or metric units (chosen in Settings; units are written one
 way, in lower case, with amounts in bold: `docs/FORMAT.md`) and cook mode, ingredient
@@ -38,7 +41,9 @@ formatted editor in the style of Apple Notes (Markdown marks are never shown; te
 checklists and real tables with an editor in each cell; the file stays plain
 Markdown and is saved only when you press Save), `[[links]]` and Markdown links between recipes with backlinks (an ingredient named like another
 recipe links to it), an
-ingredient catalogue with pictures that also feeds suggestions while typing, tabs on wider screens (each
+ingredient catalogue with pictures that also feeds suggestions while typing, a Nutrition Facts label under each recipe
+worked out from its ingredients with USDA FoodData Central values (recipes used as ingredients are worked out from their own
+ingredients; it follows the scaler; an optional USDA key looks up ingredients the shipped table lacks), tabs on wider screens (each
 with its own page and Back button, ⌘[),
 links to web pages marked ↗ and opened in the browser, and an importer for web pages (schema.org, WP Recipe Maker incl. its
 REST data, nutrition and equipment), PDFs, Word files, photos and pasted text — several at once,
@@ -66,9 +71,9 @@ cd ~/Recipes && git pull                                                  # get 
 cd ~/Recipes && git add -A && git commit -m "…" && git push               # share your edits
 ```
 
-The app sees pulled changes at once. `.trash/` stays out of git; `.git/` and `.tools/` (the
-conversion scripts) are hidden from the app. The original conversions from the family's Word
-documents are kept on that repository's `original-markdown` branch.
+The app sees pulled changes at once. `.trash/` stays out of git. `main` holds only recipes and
+settings; the original conversions from the family's Word documents are on that repository's
+`original-markdown` branch, and the conversion and checking tools on its `tools` branch.
 
 ## Download and updates
 
@@ -140,7 +145,7 @@ docs/help/          the in-app Help pages (Settings → Help)
 
 ```sh
 cargo test -p recipes-core                                   # parser, vault, auth, importer
-VAULT=~/Recipes cargo test -p recipes-core -- --ignored       # every note in a real recipes folder parses
+VAULT=~/Recipes TECHNIQUES="$PWD/../recipe-tools/.tools/techniques.txt" cargo test -p recipes-core -- --ignored   # every note in a real recipes folder parses
 cd ui && npx vitest run                                      # scaling / unit conversion
 # end-to-end (needs a running recipes-server; see the scripts for arguments)
 node e2e/flows.mjs <admin-url> <vault> <outdir>        # navigation, save, menus, icons, links

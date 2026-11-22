@@ -1,6 +1,6 @@
 ---
 title: Reading a recipe
-summary: Scaling a recipe, US or metric units, portions, links, PDFs and printing.
+summary: Scaling a recipe, US or metric units, portions, nutrition, links, PDFs and printing.
 audience: everyone
 order: 20
 ---
@@ -22,6 +22,10 @@ Choose **Units** in **Settings → General**. **US** keeps the recipe's own unit
 ## Portions
 
 Some recipes have a table with a column for each version, such as Single and Double. Chips above the ingredients let you pick one, and each chip shows how much it makes compared with the first (×2). Only that column's amounts are shown. When **+** reaches a column's size, the app shows the family's own amounts for that column.
+
+## Nutrition
+
+Below the recipe is a Nutrition Facts label worked out from its ingredients. It scales with **−** and **+**. See [Ingredients](#/settings/help/ingredients) for how it's worked out and what it leaves out.
 
 ## Links to other recipes
 

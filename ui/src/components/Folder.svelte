@@ -10,6 +10,7 @@
   import { untrack, getContext } from 'svelte';
   import { app, noteHash, folderHash, canWrite, nameOf, dirOf, toast, favorites as myFavorites, type Tab } from '../lib/state.svelte';
   import Board from './Board.svelte';
+  import Today from './Today.svelte';
   import { board } from '../lib/board.svelte';
   import Crumbs from './Crumbs.svelte';
   import CardIcon from './CardIcon.svelte';
@@ -164,7 +165,7 @@
     <p class="muted">This folder no longer exists. <a href="#/">Back to all recipes</a></p>
   {:else}
     {#if !path && app.offline}<p class="muted">Offline — showing the last saved copy.</p>{/if}
-    {#if !path}<Board />{/if}
+    {#if !path}<Board /><Today />{/if}
 
     {#if !path && recipes.length}
       <section class="suggest" aria-label="Suggested recipe">

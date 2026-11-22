@@ -6,5 +6,9 @@
   <string>Recipes shares your recipes with phones, tablets and computers on this Wi-Fi.</string>
   <key>NSBonjourServices</key>
   <array><string>_https._tcp</string></array>
+  <key>NSCalendarsUsageDescription</key>
+  <string>Recipes shows events from your calendar on its home page and Calendar page. It never changes your calendar.</string>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>Recipes shows events from your calendar on its home page and Calendar page. It never changes your calendar.</string>
 </dict>
 </plist>

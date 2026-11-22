@@ -7,7 +7,7 @@ const G = '½¼¾⅓⅔⅛⅜⅝⅞';
 const NUM = `(?:\\d+\\s+\\d+\\s*[/⁄]\\s*\\d+|\\d+\\s*[${G}]|\\d+\\s*[/⁄]\\s*\\d+|\\d+(?:\\.\\d+)?|\\.\\d+|[${G}])`;
 const QTY_RX = new RegExp(`^(\\s*(?:[*_]{1,2}|\\()?)(${NUM})(?:\\s*(?:-|–|to)\\s*(${NUM}))?`);
 
-const UNIT_TO_ML: Record<string, number> = {
+export const UNIT_TO_ML: Record<string, number> = {
   tsp: 4.929, ts: 4.929, teaspoon: 4.929, teaspoons: 4.929,
   tbsp: 14.787, tbs: 14.787, tb: 14.787, tablespoon: 14.787, tablespoons: 14.787,
   cup: 236.588, cups: 236.588, c: 236.588,
@@ -15,7 +15,7 @@ const UNIT_TO_ML: Record<string, number> = {
   qt: 946.353, quart: 946.353, quarts: 946.353, gal: 3785.41, gallon: 3785.41, gallons: 3785.41,
   ml: 1, milliliter: 1, milliliters: 1, l: 1000, liter: 1000, liters: 1000, litre: 1000, litres: 1000,
 };
-const UNIT_TO_G: Record<string, number> = {
+export const UNIT_TO_G: Record<string, number> = {
   oz: 28.3495, ounce: 28.3495, ounces: 28.3495, lb: 453.592, lbs: 453.592, pound: 453.592, pounds: 453.592,
   g: 1, gram: 1, grams: 1, kg: 1000, kilogram: 1000, kilograms: 1000,
 };

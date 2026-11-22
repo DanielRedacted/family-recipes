@@ -51,7 +51,10 @@ Two processes, one owner of state:
   call it. First version: unit math within a dimension (volume, weight) plus °F/°C. Volume ↔ weight
   questions answer "that depends on the ingredient". A curated, bundled ingredient-density table
   (about 150 entries: flour 120 g a cup, butter 227 g a cup, …) is the planned upgrade; never an AI
-  estimate.
+  estimate. **Built for nutrition:** `crates/core/data/foods.json` holds USDA's grams per ml (`ml`)
+  and per item (`g`) for about 200 ingredient keys, from SR Legacy via the reviewed
+  `crates/core/data/foods-map.tsv`, extended on each Mac by optional USDA lookups (owner's choice,
+  2026-11-22); `GET /api/foods` serves it. Conversions can use the same table.
 - **Editing rights.** Creating and cancelling timers changes state, so a daemon on another device
   needs the same rights as any phone or tablet: the editing PIN (`auth.rs`). Its requests carry the
   `X-Recipes: 1` header like the UI's.

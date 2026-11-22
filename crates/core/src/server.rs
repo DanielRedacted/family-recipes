@@ -53,6 +53,16 @@ impl Default for AiSettings {
     }
 }
 
+/// Show the Mac's calendar events (calendar.rs). Read-only; off by default.
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct CalendarSettings {
+    #[serde(default)]
+    pub enabled: bool,
+    /// calendar ids to show; none until the owner ticks one, so a new calendar stays private
+    #[serde(default)]
+    pub calendars: Vec<String>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Settings {
     #[serde(default)]
@@ -76,6 +86,8 @@ pub struct Settings {
     /// The person the desktop window edits as (users.rs); None = the built-in "Admin".
     #[serde(default)]
     pub editing_as: Option<String>,
+    #[serde(default)]
+    pub calendar: CalendarSettings,
 }
 fn yes() -> bool {
     true
@@ -269,6 +281,7 @@ fn spawn_watcher(state: Arc<AppState>) -> Result<()> {
             let s = state.clone();
             let _ = tokio::task::spawn_blocking(move || s.rescan()).await;
             crate::git::changed(&state);
+            crate::nutrition::changed(&state);
         }
     });
     Ok(())
@@ -314,6 +327,7 @@ async fn session(State(s): St, Caller(role): Caller, Extension(Who(who)): Extens
         "user": who,
         "pin_set": st.pin_hash.is_some(),
         "ai": st.ai.enabled,
+        "calendar": st.calendar.enabled && !st.calendar.calendars.is_empty(),
         "shell": s.shell.is_some() && role == Role::Admin,
         "version": env!("CARGO_PKG_VERSION"),
         "setup": role == Role::Admin && !st.setup_done,
@@ -634,12 +648,15 @@ async fn settings_get(State(s): St, caller: Caller) -> Res {
         "pin_set": st.pin_hash.is_some(),
         "ai": st.ai,
         "ai_key_set": crate::ai_key_set(&s),
+        "usda_key_set": crate::nutrition::key_set(),
+        "nutrition_status": crate::nutrition::status(&s),
         "lan": st.lan,
         "keep_awake": st.keep_awake,
         "network": lan,
         "autostart": s.shell.as_ref().map(|sh| sh.autostart(None)),
         "git": crate::git::status(&s),
         "editing_as": st.editing_as,
+        "calendar": st.calendar,
     }))
     .into_response())
 }
@@ -647,6 +664,7 @@ async fn settings_get(State(s): St, caller: Caller) -> Res {
 #[derive(Deserialize)]
 struct SettingsPut {
     ai: Option<AiSettings>,
+    calendar: Option<CalendarSettings>,
     lan: Option<bool>,
     keep_awake: Option<bool>,
     vault: Option<PathBuf>,
@@ -661,6 +679,9 @@ async fn settings_put(State(s): St, caller: Caller, Json(b): Json<SettingsPut>) 
         let mut st = s.settings.write().unwrap();
         if let Some(ai) = b.ai {
             st.ai = ai;
+        }
+        if let Some(c) = b.calendar {
+            st.calendar = c;
         }
         if let Some(l) = b.lan {
             st.lan = l;

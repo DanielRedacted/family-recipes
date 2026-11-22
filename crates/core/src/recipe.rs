@@ -16,11 +16,15 @@ pub struct Line {
     /// ("" where a portion doesn't use it). `text` is the first non-empty one.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub alts: Vec<String>,
+    /// What the line asks for, for nutrition: one per portion (`alts`), else one; `None` for a line
+    /// that names no ingredient. Filled in when the vault is read (`ingredient::annotate`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub amounts: Vec<Option<crate::ingredient::Amount>>,
 }
 
 impl Line {
     pub fn new(line: usize, text: impl Into<String>) -> Self {
-        Line { line, text: text.into(), alts: vec![] }
+        Line { line, text: text.into(), alts: vec![], amounts: vec![] }
     }
 }
 
@@ -895,20 +899,27 @@ mod tests {
         for e in walkdir::WalkDir::new(root).into_iter().filter_entry(|e| e.depth() == 0 || !crate::vault::hidden(e)).filter_map(Result::ok) {
             if e.path().extension().is_some_and(|x| x == "md") {
                 let rel = e.path().strip_prefix(root).unwrap().to_string_lossy().into_owned();
-                out.insert(rel, parse(&std::fs::read_to_string(e.path()).unwrap()).recipe);
+                let recipe = parse(&std::fs::read_to_string(e.path()).unwrap()).recipe.map(|mut r| {
+                    crate::ingredient::annotate(&mut r);
+                    r
+                });
+                out.insert(rel, recipe);
             }
         }
         std::fs::write(std::env::var("DUMP").unwrap(), serde_json::to_string_pretty(&out).unwrap()).unwrap();
     }
 
-    /// `VAULT=~/Recipes cargo test -p recipes-core -- --ignored`: every note in a real recipes folder
-    /// parses and every recipe is detected (pages listed in `.tools/techniques.txt` are exempt).
+    /// `VAULT=~/Recipes TECHNIQUES="$PWD/../recipe-tools/.tools/techniques.txt" cargo test -p recipes-core -- --ignored`:
+    /// every note in a real recipes folder parses and every recipe is detected (pages listed in the
+    /// TECHNIQUES file, kept on the recipes repository's tools branch, are exempt).
     #[test]
     #[ignore = "needs VAULT"]
     fn whole_vault_parses() {
         let root = &vault();
         let (mut n, mut recipes) = (0, 0);
-        let techniques: Vec<String> = std::fs::read_to_string(std::path::Path::new(root).join(".tools/techniques.txt"))
+        let techniques: Vec<String> = std::env::var("TECHNIQUES")
+            .ok()
+            .and_then(|p| std::fs::read_to_string(p).ok())
             .unwrap_or_default()
             .lines()
             .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))

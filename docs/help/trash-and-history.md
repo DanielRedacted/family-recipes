@@ -31,6 +31,8 @@ Each time someone saves a recipe, the app asks **What changed?**. The answer (op
 
 To see the history, open the recipe and tap **More** in the row with the servings at the top. The **History** list shows the newest change first.
 
+To see every recipe's changes day by day, with meals cooked, open the [Calendar](#/settings/help/calendar) page.
+
 ## Earlier versions
 
 Before a recipe is saved over, the app quietly keeps a copy of how it was (at most one copy every ten minutes). These earlier versions don't appear in the Trash list, and you can't bring one back from a phone. If you need an older version of a recipe, ask whoever looks after the Mac.

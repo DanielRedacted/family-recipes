@@ -1,8 +1,9 @@
 <script lang="ts">
   import Back from './Back.svelte';
   import { onMount } from 'svelte';
-  import { app, noteHash, dirOf } from '../lib/state.svelte';
-  import { catalog, loadIngredients } from '../lib/ingredients.svelte';
+  import { app, noteHash, dirOf, toast } from '../lib/state.svelte';
+  import { catalog, loadIngredients, foods, loadFoods } from '../lib/ingredients.svelte';
+  import { api } from '../lib/api';
   import { ingredientIcon } from '../lib/icons';
   import CardIcon from './CardIcon.svelte';
 
@@ -11,7 +12,26 @@
   let open = $state<string | null>(null);
   let sort = $state<'name' | 'count'>('count');
   $effect(() => { q = query; open = null; });
-  onMount(() => loadIngredients(0));
+  onMount(() => { loadIngredients(0); loadFoods(true); });
+
+  // which USDA food an ingredient counts as in nutrition; the admin can choose another or leave it out
+  const admin = $derived(app.session.role === 'admin');
+  let picking = $state<string | null>(null);
+  let pq = $state('');
+  let hits = $state<{ fdc: number; name: string; kind: string }[] | null>(null);
+  let busy = $state(false);
+  async function run(f: () => Promise<unknown>, ok?: string) {
+    busy = true;
+    try { await f(); if (ok) toast(ok, 'ok'); } catch (e: any) { toast(e.message, 'error'); }
+    busy = false;
+  }
+  const find = () => run(async () => { hits = await api('GET', '/api/foods/search?q=' + encodeURIComponent(pq.trim())); });
+  const choose = (key: string, fdc: number | null) => run(async () => {
+    await api('PUT', `/api/foods/${encodeURIComponent(key)}`, { fdc });
+    await loadFoods(true);
+    picking = null; hits = null;
+  }, fdc ? 'Nutrition for this ingredient changed' : 'Left out of nutrition');
+  const undo = (key: string) => run(async () => { await api('DELETE', `/api/foods/${encodeURIComponent(key)}`); await loadFoods(true); }, 'Choice undone');
 
   const rows = $derived.by(() => {
     const t = q.trim().toLowerCase();
@@ -46,6 +66,31 @@
             <div class="more">
               {#if i.forms.length}<p class="muted small">Also written as: {i.forms.join(' · ')}</p>{/if}
               <ul>{#each i.recipes as p}<li><a href={noteHash(p)}>{title(p)}</a> <span class="muted small">{dirOf(p)}</span></li>{/each}</ul>
+              {#if foods.loaded}
+                {@const food = foods.table[i.key]}
+                <div class="food small">
+                  {#if food}<span>Nutrition: counted as <b>{food.name}</b> (USDA){#if food.auto} <span class="muted">— found automatically, worth a check</span>{/if}</span>
+                  {:else if food === null}<span>Nutrition: left out</span>
+                  {:else}<span class="muted">Nutrition: not in the list yet, so recipes don't count it</span>{/if}
+                  {#if admin}
+                    <button class="btn ghost small" onclick={() => { picking = picking === i.key ? null : i.key; pq = i.name; hits = null; }} aria-expanded={picking === i.key}>Change…</button>
+                    {#if food !== null}<button class="btn ghost small" disabled={busy} onclick={() => choose(i.key, null)}>Don't count</button>{/if}
+                    {#if foods.own.includes(i.key)}<button class="btn ghost small" disabled={busy} onclick={() => undo(i.key)}>Undo</button>{/if}
+                  {/if}
+                </div>
+                {#if picking === i.key}
+                  <form class="row pick" onsubmit={(e) => { e.preventDefault(); find(); }}>
+                    <input class="field grow" bind:value={pq} aria-label="Search USDA foods" enterkeyhint="search" />
+                    <button class="btn" disabled={busy || !pq.trim()}>Search USDA</button>
+                  </form>
+                  {#if hits}
+                    <ul class="hits">
+                      {#each hits as h (h.fdc)}<li><button class="btn ghost small" disabled={busy} onclick={() => choose(i.key, h.fdc)}>{h.name}</button> <span class="muted small">{h.kind}</span></li>{/each}
+                      {#if !hits.length}<li class="muted">No USDA foods match. Try fewer or other words.</li>{/if}
+                    </ul>
+                  {/if}
+                {/if}
+              {/if}
             </div>
           {/if}
         </li>
@@ -71,5 +116,9 @@
   .more p { margin: 0 0 8px; }
   .more ul { margin: 0; padding-left: 20px; columns: 2 240px; }
   .more li { break-inside: avoid; margin: 2px 0; }
+  .food { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 10px; }
+  .pick { margin-top: 8px; gap: 8px; }
+  .more ul.hits { columns: auto; list-style: none; padding: 0; margin-top: 4px; }
+  .hits .btn { text-align: start; white-space: normal; }
   @media (max-width: 899px) { .page { padding: 8px 16px 96px; } }
 </style>

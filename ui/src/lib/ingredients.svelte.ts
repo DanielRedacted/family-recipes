@@ -2,6 +2,7 @@
 // for ingredient lines: units after a quantity, ingredient names after that.
 import type { CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { api } from './api';
+import type { Foods } from './nutrition';
 
 export interface Ingredient { name: string; key: string; count: number; recipes: string[]; forms: string[] }
 
@@ -17,6 +18,19 @@ export function loadIngredients(maxAgeMs = 30_000): Promise<void> {
     .catch(() => {})
     .finally(() => { loading = null; });
   return loading;
+}
+
+/** The nutrition table (USDA values per ingredient key, `/api/foods`); fetched when a recipe is read. */
+export const foods = $state({ table: {} as Foods, own: [] as string[], loaded: false });
+let foodsLoading: Promise<void> | null = null;
+/** `again`: after a change on the Ingredients page. `own`: keys looked up or chosen on this Mac. */
+export function loadFoods(again = false): Promise<void> {
+  if (foods.loaded && !again) return Promise.resolve();
+  foodsLoading ??= api<{ foods: Foods; own?: string[] }>('GET', '/api/foods')
+    .then((r) => { foods.table = r.foods; foods.own = r.own ?? []; foods.loaded = true; })
+    .catch(() => {})
+    .finally(() => { foodsLoading = null; });
+  return foodsLoading;
 }
 
 const QTY = /^(?:about\s+)?(?:\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:[.,]\d+)?(?:\s*[½¼¾⅓⅔⅛⅜⅝⅞])?|[½¼¾⅓⅔⅛⅜⅝⅞])(?:\s*(?:-|–|to)\s*(?:\d+\/\d+|\d+(?:[.,]\d+)?|[½¼¾⅓⅔⅛⅜⅝⅞]))?\s+/i;

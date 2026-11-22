@@ -11,6 +11,8 @@
       { id: 'devices', label: 'Phones & tablets', icon: 'lock', on: admin },
       { id: 'people', label: 'People', icon: 'users', on: admin },
       { id: 'ai', label: 'AI assistant', icon: 'chef', on: admin },
+      { id: 'nutrition', label: 'Nutrition', icon: 'carrot', on: admin },
+      { id: 'calendar', label: 'Calendar', icon: 'calendar', on: admin },
       { id: 'recent', label: 'Recent changes', icon: 'clock', on: true },
       { id: 'trash', label: 'Trash', icon: 'trash', on: canWrite() },
       { id: 'help', label: 'Help', icon: 'book', on: true },

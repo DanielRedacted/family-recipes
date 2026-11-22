@@ -28,6 +28,8 @@ Your ticks are cleared when you close cook mode.
 
 When you've cooked a recipe, tap **Made today**. It's at the bottom of cook mode and under the recipe in the normal view. The app asks **Made "…" today?** Tap **Made today** again to confirm. The button then reads **Made today ✓** for the rest of the day.
 
-Any signed-in device can log a meal, read-only ones too. Logging a meal doesn't change the recipe.
+Any signed-in device can log a meal, read-only ones too. The app keeps who logged it. Logging a meal doesn't change the recipe.
+
+If a recipe stays open on your screen for 20 minutes and nobody taps **Made today**, the app guesses it was cooked and logs it as **Assumed**. It only counts time while the recipe is on screen, and only guesses once each time the recipe is opened. A guess doesn't grey out the button and doesn't affect the dinner suggestion. You can confirm or remove it on the [Calendar](#/settings/help/calendar) page.
 
 Made today also guides the dinner suggestion on the home page. If the recipe is a dinner with a main protein, such as chicken or beef, the confirmation tells you so. For the next 3 days, the home page won't suggest dinners with that protein, unless you choose it yourself in the **Protein** filter. See [Finding recipes](#/settings/help/finding-recipes) for the suggestion and the Random filters.

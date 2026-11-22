@@ -200,6 +200,19 @@ components:
     typography: "{typography.recipe-body}"
     rounded: "{rounded.lg}"
     padding: 16px
+  calendar-event:
+    backgroundColor: "{colors.card-blue}"
+    textColor: "{colors.text}"
+    typography: "{typography.recipe-body}"
+    rounded: "{rounded.lg}"
+  calendar-day:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.label}"
+    rounded: "{rounded.md}"
+  calendar-day-selected:
+    backgroundColor: "{colors.primary-soft}"
+    textColor: "{colors.text}"
   sign-in:
     backgroundColor: "{colors.background}"
     textColor: "{colors.text}"
@@ -244,6 +257,15 @@ components:
     padding: 16px
   link:
     textColor: "{colors.primary-ink}"
+  nutrition-label:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.label}"
+    width: 320px
+    padding: 4px 8px
+  nutrition-label-dark:
+    backgroundColor: "{colors.surface-dark}"
+    textColor: "{colors.text-dark}"
   reader:
     backgroundColor: "{colors.background}"
     textColor: "{colors.text}"
@@ -444,6 +466,14 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   with an accent-ink "More ⌄" at its end. More opens a line with the source, the dashed add chips and
   the tags (and the original file); notes that aren't recipes show all their chips above the text. Cook mode (`button-primary`) sits in the toolbar row beside ⋯,
   and the unit choice (US / Metric) is in Settings → General, per device.
+- **Nutrition label (`nutrition-label`).** Under a recipe, the FDA Nutrition Facts layout drawn in
+  the app's own tokens: `surface` with a 1px `text` border, the sans in heavy weights (900 for
+  "Nutrition Facts" and the calories, 800 for nutrient names), and the label's rules in `text`: 1px
+  between rows, 5px under the calories and above the footnote, 10px above the calories and the
+  vitamins. It follows the theme, so it is light-on-dark at night, not a white sticker. At most
+  320px wide. Beside it, outside the box, a muted note says what it was worked out from, with a
+  "Not counted" disclosure in accent ink; a recipe without servings gets a "Servings per recipe"
+  number field inside the label.
 - **Formatted editor.** Looks like the reader (serif, sizes) with a slim toolbar; Markdown marks are
   never visible; tables are real grids with cell borders.
 - **Feedback.** Toasts at the bottom, inverted (`text` on `background`), red with white text for
@@ -459,6 +489,18 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   `whiteboard-note`s (the yellow pastel, serif text, the writer, time and how long it stays in a muted
   line, a ghost ✕). A speech-bubble icon button in the home toolbar opens the compose modal: a
   textarea and three radios (Today only, Until a date with a native date field, Until someone removes it).
+- **Calendar.** Events from the Mac's calendar are `calendar-event`s: the blue pastel (a different
+  colour from the whiteboard's yellow, because they come from outside the app), a muted time line and
+  the title in serif. On the home page, under the whiteboard and only on a day with events, a
+  **Today** list joins them into one blue block with hairlines between rows and a purple-ink
+  "Calendar" link beside the heading. The Calendar page has a serif period heading, ‹ Today › buttons
+  and a Week / Month segmented control. Week: seven columns, each headed by a muted weekday and a serif
+  date over a hairline (purple ink and a purple rule for today); on phones the days stack. Month: a
+  grid of `calendar-day` buttons (sunken for days outside the month, `calendar-day-selected` for the
+  chosen day, today's number in bold purple ink), each listing its first three entries as 12px lines;
+  on phones a cell shows the date and a count, and the chosen day's full list follows the grid. App
+  history (cooked, added, changed) is plain 14px rows with a muted line icon; a guessed meal is
+  muted with a dashed-outline "Assumed" chip and "Yes, cooked" / "Not cooked" buttons.
 - **Sign-in.** A full-screen page like the first-start setup (`sign-in`): the app icon, "Who's cooking?"
   in display serif, the family PIN field when a PIN is set, a wrapping row of name buttons, then a field
   and a `button-primary` to add a new name.
@@ -488,3 +530,5 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
 - Do check every change in both light and dark. Light is the default whatever the device's setting;
   dark applies only when chosen in Settings.
 - Don't load web fonts or remote assets; the app must look the same offline.
+- The linter's two contrast warnings (`button-ghost`, `tree-row`, 1.22:1) are false alarms: it reads
+  `transparent` as black. Their text sits on the page colour, at the `text` contrast of 16.5:1.

@@ -48,3 +48,10 @@ pdf-extract = "0.10"
 keyring = { version = "3", features = ["apple-native"] }
 # vendored-openssl: libgit2-sys calls OpenSSL init on macOS too (TLS itself goes through SecureTransport); static so nothing needs installing
 git2 = { version = "0.21.0", default-features = false, features = ["https", "vendored-libgit2", "vendored-openssl"] }
+
+# EventKit: read-only access to Calendar.app (calendar.rs)
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSArray", "NSDate", "NSString", "NSPredicate", "NSAutoreleasePool", "NSError", "NSObject", "block2"] }
+objc2-event-kit = { version = "0.3", features = ["EKEventStore", "EKEvent", "EKCalendar", "EKCalendarItem", "EKObject", "EKTypes", "EKStructuredLocation", "block2"] }
+block2 = "0.6"

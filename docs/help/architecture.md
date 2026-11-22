@@ -39,7 +39,8 @@ The whole server, as the library `recipes-core`. Modules (`crates/core/src/`):
 | `lan.rs` | Home-network sharing: HTTP and HTTPS listeners, the local CA and certificates, Bonjour, the `/setup` page. See [Home network](#/settings/help/home-network). |
 | `git.rs` | GitHub sync through bundled libgit2. See [GitHub sync](#/settings/help/github-sync). |
 | `board.rs` | The kitchen whiteboard (`messages.json`). |
-| `made.rs` | Meals made, behind "Made today" and the dinner suggestion (`made.json`). |
+| `made.rs` | Meals made, behind "Made today", guessed meals and the dinner suggestion (`made.json`). |
+| `calendar.rs` | The Mac's calendar events, read-only through EventKit, for the Calendar page and the home page's Today list. |
 | `setup.html` | The device setup page served at `/setup`. |
 | `bin/recipes-server.rs` | The headless server (below). |
 
@@ -92,7 +93,7 @@ The app hides every dot file and dot folder, and `AGENTS.md` and `CLAUDE.md` at 
 | `users.json` | people and their devices |
 | `activity.log` | every change a person made, one JSON line each |
 | `messages.json` | the whiteboard |
-| `made.json` | meals made |
+| `made.json` | meals made, with who logged them and which are guesses |
 | `tls/` | the local CA and the server certificate |
 | `dns-sd.pid` | the Bonjour registration's process |
 

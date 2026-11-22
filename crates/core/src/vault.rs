@@ -157,7 +157,10 @@ pub fn read_entry(root: &Path, p: VaultPath, prev: Option<&Entry>, pdf: Option<P
             e.frontmatter_error = parsed.frontmatter_error;
             e.body_line = parsed.body_line;
             e.cover = parsed.cover;
-            e.recipe = parsed.recipe;
+            e.recipe = parsed.recipe.map(|mut r| {
+                crate::ingredient::annotate(&mut r);
+                r
+            });
             e.links = parsed.links;
             e.raw = Some(text);
         }

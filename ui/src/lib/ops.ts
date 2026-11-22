@@ -24,6 +24,19 @@ export async function markMade(e: Entry) {
   } catch (err: any) { toast(err.message, 'error'); }
 }
 
+/** Log a guess, quietly: the recipe stayed open long enough to have been cooked. */
+export async function assumeMade(path: string) {
+  try { app.made = await api<Made[]>('POST', '/api/made', { path, assumed: true }); } catch { /* offline or gone: no guess */ }
+}
+
+/** "Yes, cooked" (keeps the guess's time) or "Not cooked" (removes it). */
+export async function settleGuess(m: Made, cooked: boolean) {
+  try {
+    app.made = await api<Made[]>(cooked ? 'PUT' : 'DELETE', `/api/made/${m.at}?path=${encodeURIComponent(m.path)}`);
+    toast(cooked ? `Logged ${m.title}` : `Removed the guess for ${m.title}`, 'ok');
+  } catch (err: any) { toast(err.message, 'error'); }
+}
+
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 
 export function requireWrite(): boolean {

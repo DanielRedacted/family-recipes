@@ -89,7 +89,7 @@ Freezes well. See [[Pie Crust]].
 | `favorite` | `true` bookmarks the recipe: it is listed under Bookmarks (home page and the top of the folder column) and marked with a bookmark icon |
 | `note` | a short remark kept out of the title, e.g. `not tried yet` |
 | `aliases` | another name the recipe is known by (or a list); search and `[[links]]` find the recipe by it |
-| `nutrition` | map of values as written, e.g. `calories: 320 kcal`. Keys: `serving_size`, `calories`, `carbohydrates`, `protein`, `fat`, `saturated_fat`, `unsaturated_fat`, `polyunsaturated_fat`, `monounsaturated_fat`, `trans_fat`, `cholesterol`, `sodium`, `potassium`, `fiber`, `sugar`, `vitamin_a`, `vitamin_c`, `calcium`, `iron` |
+| `nutrition` | map of values as written, e.g. `calories: 320 kcal`, kept from an import; shown only on the importer's Preview, the reader shows the estimate worked out from the ingredients (see *Nutrition* below). Keys: `serving_size`, `calories`, `carbohydrates`, `protein`, `fat`, `saturated_fat`, `unsaturated_fat`, `polyunsaturated_fat`, `monounsaturated_fat`, `trans_fat`, `cholesterol`, `sodium`, `potassium`, `fiber`, `sugar`, `vitamin_a`, `vitamin_c`, `calcium`, `iron` |
 
 A value lives in one place: the importer and the converter put times, yield and nutrition in the
 frontmatter only, not also as a line in the body.
@@ -175,3 +175,27 @@ open in the app; links to web pages (`[text](https://…)`) are shown with ↗ a
 In the reader a plain click follows a link; in the editor ⌘-click does.
 
 HTML is allowed (it is sanitised when shown) but the app itself only writes standard Markdown.
+
+## Nutrition
+
+Nothing about nutrition is stored in a recipe unless it came with the recipe (`nutrition:` above),
+and the reader doesn't use that: it works nutrition out from the ingredients each time:
+
+- **Each ingredient line** is read for its amount, unit, size word and ingredient (the server's
+  `ingredient::amount`, sent as `amounts` on each line, one per portion column): a range counts its
+  first number (`2-3` → 2), alternatives their first (`butter or ghee` → butter), a unit without a
+  number one of it (`Pinch of salt`), and a weight in brackets wins (`1 ½ cups (150 g)`,
+  `1 (15 oz) can`). Lines marked optional, for garnish, frying, dusting, brushing or serving are
+  left out; so are lines with no amount.
+- **Weights:** a weight unit converts directly; a volume uses the food's USDA grams per cup; a count
+  (`2 large eggs`, `3 cloves`, `1 stick`) uses USDA's weight for that item.
+- **Values:** USDA FoodData Central per 100 g, by ingredient key: the table shipped with the app
+  (`crates/core/data/foods.json`, built from SR Legacy and the reviewed `foods-map.tsv`), then
+  lookups and choices made on this Mac (`foods.json` in the data folder).
+- **Recipes used as ingredients:** a line that links to another recipe, or is named like one (as
+  for links), is worked out from that recipe's ingredients at ×1 and its first portion: by weight
+  or volume as a share of everything it makes, or a count of batches (of its `yield`, when it has
+  one). What the other recipe can't count is listed on this one.
+- **Servings:** per serving when `servings` or `yield` has a count, else for the whole recipe with a
+  "Servings per recipe" box (not saved). Rounding and % Daily Values follow the FDA label rules.
+- Every ingredient set in a file is added up, so a file holding two versions of a recipe counts both.

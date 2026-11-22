@@ -21,6 +21,7 @@
   let s = $state<any>(null);
   let pin = $state('');
   let aiKey = $state('');
+  let usdaKey = $state('');
 
   $effect(() => {
     try { localStorage.setItem('theme', theme); } catch {}
@@ -35,6 +36,16 @@
   async function refresh() { if (admin) s = await api('GET', '/api/settings'); }
   onMount(refresh);
   $effect(() => { if (admin && !s) refresh(); });
+
+  // Settings → Calendar: the Mac's calendars, asked for once the section is open with the calendar on
+  // (the first time, macOS asks whether Recipes may see the calendar)
+  let cals = $state<{ access: string; calendars: { id: string; title: string }[] } | null>(null);
+  $effect(() => {
+    if (sec !== 'calendar' || !s?.calendar?.enabled || cals) return;
+    api('GET', '/api/calendar/calendars').then((r) => (cals = r)).catch((e) => toast(e.message, 'error'));
+  });
+  const showCal = (id: string, on: boolean) =>
+    put({ calendar: { ...s.calendar, calendars: on ? [...s.calendar.calendars, id] : s.calendar.calendars.filter((c: string) => c !== id) } });
 
   async function put(body: any) {
     try { s = await api('PUT', '/api/settings', body); await loadSession(); } catch (e: any) { toast(e.message, 'error'); }
@@ -63,6 +74,15 @@
   async function saveKey() {
     try { await api('PUT', '/api/settings/ai-key', { key: aiKey }); aiKey = ''; toast('API key saved in the macOS Keychain', 'ok'); await refresh(); }
     catch (e: any) { toast(e.message, 'error'); }
+  }
+
+  async function saveUsda(clear = false) {
+    try {
+      await api('PUT', '/api/settings/usda-key', { key: clear ? '' : usdaKey });
+      usdaKey = '';
+      toast(clear ? 'USDA key removed' : 'USDA key saved in the macOS Keychain; looking up ingredients now', 'ok');
+      await refresh();
+    } catch (e: any) { toast(e.message, 'error'); }
   }
 
   // recently changed notes, leaving out files that arrived in a bulk copy (e.g. the first-run seed)
@@ -167,6 +187,41 @@
         {#if s.pin_set}<button type="button" class="btn danger" onclick={() => savePin(true)}>Remove PIN</button>{/if}
       </form>
     </section>
+  {:else if sec === 'calendar'}
+    <section class="card">
+      <label class="row toggle"><input type="checkbox" checked={s.calendar.enabled} onchange={(e) => put({ calendar: { ...s.calendar, enabled: e.currentTarget.checked } })} /> Show events from this Mac’s calendar</label>
+      <p class="muted small">Off by default. When on, today’s events appear on the home page and each day’s events on the Calendar page, for everyone signed in on this Mac, phones and tablets. Recipes only reads the calendar: add or change events in the Calendar app, and Recipes shows the change within a minute.</p>
+      {#if s.calendar.enabled}
+        {#if !cals}
+          <p class="muted small">Looking for calendars…</p>
+        {:else if cals.access !== 'ok'}
+          <p class="small">Recipes isn’t allowed to see the calendar. Turn it on in System Settings → Privacy &amp; Security → Calendars, then open this page again.</p>
+        {:else if !cals.calendars.length}
+          <p class="muted small">This Mac has no calendars. Add one in the Calendar app.</p>
+        {:else}
+          <fieldset class="cals">
+            <legend class="small">Calendars to show</legend>
+            {#each cals.calendars as c (c.id)}
+              <label class="row"><input type="checkbox" checked={s.calendar.calendars.includes(c.id)} onchange={(e) => showCal(c.id, e.currentTarget.checked)} /> {c.title}</label>
+            {/each}
+          </fieldset>
+          <p class="muted small">{s.calendar.calendars.length ? 'Only the ticked calendars are shown.' : 'Nothing is shown until you tick a calendar.'} macOS lets Recipes see every calendar on this Mac, but Recipes reads only the ones ticked here.</p>
+        {/if}
+      {/if}
+    </section>
+  {:else if sec === 'nutrition'}
+    <section class="card">
+      <p class="muted small">Recipes show a Nutrition Facts label worked out from their ingredients, using values from USDA FoodData Central that come with the app. With a free USDA API key, the app also looks up ingredients that aren't in its list yet. Only ingredient names are sent to USDA. Check or change what it found on the Ingredients page.</p>
+      <form class="keyrow" onsubmit={(e) => { e.preventDefault(); saveUsda(); }}>
+        <label>USDA API key {s.usda_key_set ? '(saved)' : ''}
+          <input class="field" type="password" bind:value={usdaKey} placeholder={s.usda_key_set ? '••••••••  (enter a new key to replace)' : 'Paste your API key'} autocomplete="off" />
+        </label>
+        <button class="btn" disabled={!usdaKey.trim()}>Save key</button>
+        {#if s.usda_key_set}<button type="button" class="btn ghost" onclick={() => saveUsda(true)}>Remove key</button>{/if}
+      </form>
+      <p class="muted small">Get a free key at <a href="https://fdc.nal.usda.gov/api-key-signup">fdc.nal.usda.gov/api-key-signup</a>. It's kept in the macOS Keychain.</p>
+      {#if s.nutrition_status}<p class="small">{s.nutrition_status}</p>{/if}
+    </section>
   {:else if sec === 'ai'}
     <section class="card">
       <label class="row toggle"><input type="checkbox" checked={s.ai.enabled} onchange={(e) => put({ ai: { ...s.ai, enabled: e.currentTarget.checked } })} /> Enable AI features</label>
@@ -213,6 +268,9 @@
   .grid2 { display: grid; gap: 12px; }
   .grid2 label { display: grid; gap: 4px; font-size: 14px; }
   .keyrow { display: flex; gap: 8px; align-items: end; }
+  .cals { border: 0; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .cals legend { padding: 0; margin-bottom: 4px; font-weight: 500; }
+  .cals label { gap: 8px; min-height: 36px; }
   .keyrow label { flex: 1; }
   .recent { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
   .mnav { display: none; }

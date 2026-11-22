@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod auth;
 pub mod board;
+pub mod calendar;
 pub mod extract;
 pub mod feedback;
 pub mod fetch;
@@ -9,6 +10,7 @@ pub mod import;
 pub mod ingredient;
 pub mod lan;
 pub mod made;
+pub mod nutrition;
 pub mod recipe;
 pub mod schema;
 pub mod server;
@@ -34,11 +36,12 @@ pub struct Extensions {
     pub users: users::Store,
     pub board: board::Store,
     pub made: made::Store,
+    pub nutrition: nutrition::Lookups,
 }
 
 impl Default for Extensions {
     fn default() -> Self {
-        Self { lan: Default::default(), app: OnceLock::new(), jobs: import::Jobs::new(), ingredients: Default::default(), git: Default::default(), users: Default::default(), board: Default::default(), made: Default::default() }
+        Self { lan: Default::default(), app: OnceLock::new(), jobs: import::Jobs::new(), ingredients: Default::default(), git: Default::default(), users: Default::default(), board: Default::default(), made: Default::default(), nutrition: Default::default() }
     }
 }
 
@@ -53,6 +56,8 @@ pub fn extra_routes() -> Router<Arc<AppState>> {
         .merge(users::routes())
         .merge(board::routes())
         .merge(made::routes())
+        .merge(nutrition::routes())
+        .merge(calendar::routes())
         .merge(feedback::routes())
 }
 
@@ -105,6 +110,7 @@ pub async fn start_network(state: Arc<AppState>) -> Router {
     // not awaited: looking for another Mac on the network takes up to 2 s and the window shouldn't wait
     tokio::spawn(lan::start(state.clone(), app.clone()));
     lan::spawn_ip_watch(state.clone());
+    nutrition::spawn(state.clone());
     git::spawn(state);
     app
 }

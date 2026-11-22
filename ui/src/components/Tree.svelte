@@ -28,16 +28,20 @@
     return root;
   }
 
-  /** Path of the virtual "Bookmarks" group at the top of the tree (not a real folder). */
+  /** Paths of the virtual "Favorites" and "Bookmarks" groups at the top of the tree (not real folders). */
   export const FAV = '\u0000favorites';
+  export const MINE = '\u0000mine';
+  const isVirtual = (p?: string) => !!p?.startsWith('\u0000');
 
   const saved = (() => { try { return JSON.parse(localStorage.getItem('expanded') || '[]'); } catch { return []; } })();
   export const expanded = $state<Record<string, boolean>>(Object.fromEntries(saved.map((p: string) => [p, true])));
   expanded[FAV] = (() => { try { return localStorage.getItem('favOpen') !== '0'; } catch { return true; } })();
+  expanded[MINE] = (() => { try { return localStorage.getItem('mineOpen') !== '0'; } catch { return true; } })();
   export function persistExpanded() {
     try {
-      localStorage.setItem('expanded', JSON.stringify(Object.keys(expanded).filter((k) => expanded[k] && k !== FAV)));
+      localStorage.setItem('expanded', JSON.stringify(Object.keys(expanded).filter((k) => expanded[k] && !isVirtual(k))));
       localStorage.setItem('favOpen', expanded[FAV] ? '1' : '0');
+      localStorage.setItem('mineOpen', expanded[MINE] ? '1' : '0');
     } catch {}
   }
 
@@ -51,7 +55,7 @@
     clicked = null;
     const upto = isFolder && !(asClicked && !expanded[path]) ? parts.length : parts.length - 1;
     const keep = new Set(Array.from({ length: upto }, (_, i) => parts.slice(0, i + 1).join('/')));
-    for (const k of Object.keys(expanded)) if (k !== FAV && expanded[k] && !keep.has(k)) expanded[k] = false;
+    for (const k of Object.keys(expanded)) if (!isVirtual(k) && expanded[k] && !keep.has(k)) expanded[k] = false;
     for (const k of keep) expanded[k] = true;
     persistExpanded();
   }
@@ -78,7 +82,7 @@
 
   /** A folder row opens and closes its list of files and shows the folder's page; a file row opens the file. */
   function open(n: TreeNode, e?: MouseEvent) {
-    if (n.path === FAV) return toggle(n);
+    if (isVirtual(n.path)) return toggle(n);
     if (e && (e.metaKey || e.ctrlKey) && wide()) return newTab(n.folder ? folderHash(n.path) : noteHash(n.path));
     if (n.folder) {
       toggle(n);
@@ -105,7 +109,7 @@
   }
 
   const icon = (n: TreeNode) => (n.kind === 'pdf' ? 'file' : n.kind === 'image' ? 'image' : n.kind === 'other' ? 'paperclip' : '');
-  const folderIcon = (n: TreeNode) => (n.path === FAV ? { icon: 'bookmark' } : iconOf(n.name, app.folderMeta[n.path]?.emoji));
+  const folderIcon = (n: TreeNode) => (n.path === FAV ? { icon: 'bookmark' } : n.path === MINE ? { icon: 'star' } : iconOf(n.name, app.folderMeta[n.path]?.emoji));
   // same rule as the recipe cards: the note's own icon, else its folder's
   const noteIcon = (n: TreeNode) => {
     const e = app.byPath[n.path];
@@ -115,9 +119,9 @@
   const label = (n: TreeNode) => (n.folder ? n.name : n.kind === 'note' ? n.name.replace(/\.md$/i, '') : n.name);
 </script>
 
-{#each node.children as n (n.path)}
+{#each node.children as n, i (n.path)}
   {@const active = app.route.path === n.path && (n.folder ? app.route.view === 'folder' : app.route.view === 'note')}
-  {@const virtual = n.path === FAV}
+  {@const virtual = isVirtual(n.path)}
   {@const ic = n.folder ? folderIcon(n) : n.kind === 'note' ? noteIcon(n) : null}
   <div
     class="row-item"
@@ -154,7 +158,7 @@
   {#if n.folder && expanded[n.path]}
     <Tree node={n} depth={depth + 1} />
   {/if}
-  {#if virtual}<div class="fav-gap" aria-hidden="true"></div>{/if}
+  {#if virtual && !isVirtual(node.children[i + 1]?.path)}<div class="fav-gap" aria-hidden="true"></div>{/if}
 {/each}
 
 <style>
@@ -163,7 +167,7 @@
     min-height: 32px; user-select: none; color: var(--text);
   }
   .row-item:hover { background: var(--sunken); }
-  .fav-gap { height: 12px; } /* Bookmarks stand apart from the folders */
+  .fav-gap { height: 12px; } /* Favorites and Bookmarks stand apart from the folders */
   .row-item.active { background: var(--accent-soft); }
   .row-item.drop { outline: 2px dashed var(--accent); }
   .row-item.dim { opacity: 0.6; }
