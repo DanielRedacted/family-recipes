@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dailyValue, estimate, gramsOf, labelAmount, type Food, type Foods } from './nutrition';
+import { dailyValue, estimate, gramsOf, ingredientList, labelAmount, type Food, type Foods } from './nutrition';
 import type { Amount, Entry, Group } from './types';
 
 // Foods with round numbers, so totals can be checked by hand (per 100 g).
@@ -110,6 +110,16 @@ describe('nutrition', () => {
       expect(loop.skipped.some((s) => /uses this recipe/.test(s.why))).toBe(true);
       books.mayonnaise = mayo;
       delete books.dressing;
+    });
+    it('lists the ingredients like a food label: by weight, each once, a recipe with its own in brackets', () => {
+      const slaw = estimate(note('Slaw.md', [list(
+        line('Salt to taste', { key: 'salt' }),
+        line('1 tbsp oil', { qty: 1, unit: 'tbsp', key: 'oil' }),
+        line('½ cup mayonnaise', { qty: 0.5, unit: 'cup', key: 'mayonnaise' }), // about 110 g
+        line('1 cup flour', { qty: 1, unit: 'cup', key: 'flour' }),
+        line('1 cup flour', { qty: 1, unit: 'cup', key: 'flour' }), // 236 g in all
+      )]), foods, sub);
+      expect(ingredientList(slaw.parts, (k) => k)).toEqual({ text: 'flour, Mayonnaise (oil, egg), oil, salt', unweighed: 1 });
     });
   });
 

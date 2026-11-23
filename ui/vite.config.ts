@@ -33,7 +33,7 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//, /^\/auth/, /^\/ca\.crt/],
         runtimeCaching: [
           // the whole vault (titles, text, recipes) -> offline reading + search
-          { urlPattern: ({ url }) => ['/api/vault', '/api/session', '/api/ingredients', '/api/foods', '/api/messages'].includes(url.pathname), handler: 'NetworkFirst',
+          { urlPattern: ({ url }) => ['/api/vault', '/api/session', '/api/ingredients', '/api/foods', '/api/messages', '/api/users'].includes(url.pathname), handler: 'NetworkFirst',
             options: { cacheName: 'vault', networkTimeoutSeconds: 4 } },
           { urlPattern: ({ url }) => url.pathname.startsWith('/api/files/'), handler: 'StaleWhileRevalidate',
             options: { cacheName: 'files', expiration: { maxEntries: 400 } } },

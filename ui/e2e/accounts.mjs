@@ -1,4 +1,4 @@
-// Sign-in, the write log, the whiteboard and bookmarks: node e2e/accounts.mjs <admin-url> <vault-dir> <outdir>
+// Sign-in, the write log, the whiteboard, favorites, bookmarks and people pages: node e2e/accounts.mjs <admin-url> <vault-dir> <outdir>
 // A second browser (an iPhone, without the desktop app's cookie) plays the family member. Run on a copy.
 import { chromium, devices } from '@playwright/test';
 import fs from 'node:fs';
@@ -62,23 +62,39 @@ await phone.click('.note:has-text("Out of eggs") button[aria-label^="Remove"]');
 await phone.click('.modal button[type=submit]');
 await phone.waitForSelector('.note:has-text("Out of eggs")', { state: 'detached' });
 
-// a favorite stays in this browser; a bookmark (everyone's) goes into the recipe
+// a favorite is the person's own, kept with their name on the Mac and shown on their page; a bookmark
+// (everyone's) goes into the recipe
+const sect = (title, card) => `.sect:has(h2:has-text("${title}")) .recipe:has-text("${card}")`;
 const before = fs.readFileSync(pie, 'utf8');
 await phone.goto(origin + '/#/n/Pies/Pumpkin%20Pie.md');
 await phone.waitForSelector('.prose h1');
 await phone.click('header button[aria-label="More"]');
 await phone.click('.menu button:has-text("Add to favorites")');
 await phone.goto(origin + '/#/');
-await phone.waitForSelector('h2:has-text("Favorites") + .grid .recipe:has-text("Pumpkin Pie")');
+await phone.waitForSelector(sect('Favorites', 'Pumpkin Pie'));
 assert.equal(fs.readFileSync(pie, 'utf8'), before, 'a favorite leaves the recipe alone');
+await admin.goto(origin + '/#/people/Ann%20Romo'); // no reload: her page hears about it live
+await admin.waitForSelector(sect('Favorites', 'Pumpkin Pie'));
 await admin.reload();
+await admin.goto(origin + '/#/');
 await admin.waitForSelector('a.folder');
 assert.equal(await admin.locator('h2:has-text("Favorites")').count(), 0, 'favorites are the person’s own');
+// renamed on the Mac, it stays her favorite
+const annFavs = async () => (await phone.evaluate(async () => (await (await fetch('/api/users')).json()).find((u) => u.name === 'Ann').favorites));
+// (her phone, on the home page, follows each rename live before the next one)
+const favCard = (file) => `.sect:has(h2:has-text("Favorites")) a.recipe[href="#/n/Pies/${encodeURIComponent(file)}"]`;
+assert.equal(await call(admin, 'POST', '/api/fs/move', { from: 'Pies/Pumpkin Pie.md', to: 'Pies/Pumpkin Pie Two.md' }), 200);
+assert.deepEqual(await annFavs(), ['Pies/Pumpkin Pie Two.md'], 'a favorite follows a rename');
+await phone.waitForSelector(favCard('Pumpkin Pie Two.md'));
+assert.equal(await call(admin, 'POST', '/api/fs/move', { from: 'Pies/Pumpkin Pie Two.md', to: 'Pies/Pumpkin Pie.md' }), 200);
+assert.deepEqual(await annFavs(), ['Pies/Pumpkin Pie.md']);
+await phone.waitForSelector(favCard('Pumpkin Pie.md'));
 await phone.goto(origin + '/#/n/Pies/Pumpkin%20Pie.md');
 await phone.waitForSelector('.prose h1');
 await phone.click('header button[aria-label="More"]');
 await phone.click('.menu button:has-text("Bookmark for everyone")');
-await admin.waitForSelector('h2:has-text("Bookmarks") + .grid .recipe:has-text("Pumpkin Pie")');
+await admin.goto(origin + '/#/');
+await admin.waitForSelector(sect('Bookmarks', 'Pumpkin Pie'));
 assert.match(fs.readFileSync(pie, 'utf8'), /favorite: true/);
 
 // ---------- recipe credits: who added, wrote and changed a recipe, in its properties ----------
@@ -95,6 +111,13 @@ await laptop.waitForSelector('.signin');
 await laptop.fill('.signin input[type=password]', '123456');
 await laptop.click('.signin .names button:has-text("Ann")');
 await laptop.waitForSelector('.signin', { state: 'detached' });
+// favorites this browser kept before they moved to the Mac join her list, once
+const annId = await phone.evaluate(async () => (await (await fetch('/api/users')).json()).find((u) => u.name === 'Ann').id);
+await laptop.evaluate((id) => localStorage.setItem(`favorites:${id}`, JSON.stringify(['Cakes/Boston Cream Pie.md'])), annId);
+await laptop.reload();
+await laptop.waitForSelector(sect('Favorites', 'Boston Cream Pie'));
+assert.deepEqual(await annFavs(), ['Pies/Pumpkin Pie.md', 'Cakes/Boston Cream Pie.md'], 'carried over from this browser');
+assert.equal(await laptop.evaluate((id) => localStorage.getItem(`favorites:${id}`), annId), null, 'and only once');
 
 /** Type at the end of the open editor, save, answer the credit dialog. Returns whether the box started ticked. */
 async function saveWith(page, typed, comment, credit) {
@@ -140,6 +163,29 @@ await until(() => props(boston).prep_time === '20 min', 'prep time saved');
 assert.equal(props(boston).changes[0].note, 'Less sugar; Added a note; Changed prep time');
 await laptop.screenshot({ path: `${out}/credits.png` });
 
+// her page lists what she wrote and changed; Kimberley, who never signs in, has a page too
+await laptop.click('.byline a:has-text("Ann Romo")');
+await laptop.waitForSelector('.hero h1:has-text("Ann Romo")');
+await laptop.waitForSelector(sect('Recipes', 'Boston Cream Pie'));
+await laptop.waitForSelector(sect('Favorites', 'Pumpkin Pie'));
+await laptop.screenshot({ path: `${out}/person.png` });
+await laptop.goto(origin + '/#/people');
+await laptop.waitForSelector('.sect:has(h2:has-text("Family")) .person:has-text("Ann Romo")');
+await laptop.click('.sect:has(h2:has-text("Also in the book")) .person:has-text("Kimberley Romo")');
+await laptop.waitForSelector('.hero h1:has-text("Kimberley Romo")');
+await laptop.waitForSelector(sect('Recipes', 'Boston Cream Pie'));
+assert.equal(await laptop.locator('.hero button:has-text("picture")').count(), 0, 'no picture without an account');
+// her own picture: an emoji; someone else can't change it
+await laptop.goto(origin + '/#/people/Ann%20Romo');
+await laptop.click('.hero button:has-text("Add a picture")');
+await laptop.click('.modal button.emo >> nth=0');
+await laptop.waitForSelector('.hero .av .emoji');
+await laptop.waitForSelector('.modal', { state: 'detached' });
+assert.equal(await call(phone, 'PUT', `/api/users/${annId}/picture`, { picture: '🥧' }), 204, 'her own, from her phone');
+await laptop.goto(origin + '/#/people');
+await laptop.waitForSelector('.person:has-text("Ann Romo") .av .emoji');
+await laptop.screenshot({ path: `${out}/people-list.png` });
+
 // a new recipe: its author and "Created"
 await laptop.goto(origin + '/#/');
 await laptop.click('button[aria-label="Add"]');
@@ -166,16 +212,15 @@ assert.equal(props(`${vault}/${stew}`).added_by, 'Ann Romo');
 assert.equal(props(`${vault}/${stew}`).changes[0].note, 'Imported from pasted text');
 assert.notEqual(props(`${vault}/${stew}`).author, 'Ann Romo');
 
-// the Mac asks who is editing the first time, then credits that person
+// the Mac edits as Admin until someone is chosen beside Save, then credits that person
 await admin.goto(origin + '/#/n/Pies/Pumpkin%20Pie.md?mode=edit');
 await admin.waitForSelector('.cm-content');
+assert.equal(await admin.locator('.toolbar .editing-as select option:checked').textContent(), 'Admin', 'Admin by default');
+await admin.selectOption('.toolbar .editing-as select', { label: 'Ann' });
 await admin.click('.cm-content');
 await admin.keyboard.press('Meta+End');
 await admin.keyboard.type('\nFrom the Mac');
 await admin.keyboard.press('Meta+s');
-await admin.waitForSelector('.modal select');
-await admin.selectOption('.modal select', 'Ann (Ann Romo)');
-await admin.click('.modal button[type=submit]');
 await admin.waitForSelector('.modal .check');
 await admin.fill('.modal input.field', 'Typed on the Mac');
 await admin.click('.modal button[type=submit]');
@@ -183,7 +228,7 @@ await admin.getByText('Saved', { exact: true }).waitFor();
 await until(() => fs.readFileSync(pie, 'utf8').includes('From the Mac'), 'Mac edit saved');
 assert.equal(props(pie).changes.at(-1).note, 'Typed on the Mac');
 assert.equal(props(pie).changes.at(-1).by, 'Ann Romo');
-assert.equal(await admin.locator('.editing-as select option:checked').textContent(), 'Ann', 'Editing as remembered');
+assert.equal(await admin.locator('.toolbar .editing-as select option:checked').textContent(), 'Ann', 'Editing as remembered');
 
 // the Mac's People page: Ann, her phone, what she changed
 await admin.goto(origin + '/#/settings/people');

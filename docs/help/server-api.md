@@ -62,8 +62,8 @@ Request bodies are limited to 30 MB, responses are compressed (gzip, brotli), an
 
 | Method | Path | Purpose | Who |
 |---|---|---|---|
-| GET | `/api/vault` | The whole index (files, folders, folder icons and colours) as JSON, with an ETag (`304` when unchanged) | Reader |
-| GET | `/api/events` | Server-sent events: `vault` (new index ETag), `messages` (whiteboard changed), `made` (a meal was logged) | Reader |
+| GET | `/api/vault` | The whole index (files, folders, folder icons and colours) as JSON, with an ETag (`304` when unchanged). A `.md` under `attachments/originals/` is kind `other`, not a note | Reader |
+| GET | `/api/events` | Server-sent events: `vault` (new index ETag), `messages` (whiteboard changed), `made` (a meal was logged), `users` (someone's name, favorites or picture changed) | Reader |
 | GET | `/api/files/{path}` | One file, with an ETag. Files that aren't notes, images or PDFs, and SVGs, are sent as downloads with `Content-Security-Policy: sandbox` | Reader |
 | PUT | `/api/files/{path}` | Write a file. Needs `If-Match: "<etag>"` (overwrite) or `If-None-Match: *` (create only), else `428`; a mismatch is `409` with the current ETag. `?unique=true` picks a free name. Notes are limited to 2 MB. The old version is kept in `.trash/versions/` first | Writer |
 | DELETE | `/api/files/{path}` | Move a file or folder to the trash; returns its `trash_id` | Writer |
@@ -87,9 +87,9 @@ Import runs as a job: start it, poll its status, then save. Nothing is written u
 
 | Method | Path | Purpose | Who |
 |---|---|---|---|
-| POST | `/api/import/url` | Start importing a web page `{url}`; returns `202 {job}` | Writer |
-| POST | `/api/import/file` | Upload a file (multipart): starts a job, or with mode `keep` saves a PDF or photo as a view-only recipe | Writer |
-| POST | `/api/import/from-vault` | Convert a PDF already in the recipes folder `{path}` into an editable draft | Writer |
+| POST | `/api/import/url` | Start importing a web page `{url}`; returns `202 {job}`. The page's WP Recipe Maker or JSON-LD recipe data is saved as `attachments/originals/<title>.json` with the recipe | Writer |
+| POST | `/api/import/file` | Upload a file (multipart): starts a job, or with mode `keep` saves a PDF or photo as a view-only recipe. Every converted file is kept as the original (pasted text as `<title>.txt`). With `vault_path` the file is already in the folder: it isn't copied, and moves under `attachments/originals/` on save | Writer |
+| POST | `/api/import/from-vault` | Convert a PDF already in the recipes folder `{path}` into an editable draft; on save the PDF moves under `attachments/originals/` | Writer |
 | POST | `/api/import/check` | Check a draft `{markdown}` and return warnings (`issues`) | Writer |
 | GET | `/api/import/{job}` | Job status: running, failed with an error, or the draft | Writer |
 | GET | `/api/import/{job}/image/{i}` | One candidate image of the draft | Writer |
@@ -111,11 +111,13 @@ Import runs as a job: start it, poll its status, then save. Nothing is written u
 
 | Method | Path | Purpose | Who |
 |---|---|---|---|
-| GET | `/api/users` | Everyone's names, for the sign-in page; the desktop app also gets each person's devices | anyone |
+| GET | `/api/users` | Everyone's names, for the sign-in page. Signed-in callers also get `created`, `favorites`, `picture` and `former` (earlier credited names); the desktop app also gets each person's devices | anyone |
 | POST | `/api/users` | Add a person `{name, full_name}` | Admin |
 | PUT | `/api/users/{id}` | Rename `{name, full_name}` | Admin |
 | DELETE | `/api/users/{id}` | Remove a person (signs out their devices) | Admin |
 | GET | `/api/users/{id}/activity` | Their latest 200 changes, newest first | Admin |
+| PUT | `/api/users/{id}/picture` | Set `{picture}`: one emoji, or a JPEG/PNG/WebP `data:` URL up to about 100 KB; `null` removes it | that person, or Admin |
+| POST | `/api/favorites` | Change the signed-in person's favorites `{add?: [path], remove?: [path]}` (at most 2000); returns the new list. Favorites follow `POST /api/fs/move` | signed in |
 
 See [People](#/settings/help/people).
 
@@ -172,6 +174,8 @@ See [GitHub sync](#/settings/help/github-sync).
 | `reveal` | `{path}` (`""` = the recipes folder) | Show in Finder |
 | `choose-vault` | none | Folder picker; returns `{path}` |
 | `print` | none | Print the window |
+| `save-html` | `{html}` | Write the recipe book to `~/Downloads/Recipes.html` (numbered when taken), show it in Finder; returns `{name}` |
+| `save-pdf` | none | Print the window to `~/Downloads/Recipes.pdf` with no dialog (`src-tauri/src/pdf.rs`), show it in Finder; returns `{name}` once written |
 | `open-url` | `{url}` (`http://` or `https://` only) | Open in the default browser |
 | `restart` | none | Restart the app |
 | `autostart` | `{enabled}` (optional) | Set or read Open at login; returns `{enabled}` |

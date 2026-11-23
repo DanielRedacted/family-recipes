@@ -38,7 +38,7 @@ When you save, the app asks **What changed?** Type a short note, such as "Less s
 - **Added by**: who brought the recipe into the app. It's set once and never replaced.
 - **History**: a dated list of who changed what. One person's changes on the same day share one entry.
 
-On the Mac, the credit goes to the person chosen in **Editing as**.
+On the Mac, the credit goes to the person chosen in **Editing as**, beside **Save**. Left on **Admin**, the change is credited to nobody.
 
 ## When someone else changed it too
 

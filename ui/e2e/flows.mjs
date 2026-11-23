@@ -148,7 +148,16 @@ await menuItem('Bookmark for everyone');
 await page.waitForTimeout(800);
 assert.match(fs.readFileSync(pie, 'utf8'), /^---\n(?:.*\n)*favorite: true\n(?:.*\n)*---\n/, 'favorite saved as a property (block style)');
 await page.goto(new URL('/#/', url).href);
-await page.waitForSelector('h2:has-text("Bookmarks") + .grid .recipe:has-text("Pumpkin Pie")');
+await page.waitForSelector('.sect:has(h2:has-text("Bookmarks")) .recipe:has-text("Pumpkin Pie")');
+// a home section folds, and stays folded on this device
+const bookmarksBtn = page.locator('.sect h2 button:has-text("Bookmarks")');
+await bookmarksBtn.click();
+assert.equal(await bookmarksBtn.getAttribute('aria-expanded'), 'false');
+await page.reload();
+await page.waitForSelector('a.folder');
+assert.equal(await page.locator('.sect:has(h2:has-text("Bookmarks")) .recipe:has-text("Pumpkin Pie")').isVisible(), false, 'still folded after a reload');
+await page.locator('.sect h2 button:has-text("Bookmarks")').click();
+await page.waitForSelector('.sect:has(h2:has-text("Bookmarks")) .recipe:has-text("Pumpkin Pie")');
 await page.waitForSelector('aside .row-item:has-text("Bookmarks")');
 await page.screenshot({ path: `${out}/bookmarks.png` });
 

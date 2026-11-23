@@ -1,7 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import Tree, { buildTree, FAV, MINE, reveal, type TreeNode } from './Tree.svelte';
-  import EditingAs from './EditingAs.svelte';
   import { app, go, favorites } from '../lib/state.svelte';
   import type { Entry } from '../lib/types';
   import { upload, moveTo } from '../lib/ops';
@@ -65,7 +64,7 @@
   <div class="foot">
     <button class="btn ghost icon" class:on={app.route.view === 'ingredients'} title="Ingredients" aria-label="Ingredients" onclick={() => go('#/ingredients')}><Icon name="carrot" /></button>
     <button class="btn ghost icon" class:on={app.route.view === 'calendar'} title="Calendar" aria-label="Calendar" onclick={() => go('#/calendar')}><Icon name="calendar" /></button>
-    {#if app.session.role === 'admin'}<EditingAs />{/if}
+    <button class="btn ghost icon" class:on={app.route.view === 'people'} title="People" aria-label="People" onclick={() => go('#/people')}><Icon name="users" /></button>
     <span class="spacer"></span>
     <button class="btn ghost icon" title="Settings" aria-label="Settings" onclick={() => go('#/settings')}><Icon name="settings" /></button>
   </div>

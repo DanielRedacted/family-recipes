@@ -53,10 +53,14 @@ Freezes well. See [[Pie Crust]].
 ## Folders and names
 
 - The folder is the category (`Pies/Pumpkin Pie.md`). Move a file to recategorise it.
-- `attachments/` holds pictures; `attachments/originals/` holds imported PDFs and Word files.
+- `attachments/` holds pictures; `attachments/originals/` holds the files recipes were imported from (PDF, Word, Excel, photos, text, Markdown, and a web page's recipe data as `.json`). A file a recipe points at with `original` isn't listed on its own; one that no recipe points at yet is. A `.md` there is a file, not a recipe.
 - `.trash/` holds deleted files and earlier versions of edited files until the trash is emptied.
 - Hidden from the app: files and folders whose name starts with `.` (`.tools/`, `.agents/`…) and, at the
-  top of the folder, `AGENTS.md` and `CLAUDE.md` (instructions for coding agents).
+  top of the folder, `AGENTS.md` and `CLAUDE.md` (instructions for coding agents), `FEEDBACK.md` (the
+  feedback log) and `README.md`.
+- `README.md` at the top is written by the app: a contents list of every recipe, a heading per folder and
+  a link per recipe, in title order. It is rewritten whenever a recipe is added, renamed or moved, so edits
+  to it are lost. A `README.md` that doesn't start with the app's comment line is left alone.
 - `[[Name]]` links to another note by file name (or by title); a Markdown link to the file
   (`[mayonnaise](../Condiments/Mayonnaise.md)`) works too, also outside the app. The note it points
   to lists “Mentioned in” links back. In the editor, typing `[[` suggests recipe names.
@@ -82,7 +86,7 @@ Freezes well. See [[Pie Crust]].
 | `added_by` | who imported the recipe into the app (their full name); set once, never replaced |
 | `changes` | the recipe's history, written by the app: a list of `by` (full name), `date` (`YYYY-MM-DD`) and `note` (a short comment). One entry per person per day; that day's further changes add to its note (`Less sugar; Changed prep time`). Edits made outside the app are not recorded |
 | `source` | the website a recipe was copied from (e.g. `https://www.food.com`); shown as a link chip |
-| `original` | path of the kept original file (PDF, DOCX) |
+| `original` | path of the file the recipe was imported from, under `/attachments/originals/` (PDF, Word, photo, text, Markdown, or a web page's recipe data as `.json`); absent for a recipe typed in by hand or a web page without recipe data |
 | `needs_review` | `true` when the converter could not find clear sections |
 | `emoji` | the card icon; `none` hides it. Without it the app picks one from the title or folder name, or shows none |
 | `color` | card colour: `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `brown` or `grey` |
@@ -198,4 +202,8 @@ and the reader doesn't use that: it works nutrition out from the ingredients eac
   one). What the other recipe can't count is listed on this one.
 - **Servings:** per serving when `servings` or `yield` has a count, else for the whole recipe with a
   "Servings per recipe" box (not saved). Rounding and % Daily Values follow the FDA label rules.
+- **Ingredient statement:** under the label, the ingredients as on a package (21 CFR 101.4): each
+  ingredient key once with its weights added up, in descending order of weight, named as on the
+  Ingredients page in lower case; a recipe used as an ingredient by its title, with its own
+  ingredients in brackets. Lines that can't be weighed follow in the recipe's order.
 - Every ingredient set in a file is added up, so a file holding two versions of a recipe counts both.

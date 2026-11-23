@@ -11,7 +11,7 @@ Not everyone sees every section. Some only appear in the Recipes app on the Mac.
 
 ## For everyone
 
-- **General**: **Theme** (Light or Dark) and **Units** (US or Metric), saved on this device. On a phone or tablet, **This device** shows who you're signed in as, says whether you can only read, and has **Sign out**. It may also offer **Install as an app** (see [Phones and tablets](#/settings/help/phones-and-tablets)).
+- **General**: **Theme** (Light or Dark) and **Units** (US or Metric), saved on this device. **Recipe book** saves every recipe as one web page or one PDF (see [The recipe book](#/settings/help/recipe-book)). On a phone or tablet, **This device** shows who you're signed in as, says whether you can only read, and has **Sign out**. It may also offer **Install as an app** (see [Phones and tablets](#/settings/help/phones-and-tablets)).
 - **Recent changes**: the ten recipes changed most recently, and when.
 - **Trash**: deleted recipes and files, each with **Restore**. You only see this if you can edit. The trash can only be emptied on the Mac. See [Trash and history](#/settings/help/trash-and-history).
 - **Help**: these pages. Use **Search help** to find a page that mentions a word.

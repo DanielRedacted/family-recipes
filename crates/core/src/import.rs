@@ -334,8 +334,10 @@ async fn import_url(State(s): St, caller: Caller, Json(b): Json<UrlBody>) -> Res
             None => None,
         };
         let final_url = page.url.clone();
-        let d = tokio::task::spawn_blocking(move || extract::from_html(&html, Some(&final_url), rest.as_ref())).await.map_err(|e| e.to_string())?;
-        Ok(d.into())
+        let mut d = tokio::task::spawn_blocking(move || extract::from_html(&html, Some(&final_url), rest.as_ref())).await.map_err(|e| e.to_string())?;
+        // the page's own recipe data is kept as the original; a page without it keeps only its address (`source`)
+        let original = d.json.take().map(|v| (format!("{}.json", if d.title.is_empty() { "Recipe" } else { &d.title }), serde_json::to_vec_pretty(&v).unwrap_or_default()));
+        Ok(Prepared { original_name: original.as_ref().map(|(n, _)| n.clone()), original, ..d.into() })
     });
     started(id)
 }
@@ -456,8 +458,20 @@ fn note_path(state: &AppState, folder: &str, name: &str) -> Result<VaultPath> {
     Ok(vault::unique(&state.root, &p))
 }
 
+/// A file converted from inside the vault moves under attachments/originals, so it stops being its own entry.
+fn move_to_originals(state: &AppState, p: &str) -> Result<VaultPath> {
+    let src = VaultPath::parse(p)?;
+    if p.starts_with(&format!("{}/", vault::ORIGINALS)) {
+        return Ok(src);
+    }
+    std::fs::create_dir_all(state.root.join(vault::ORIGINALS))?;
+    let dst = vault::unique(&state.root, &VaultPath::parse(&format!("{}/{}", vault::ORIGINALS, src.name()))?);
+    std::fs::rename(vault::resolve(&state.root, &src, true)?, vault::resolve(&state.root, &dst, false)?)?;
+    Ok(dst)
+}
+
 fn save_attachment(state: &AppState, name: &str, bytes: &[u8]) -> Result<VaultPath> {
-    std::fs::create_dir_all(state.root.join(vault::ATTACHMENTS).join("originals"))?;
+    std::fs::create_dir_all(state.root.join(vault::ORIGINALS))?;
     let p = vault::unique(&state.root, &VaultPath::parse(&format!("{}/{}", vault::ATTACHMENTS, name))?);
     let abs = vault::resolve(&state.root, &p, false)?;
     vault::atomic_write(&abs, bytes)?;
@@ -526,7 +540,8 @@ async fn save(State(s): St, caller: Caller, AxPath(job): AxPath<String>, Json(b)
         let p = save_attachment(&s, &format!("originals/{}", clean_name(&name)), &bytes).map_err(bad)?;
         md = set_frontmatter(&md, "original", &format!("/{}", p.as_str()));
     } else if let Some(p) = original_path {
-        md = set_frontmatter(&md, "original", &format!("/{p}"));
+        let p = move_to_originals(&s, &p).map_err(bad)?;
+        md = set_frontmatter(&md, "original", &format!("/{}", p.as_str()));
     }
 
     let abs = vault::resolve(&s.root, &path, false).map_err(bad)?;
@@ -575,6 +590,8 @@ fn textutil_html(bytes: &[u8], ext: &str) -> Result<String> {
 struct Upload {
     name: String,
     bytes: Vec<u8>,
+    /// the file is already in the vault (converted from its page): it isn't copied, it moves on save
+    vault_path: String,
     mode: String,
     html: Option<String>,
     folder: String,
@@ -595,6 +612,7 @@ async fn read_upload(mut mp: Multipart) -> Result<Upload> {
             "folder" => u.folder = f.text().await?,
             "title" => u.title = f.text().await?,
             "tags" => u.tags = f.text().await?,
+            "vault_path" => u.vault_path = f.text().await?,
             _ => {}
         }
     }
@@ -648,7 +666,14 @@ async fn import_file(State(s): St, caller: Caller, mp: Multipart) -> Res {
     if ext == "docx" && u.html.is_none() {
         return Err(err(StatusCode::BAD_REQUEST, "missing converted document"));
     }
-    let id = spawn(&s, Job::new(None, None), move |log| async move {
+    let in_vault = if u.vault_path.is_empty() {
+        None
+    } else {
+        let p = VaultPath::parse(&u.vault_path).map_err(bad)?;
+        vault::resolve(&s.root, &p, true).map_err(|e| err(StatusCode::NOT_FOUND, e))?;
+        Some(p.as_str().to_string())
+    };
+    let id = spawn(&s, Job::new(None, in_vault.clone()), move |log| async move {
         log.step("file", format!("{} ({} KB)", u.name, u.bytes.len() / 1024), true);
         let mut embedded: Vec<(String, Vec<u8>)> = vec![];
         let draft = match ext.as_str() {
@@ -695,15 +720,17 @@ async fn import_file(State(s): St, caller: Caller, mp: Multipart) -> Res {
                 d.images.push(Candidate { url: String::new(), alt: mime, kind: "document".into(), step: None });
             }
         }
-        let keep_original = !matches!(ext.as_str(), "txt" | "md" | "markdown" | "text");
-        Ok(Prepared { draft: d, bytes, original_name: keep_original.then(|| u.name.clone()), original: keep_original.then_some((u.name, u.bytes)) })
+        // every converted file is kept; pasted text is named after its recipe
+        let name = if u.name == "Pasted text.txt" && !d.title.is_empty() { format!("{}.txt", d.title) } else { u.name };
+        let original = in_vault.is_none().then(|| (name.clone(), u.bytes));
+        Ok(Prepared { draft: d, bytes, original_name: Some(name), original })
     });
     started(id)
 }
 
 fn draft(markdown: String, source_text: String) -> extract::Draft {
     let title = crate::recipe::parse(&markdown).title.unwrap_or_default();
-    extract::Draft { title, markdown, source_text, images: vec![], method: "document".into(), trace: vec![] }
+    extract::Draft { title, markdown, source_text, images: vec![], method: "document".into(), trace: vec![], json: None }
 }
 
 #[derive(Deserialize)]
@@ -711,7 +738,7 @@ struct FromVault {
     path: String,
 }
 
-/// "Convert to editable recipe" for a PDF already in the vault: the PDF stays where it is.
+/// "Convert to editable recipe" for a PDF already in the vault: on save it moves under attachments/originals.
 async fn import_from_vault(State(s): St, caller: Caller, Json(b): Json<FromVault>) -> Res {
     caller.need(Role::Writer)?;
     let p = VaultPath::parse(&b.path).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;

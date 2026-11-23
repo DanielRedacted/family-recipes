@@ -5,6 +5,7 @@
   import { shell } from '../lib/ops';
   import { confirmIt } from '../lib/dialog.svelte';
   import { checkForUpdate } from '../lib/update.svelte';
+  import { saveBookHtml, printBook } from '../lib/book';
   import Network from './Network.svelte';
   import GitHub from './GitHub.svelte';
   import Trash from './Trash.svelte';
@@ -97,6 +98,17 @@
     return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : new Date(t * 1000).toLocaleDateString();
   };
 
+  // the recipe book: the Mac saves to Downloads and says so; a browser downloads or opens its print dialog
+  let saving = $state<'html' | 'pdf' | null>(null);
+  async function saveBook(kind: 'html' | 'pdf') {
+    saving = kind;
+    try {
+      const name = kind === 'html' ? await saveBookHtml() : await printBook();
+      if (name) toast(`Saved “${name}” in Downloads`, 'ok');
+    } catch (e: any) { toast(e.message, 'error'); }
+    finally { saving = null; }
+  }
+
   async function signOut() { await api('DELETE', '/api/session'); await loadSession(); }
 </script>
 
@@ -123,6 +135,15 @@
       </select>
     </label>
     <p class="muted small">US shows the recipe's own units, tidied when you scale; Metric converts to ml and g. Saved on this device.</p>
+  </section>
+
+  <section class="card">
+    <h2>Recipe book</h2>
+    <p class="muted small">Every recipe in one file: a contents page, then a chapter for each folder, in the units chosen above. The web page opens in any browser and can be emailed; the PDF is ready to print.</p>
+    <div class="row">
+      <button class="btn" disabled={!!saving} onclick={() => saveBook('html')}>{saving === 'html' ? 'Saving…' : 'Save as web page'}</button>
+      <button class="btn" disabled={!!saving} onclick={() => saveBook('pdf')}>{saving === 'pdf' ? 'Saving…' : app.session.shell ? 'Save as PDF' : 'Print or save as PDF…'}</button>
+    </div>
   </section>
 
   {#if !admin}

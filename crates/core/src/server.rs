@@ -119,6 +119,29 @@ pub trait Shell: Send + Sync {
     fn update_install(&self) -> Result<(), String> {
         Err("updates come with the desktop app".into())
     }
+    /// The Downloads folder, where the recipe book is saved.
+    fn downloads(&self) -> Option<PathBuf> {
+        None
+    }
+    /// Print the window as it looks on paper to a PDF file at `to`, without the print dialog; returns once
+    /// the file is written.
+    fn save_pdf(&self, _to: &Path) -> Result<(), String> {
+        Err("PDF files are made by the desktop app".into())
+    }
+}
+
+/// `dir/name`, or `dir/stem (2).ext`, `(3)`… when that is taken.
+pub fn unique_file(dir: &Path, name: &str) -> PathBuf {
+    let p = Path::new(name);
+    let stem = p.file_stem().unwrap_or_default().to_string_lossy();
+    let ext = p.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+    let mut target = dir.join(name);
+    let mut n = 2;
+    while target.exists() {
+        target = dir.join(format!("{stem} ({n}){ext}"));
+        n += 1;
+    }
+    target
 }
 
 pub struct Payload {
@@ -168,6 +191,8 @@ impl AppState {
         let _g = self.rescan_lock.lock().unwrap();
         let prev = self.index.read().unwrap().clone();
         let idx = vault::scan(&self.root, Some(&prev), self.pdf_text);
+        // README.md, the contents (its write wakes the watcher once; the next pass finds nothing to change)
+        crate::toc::update(&self.root, &idx);
         let files: Vec<&vault::Entry> = idx.files.values().collect();
         // folder icons and colours (written by the app; plain YAML, see docs/FORMAT.md)
         let folder_meta = std::fs::read(self.root.join(FOLDER_META)).ok().filter(|b| b.len() <= 256 * 1024).map(|b| String::from_utf8_lossy(&b).into_owned()).unwrap_or_default();
@@ -426,9 +451,10 @@ async fn vault_payload(State(s): St, headers: HeaderMap) -> Response {
 
 async fn events(State(s): St) -> Sse<impl futures_util::Stream<Item = Result<Event, std::convert::Infallible>>> {
     let rx = BroadcastStream::new(s.events.subscribe());
-    // a new vault payload's etag, or the name of what else changed (the whiteboard, the meals made)
-    let stream = rx.filter_map(|m| m.ok()).map(|m| {
-        Ok(if m == crate::board::EVENT || m == crate::made::EVENT { Event::default().event(&m).data("1") } else { Event::default().event("vault").data(m) })
+    // a new vault payload's etag, or the name of what else changed (the whiteboard, the meals made, people)
+    let named = [crate::board::EVENT, crate::made::EVENT, crate::users::EVENT];
+    let stream = rx.filter_map(|m| m.ok()).map(move |m| {
+        Ok(if named.contains(&m.as_str()) { Event::default().event(&m).data("1") } else { Event::default().event("vault").data(m) })
     });
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
@@ -577,6 +603,7 @@ async fn move_path(State(s): St, caller: Caller, Json(b): Json<MoveBody>) -> Res
         return Err(conflict(None, "something with that name already exists"));
     }
     std::fs::rename(&src, &dst).map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    crate::users::moved(&s, from.as_str(), to.as_str());
     blocking_rescan(&s).await;
     Ok(Json(json!({ "path": to })).into_response())
 }
@@ -770,6 +797,24 @@ async fn shell_action(State(s): St, caller: Caller, AxPath(action): AxPath<Strin
         "update-install" => {
             tokio::task::spawn_blocking(move || shell.update_install()).await.unwrap().map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
             Ok(StatusCode::NO_CONTENT.into_response())
+        }
+        // Settings → Recipe book: the whole book saved to Downloads and shown in Finder
+        "save-html" | "save-pdf" => {
+            let dir = shell.downloads().ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "the Downloads folder wasn't found"))?;
+            let fail = |e: String| err(StatusCode::INTERNAL_SERVER_ERROR, format!("the recipe book could not be saved: {e}"));
+            let to = if action == "save-html" {
+                let html = serde_json::from_slice::<serde_json::Value>(&body).ok().and_then(|v| v["html"].as_str().map(str::to_string)).ok_or_else(|| bad("no book to save"))?;
+                let to = unique_file(&dir, "Recipes.html");
+                std::fs::write(&to, html).map_err(|e| fail(e.to_string()))?;
+                to
+            } else {
+                let to = unique_file(&dir, "Recipes.pdf");
+                let (sh, t) = (shell.clone(), to.clone());
+                tokio::task::spawn_blocking(move || sh.save_pdf(&t)).await.unwrap().map_err(fail)?;
+                to
+            };
+            shell.reveal(&to);
+            Ok(Json(json!({ "name": to.file_name().map(|n| n.to_string_lossy().into_owned()) })).into_response())
         }
         _ => Err(err(StatusCode::NOT_FOUND, "unknown action")),
     }

@@ -5,6 +5,10 @@
     emoji: 'Icon', color: 'Card colour', nutrition: 'Nutrition', favorite: 'Bookmarked', note: 'Note', aliases: 'Also called',
     added_by: 'Added by', changes: 'History',
   };
+  /** not in the row of details: tags as chips, nutrition as its own table, icon/colour on the cards;
+   *  added_by and changes under More, with the source */
+  export const HIDDEN = ['tags', 'needs_review', 'original', 'nutrition', 'emoji', 'color', 'favorite', 'author', 'added_by', 'changes'];
+  export const fmtVal = (v: unknown) => (Array.isArray(v) ? v.join(', ') : v === true ? 'yes' : v === false ? 'no' : v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 </script>
 
 <script lang="ts">
@@ -13,6 +17,7 @@
   import { tagsOf } from '../lib/search';
   import { vaultTarget } from '../lib/markdown';
   import { noteHash } from '../lib/state.svelte';
+  import { personHash } from '../lib/people';
   import Icon from './Icon.svelte';
 
   /** `collapsible`: inside a recipe's card, where the add (+) pills, source, tags and original file wait behind More */
@@ -34,10 +39,6 @@
 
   const fm = $derived(entry.frontmatter ?? {});
   const keys = $derived(Object.keys(fm));
-  // shown elsewhere: tags as chips, nutrition as its own table, icon/colour on the cards
-  // added_by and changes: under More, with the source
-  const HIDDEN = ['tags', 'needs_review', 'original', 'nutrition', 'emoji', 'color', 'favorite', 'author', 'added_by', 'changes'];
-  const fmtVal = (v: unknown) => (Array.isArray(v) ? v.join(', ') : v === true ? 'yes' : v === false ? 'no' : v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
   function update(key: string, text: string) {
     let v: unknown = text.trim();
@@ -76,7 +77,7 @@
       {#if !collapsible || open}
       <div class="chips more">
         {#if collapsible && fm.source}{@render prop('source')}{/if}
-        {#if addedBy}<span class="chip"><span class="k">Added by</span>{addedBy}</span>{/if}
+        {#if addedBy}<a class="chip" href={personHash(addedBy)}><span class="k">Added by</span>{addedBy}</a>{/if}
         {#each missing as k (k)}
           {#if adding === k}
             <span class="chip adding"><span class="k">{LABELS[k]}</span>
@@ -94,7 +95,7 @@
       {#if history.length}
         <p class="muted small hhead">History</p>
         <ol class="history" aria-label="History">
-          {#each history as c}<li><span class="muted">{c.date ?? ''}</span> {[c.by, c.note].filter(Boolean).join(' · ')}</li>{/each}
+          {#each history as c}<li><span class="muted">{c.date ?? ''}</span> {#if c.by}<a class="who" href={personHash(c.by)}>{c.by}</a>{#if c.note} · {/if}{/if}{c.note ?? ''}</li>{/each}
         </ol>
       {/if}
       {/if}
@@ -117,5 +118,7 @@
   .inline:focus { outline: 2px solid var(--accent); }
   .warn { color: var(--danger); }
   .hhead { margin: 12px 0 4px; }
+  .who { color: inherit; text-decoration-color: var(--border); text-underline-offset: 2px; }
+  .who:hover { color: var(--accent-ink); text-decoration-color: currentColor; }
   .history { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 200px; overflow-y: auto; }
 </style>

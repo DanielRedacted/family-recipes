@@ -6,7 +6,7 @@
   import { openMenu } from '../lib/menu.svelte';
 
   const NAMES: Record<string, [string, string]> = {
-    settings: ['Settings', 'settings'], import: ['Import', 'plus'], ingredients: ['Ingredients', 'carrot'], calendar: ['Calendar', 'calendar'], search: ['Search', 'search'],
+    settings: ['Settings', 'settings'], import: ['Import', 'plus'], ingredients: ['Ingredients', 'carrot'], calendar: ['Calendar', 'calendar'], search: ['Search', 'search'], people: ['People', 'users'],
   };
 
   /** what a tab shows: the page's name and icon, as the folder column shows them */
@@ -20,6 +20,7 @@
       return { title, card: e?.kind === 'note' ? iconOf(title, e.frontmatter?.emoji, d ? folderIcon(d) : null) : null, icon: e?.kind === 'note' ? undefined : 'file' };
     }
     if (view === 'folder') return path ? { title: nameOf(path), card: folderIcon(path) } : { title: 'Recipes', icon: 'book' };
+    if (view === 'people' && path) return { title: path, icon: 'user' };
     const [title, icon] = NAMES[view] ?? ['Recipes', 'book'];
     return { title, icon };
   }

@@ -5,6 +5,7 @@
   import { toast } from '../lib/state.svelte';
   import { ask, confirmIt } from '../lib/dialog.svelte';
   import EditingAs from './EditingAs.svelte';
+  import { nameOnRecipes, personHash } from '../lib/people';
 
   interface Device { ua: string; ip: string; seen: number }
   interface Person { id: string; name: string; full_name: string; created: number; devices: Device[] }
@@ -32,12 +33,12 @@
     try { await api('PUT', `/api/users/${encodeURIComponent(p.id)}`, { name }); await load(); } catch (e: any) { toast(e.message, 'error'); }
   }
   async function setFullName(p: Person) {
-    const full_name = await ask(`${p.name}'s full name`, p.full_name, 'Save', 'Written on recipes they add, write or edit from now on.');
+    const full_name = await ask(`${p.name}'s full name`, p.full_name, 'Save', 'Written on recipes they add, write or edit from now on. Recipes credited to their old name still count as theirs.');
     if (!full_name?.trim() || full_name.trim() === p.full_name) return;
     try { await api('PUT', `/api/users/${encodeURIComponent(p.id)}`, { name: p.name, full_name }); await load(); } catch (e: any) { toast(e.message, 'error'); }
   }
   async function remove(p: Person) {
-    if (!(await confirmIt(`Remove ${p.name}?`, 'Their devices are signed out. What they changed stays, and they can sign in again as someone new.', 'Remove', true))) return;
+    if (!(await confirmIt(`Remove ${p.name}?`, 'Their devices are signed out and their favorites and picture are deleted. The recipes they wrote, added or changed keep their name, and their page stays. They can sign in again as someone new.', 'Remove', true))) return;
     try { await api('DELETE', `/api/users/${encodeURIComponent(p.id)}`); await load(); toast(`${p.name} removed`, 'ok'); } catch (e: any) { toast(e.message, 'error'); }
   }
 
@@ -61,10 +62,11 @@
     if (p.startsWith('/api/files/')) return m === 'DELETE' ? `Moved ${fileOf(p, '/api/files/')} to the trash` : `Saved ${fileOf(p, '/api/files/')}`;
     if (p.startsWith('/api/messages')) return m === 'DELETE' ? 'Removed a whiteboard note' : 'Wrote on the whiteboard';
     if (p.startsWith('/api/import/')) return 'Imported a recipe';
+    if (p.startsWith('/api/users/') && p.endsWith('/picture')) return 'Changed a picture';
     const known: Record<string, string> = {
       'POST /api/fs/move': 'Moved or renamed a file or folder', 'POST /api/fs/mkdir': 'Made a folder',
       'PUT /api/folders': 'Changed folder icons or colours', 'POST /api/trash/restore': 'Restored something from the trash',
-      'DELETE /api/trash': 'Emptied the trash',
+      'DELETE /api/trash': 'Emptied the trash', 'POST /api/favorites': 'Changed their favorites',
     };
     return known[`${m} ${p}`] ?? `${m} ${p}`;
   }
@@ -103,6 +105,7 @@
               <h3>Changes</h3>
               {@render history(p.id)}
               <div class="row">
+                <a class="btn" href={personHash(nameOnRecipes(p))}>Their page</a>
                 <button class="btn" onclick={() => rename(p)}>Rename…</button>
                 <button class="btn" onclick={() => setFullName(p)}>{p.full_name ? 'Full name…' : 'Add full name…'}</button>
                 <button class="btn danger" onclick={() => remove(p)}>Remove</button>

@@ -86,6 +86,8 @@ pub struct Draft {
     pub method: String,
     /// what was looked for and found, for the import log: (step, detail, found)
     pub trace: Vec<(&'static str, String, bool)>,
+    /// the page's own recipe data (WP Recipe Maker REST or JSON-LD), archived as the recipe's original
+    pub json: Option<Value>,
 }
 
 fn sel(s: &str) -> Selector {
@@ -111,7 +113,7 @@ fn el_text(e: ElementRef) -> String {
 
 // ---------- schema.org (JSON-LD and microdata share schema.rs) ----------
 
-fn jsonld(doc: &Html, images: &mut Vec<Candidate>, trace: &mut Vec<(&'static str, String, bool)>) -> Option<Rec> {
+fn jsonld(doc: &Html, images: &mut Vec<Candidate>, trace: &mut Vec<(&'static str, String, bool)>) -> Option<(Rec, Value)> {
     let scripts: Vec<_> = doc.select(&sel(r#"script[type="application/ld+json"]"#)).collect();
     let mut bad = 0;
     for s in &scripts {
@@ -131,7 +133,7 @@ fn jsonld(doc: &Html, images: &mut Vec<Candidate>, trace: &mut Vec<(&'static str
         if let Some(r) = find_recipe(&v, 0) {
             let rec = schema_to_rec(r, images);
             trace.push(("json-ld", format!("Recipe found ({} ingredients, {} steps) in {} script(s)", Rec::count(&rec.ingredients), Rec::count(&rec.steps), scripts.len()), true));
-            return Some(rec);
+            return Some((rec, r.clone()));
         }
     }
     let why = if scripts.is_empty() { "no JSON-LD on the page".to_string() } else { format!("{} JSON-LD script(s), no Recipe{}", scripts.len(), if bad > 0 { format!(", {bad} unreadable") } else { String::new() }) };
@@ -484,7 +486,7 @@ pub fn from_html(html: &str, url: Option<&url::Url>, wprm_rest: Option<&Value>) 
         Some(w) => trace.push(("wprm-html", format!("WP Recipe Maker card: {}", summary(w)), true)),
         None => trace.push(("wprm-html", "no WP Recipe Maker card".into(), false)),
     }
-    let ld = jsonld(&doc, &mut images, &mut trace);
+    let (ld, ld_json) = jsonld(&doc, &mut images, &mut trace).unzip();
     let (rec, method) = match (rest, ld, wp) {
         // the site's own recipe data is the fullest; fill gaps from JSON-LD / the card
         (Some(mut r), ld, wp) => {
@@ -524,13 +526,18 @@ pub fn from_html(html: &str, url: Option<&url::Url>, wprm_rest: Option<&Value>) 
             }
         },
     };
+    let json = match method {
+        "wprm-rest" => wprm_rest.cloned(),
+        "json-ld" => ld_json,
+        _ => None,
+    };
     page_images(&doc, &mut images);
     let images = finish_images(images, url);
     trace.push(("images", format!("{} candidate picture(s)", images.len()), !images.is_empty()));
     match rec {
         Some(r) => {
             trace.push(("result", format!("{method}: {}", summary(&r)), true));
-            Draft { title: r.name.clone(), markdown: rec_to_markdown(&r, source), source_text: rtext, images, method: method.into(), trace }
+            Draft { title: r.name.clone(), markdown: rec_to_markdown(&r, source), source_text: rtext, images, method: method.into(), trace, json }
         }
         None => {
             trace.push(("readability", format!("no recipe data; using the page text ({} characters)", rtext.chars().count()), !rtext.is_empty()));
@@ -538,7 +545,7 @@ pub fn from_html(html: &str, url: Option<&url::Url>, wprm_rest: Option<&Value>) 
             let title = if rtitle.is_empty() { doc.select(&sel("title")).next().map(el_text).unwrap_or_default() } else { rtitle };
             let fm = source.map(|s| format!("---\nsource: {}\n---\n\n", yaml(s))).unwrap_or_default();
             let md = format!("{fm}{}", tidy_text(&format!("# {title}\n\n{body}")));
-            Draft { title, markdown: dedupe_title(&md), source_text: rtext, images, method: "page".into(), trace }
+            Draft { title, markdown: dedupe_title(&md), source_text: rtext, images, method: "page".into(), trace, json: None }
         }
     }
 }
@@ -592,6 +599,7 @@ mod tests {
         let u = url::Url::parse("https://ex.com/r/mac").unwrap();
         let d = from_html(html, Some(&u), None);
         assert_eq!(d.method, "json-ld");
+        assert_eq!(d.json.as_ref().and_then(|v| v["name"].as_str()), Some("Mac &amp; Cheese"), "the JSON-LD recipe is kept as published");
         assert_eq!(d.title, "Mac & Cheese");
         assert!(d.markdown.contains("author: Ann"));
         assert!(d.markdown.contains("yield: 4 servings"));
@@ -615,11 +623,13 @@ mod tests {
           <div itemprop="recipeInstructions">Toast the bread.</div></div>"#;
         let d = from_html(html, None, None);
         assert_eq!(d.method, "microdata");
+        assert!(d.json.is_none());
         assert!(d.markdown.contains("- 1 slice bread"));
 
         let page = "<html><head><title>Grandma's Soup</title></head><body><article><h1>Grandma's Soup</h1><p>Ingredients</p><p>2 carrots</p><p>1 onion</p><p>Directions</p><p>Chop and simmer for an hour until tender.</p></article></body></html>";
         let d = from_html(page, None, None);
         assert_eq!(d.method, "page");
+        assert!(d.json.is_none());
         assert!(d.markdown.contains("- 2 carrots"), "{}", d.markdown);
     }
 
@@ -652,6 +662,7 @@ mod tests {
         let rest: Value = serde_json::from_str(include_str!("../tests/fixtures/wprm-rest.json")).unwrap();
         let d = from_html(html, None, Some(&rest["recipe"]));
         assert_eq!(d.method, "wprm-rest");
+        assert_eq!(d.json.as_ref(), Some(&rest["recipe"]));
         assert!(d.markdown.contains("# Classic Pancakes"));
         assert!(d.markdown.contains("- 1 Rolling Pin (optional)"));
         assert!(d.markdown.contains("### Cook\n\n1. Heat the pan."), "{}", d.markdown);

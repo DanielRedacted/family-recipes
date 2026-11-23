@@ -31,6 +31,8 @@ export interface QueueItem {
   error?: string;
   job?: ImportJob;
   review?: Review;
+  /** a file already in the recipes folder: converted where it is (it moves under attachments/originals on save) */
+  vaultPath?: string;
   /** PDFs and photos: keep as view-only (title/tags) or convert */
   keepTitle?: string;
   keepTags?: string;
@@ -79,12 +81,12 @@ export function enqueueUrls(text: string): number {
   return urls.length;
 }
 
-export function enqueueFiles(files: FileList | File[]): number {
+export function enqueueFiles(files: FileList | File[], vaultPath?: string): number {
   const list = [...files];
   for (const file of list) {
     importer.queue.push({
-      id: nextId++, label: file.name, kind: 'file', file, log: [],
-      status: isKeepable(file) ? 'choose' : 'waiting',
+      id: nextId++, label: file.name, kind: 'file', file, log: [], vaultPath,
+      status: isKeepable(file) && !vaultPath ? 'choose' : 'waiting',
       keepTitle: file.name.replace(/\.[^.]+$/, ''), keepTags: '',
     });
   }
@@ -148,7 +150,7 @@ async function run(id: number) {
   it.status = 'running';
   it.log = [];
   try {
-    const r = it.kind === 'url' ? await api('POST', '/api/import/url', { url: it.url }) : await importFile(it.file!, 'ingest');
+    const r = it.kind === 'url' ? await api('POST', '/api/import/url', { url: it.url }) : await importFile(it.file!, 'ingest', it.vaultPath ? { vault_path: it.vaultPath } : {});
     const cur = get(id);
     if (!cur) return;
     cur.jobId = r.job;

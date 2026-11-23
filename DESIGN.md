@@ -213,6 +213,19 @@ components:
   calendar-day-selected:
     backgroundColor: "{colors.primary-soft}"
     textColor: "{colors.text}"
+  section-heading:
+    backgroundColor: transparent
+    textColor: "{colors.muted}"
+  person-tile:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.card-title}"
+    rounded: "{rounded.lg}"
+    padding: 12px
+  avatar:
+    backgroundColor: "{colors.card-orange}"
+    textColor: "{colors.text}"
+    typography: "{typography.card-title}"
   sign-in:
     backgroundColor: "{colors.background}"
     textColor: "{colors.text}"
@@ -292,6 +305,10 @@ components:
     backgroundColor: "{colors.border}"
   caption-text:
     textColor: "{colors.muted}"
+  recipe-book:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.text}"
+    typography: "{typography.recipe-body}"
 ---
 
 # Recipes design system
@@ -362,7 +379,8 @@ the system sans for the app around it, and the system monospace only for the Mar
 - Numbers that line up (counts) use tabular figures. Fractions are written with glyphs where the
   recipe has them (½, ¼). In ingredient lists the leading amount and its unit are bold ("**1 ½ cups**
   flour"); the words are never changed.
-- Print: recipe text at 12pt in black on white, all chrome hidden.
+- Print: recipe text at 12pt in black on white, all chrome hidden, in the light colours even when the
+  dark theme is on (the `-dark` tokens apply on screen only).
 
 ## Layout
 
@@ -421,7 +439,8 @@ shadows.
 
 ## Shapes
 
-Soft, small radii; nothing sharp, nothing fully round except where something is a pill.
+Soft, small radii; nothing sharp, nothing fully round except where something is a pill, and a
+person's `avatar`, which is a circle so a face never reads as a recipe card.
 
 - `xs` 4px: inline code, keyboard hints.
 - `sm` 6px: tree rows, menu items, small icon buttons.
@@ -466,14 +485,24 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   with an accent-ink "More ⌄" at its end. More opens a line with the source, the dashed add chips and
   the tags (and the original file); notes that aren't recipes show all their chips above the text. Cook mode (`button-primary`) sits in the toolbar row beside ⋯,
   and the unit choice (US / Metric) is in Settings → General, per device.
-- **Nutrition label (`nutrition-label`).** Under a recipe, the FDA Nutrition Facts layout drawn in
+- **Recipe book (`recipe-book`).** Settings → General → Recipe book (`ui/src/lib/book.ts`): a centred
+  title page ("Recipes" in serif 3rem, a muted count and date), a contents page in two columns (folder
+  names in purple ink, recipe names in sans 14px), then a chapter per folder whose title is serif
+  2.4rem over a 2px `primary` rule; recipes follow in `recipe-body`, divided by a `divider` hairline,
+  with a muted row of details (label in `text`) under each title. The saved web page is one 6.5in
+  column on `background`, light only; on paper each chapter starts a page and a recipe that fits is
+  never split. Its styles and the shared tokens and `.prose` rules live in `ui/src/prose.css`.
+- **Nutrition label (`nutrition-label`).** In a modal (`card`, the close ✕ beside the label) opened by
+  a borderless accent-ink "Nutrition" button with the carrot icon, right after More in the recipe
+  card. The FDA Nutrition Facts layout drawn in
   the app's own tokens: `surface` with a 1px `text` border, the sans in heavy weights (900 for
   "Nutrition Facts" and the calories, 800 for nutrient names), and the label's rules in `text`: 1px
   between rows, 5px under the calories and above the footnote, 10px above the calories and the
   vitamins. It follows the theme, so it is light-on-dark at night, not a white sticker. At most
   320px wide. Beside it, outside the box, a muted note says what it was worked out from, with a
   "Not counted" disclosure in accent ink; a recipe without servings gets a "Servings per recipe"
-  number field inside the label.
+  number field inside the label. Under the box, the ingredient statement as on a package: 14px sans,
+  "Ingredients:" in 800, the same width as the label.
 - **Formatted editor.** Looks like the reader (serif, sizes) with a slim toolbar; Markdown marks are
   never visible; tables are real grids with cell borders.
 - **Feedback.** Toasts at the bottom, inverted (`text` on `background`), red with white text for
@@ -510,6 +539,21 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   On the Mac, "Editing as" is a `plain-select` at the foot of the folder column and in Settings → People.
 - **Bookmarks and favorites.** Bookmarks (everyone's) carry the bookmark icon, favorites (one
   person's) the star; a card can show both. The home page lists Favorites, then Bookmarks.
+- **Folding sections (`section-heading`).** The home page's sections (Whiteboard, Today, Suggested,
+  Favorites, Bookmarks, Folders) and a person's page fold under their headings: the heading keeps
+  the muted 1.05rem sans `.sub` style, with a 16px chevron before it (pointing right when folded, down
+  when open) and a bare muted count after it, so a folded section still says what it holds. The whole
+  heading is the button (36px, 40px on touch); a link that belongs to the section (Today's "Calendar")
+  sits at the other end of the heading row. Folded sections are remembered per device.
+- **People.** A plain page like Calendar: display-serif "People", one muted line, then "Family" (people
+  who sign in) and "Also in the book" (other credited names) as grids of `person-tile`s (surface card,
+  44px `avatar`, the name in serif, a muted "N recipes" line; purple border on hover). A person's page
+  opens with an 88px `avatar` beside their name in display serif, a muted line saying who signs in and
+  since when, and "Add a picture…" / "Change picture…" (`button`) on their own page; then folding
+  sections of recipe cards: Recipes, Added to the book, Edited, Favorites. An `avatar` is a circle: the
+  person's photo, their emoji on a pastel, or up to two initials in the serif on the pastel their
+  name hashes to (`cardColor`, the same pastels as cards). Names in a recipe's byline, Added by chip,
+  History and on whiteboard notes link to these pages without looking like buttons.
 - **Plain menus (`plain-select`).** A native `select` without the boxed field: no border or fill,
   the value in purple ink with the system's arrow. Used for the Random filters.
 - **Cook mode.** A full-screen view with large checkable ingredient and step lists that keeps the

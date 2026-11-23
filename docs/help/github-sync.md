@@ -46,6 +46,7 @@ The app sees pulled changes at once, through the file watcher.
 
 - **Synced:** everything else in the recipes folder, including `attachments/` (photos, kept PDFs and Word files).
 - **Never uploaded:** `.trash/` (deleted files and earlier versions) and `.DS_Store`. Connecting adds both to the repository's `.git/info/exclude`, whatever its `.gitignore` says.
+- **Contents:** `README.md` at the top of the recipes folder (hidden in the app) lists every recipe by folder, and the app rewrites it after every change (`crates/core/src/toc.rs`), so the repository reads well on GitHub. It holds no dates, so two Macs write the same file; when both changed it, a merge keeps this Mac's copy and makes no "(from other Mac)" copy, and the next rescan writes it afresh. A `README.md` without the app's first line is someone's own and is never touched.
 - **Feedback:** `FEEDBACK.md` at the top of the recipes folder (hidden in the app) collects what people send with [Sending feedback](#/settings/help/feedback), so it reaches GitHub with everything else.
 - **Never synced:** the app's data folder. People and their devices (`users.json`), the activity log (`activity.log`), the whiteboard (`messages.json`), meals made (`made.json`), settings, the cookie key and the certificates live there, not in the recipes folder, so git never sees them. See [Architecture](#/settings/help/architecture).
 - **Not in git at all:** the GitHub token and the AI key, which are in the Keychain.

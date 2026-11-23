@@ -909,7 +909,7 @@ mod tests {
         std::fs::write(std::env::var("DUMP").unwrap(), serde_json::to_string_pretty(&out).unwrap()).unwrap();
     }
 
-    /// `VAULT=~/Recipes TECHNIQUES="$PWD/../recipe-tools/.tools/techniques.txt" cargo test -p recipes-core -- --ignored`:
+    /// `VAULT=~/Recipes TECHNIQUES="$PWD/../home-recipes-tools/.tools/techniques.txt" cargo test -p recipes-core -- --ignored`:
     /// every note in a real recipes folder parses and every recipe is detected (pages listed in the
     /// TECHNIQUES file, kept on the recipes repository's tools branch, are exempt).
     #[test]

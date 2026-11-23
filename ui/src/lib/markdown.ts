@@ -4,6 +4,8 @@ import { fileUrl } from './api';
 import { app, noteHash, resolveLink, dirOf, stemOf } from './state.svelte';
 import { groupLines, scaleLine, boldQty, type Units } from './scale';
 import { aliasesOf } from './search';
+import { authorsOf } from './credit';
+import { personHash } from './people';
 import type { Entry } from './types';
 
 const md = new MarkdownIt({ html: true, linkify: true, typographer: false });
@@ -158,6 +160,22 @@ export function linksTo(f: Entry, path: string): boolean {
 
 export function bodyOf(raw: string, bodyLine: number): string {
   return bodyLine ? raw.split('\n').slice(bodyLine).join('\n') : raw;
+}
+
+export const escHtml = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+
+/**
+ * A recipe as the reader shows it: scaled and converted, with "By …" under its title (each name a link to
+ * their page). `withTitle` adds the title as a heading when the file has none (the recipe book).
+ */
+export function noteHtml(e: Entry, factor: number, units: Units, portion = 0, withTitle = false): string {
+  let out = renderMarkdown(bodyOf(scaledRaw(e, factor, units, portion), e.body_line), e.path);
+  if (withTitle && !/<h1[\s>]/.test(out)) out = `<h1>${escHtml(e.title)}</h1>\n` + out;
+  const names = authorsOf(e.frontmatter?.author);
+  if (!names.length) return out;
+  const by = new Intl.ListFormat(undefined, { type: 'conjunction' }).formatToParts(names)
+    .map((p) => (p.type === 'element' ? `<a href="${escHtml(personHash(p.value))}">${escHtml(p.value)}</a>` : escHtml(p.value))).join('');
+  return out.replace('</h1>', () => `</h1><p class="byline">By ${by}</p>`);
 }
 
 export function renderMarkdown(body: string, notePath: string): string {

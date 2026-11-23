@@ -4,7 +4,7 @@ import { api, saveFile } from './api';
 import { setProp } from './frontmatter';
 import { stamp, today } from './credit';
 import { ask, choose, confirmIt } from './dialog.svelte';
-import { app, dirOf, go, loadSession, loadVault, nameOf, noteHash, folderHash, toast, canWrite, newTab, retarget, wide, favorites, setFavorites, type FolderMeta } from './state.svelte';
+import { app, dirOf, go, loadSession, loadVault, nameOf, noteHash, folderHash, toast, canWrite, newTab, retarget, wide, favorites, changeFavorites, type FolderMeta } from './state.svelte';
 import { openMenu, type MenuItem } from './menu.svelte';
 import { importer, enqueueFiles } from './importer.svelte';
 import { picker } from './picker.svelte';
@@ -50,25 +50,18 @@ export function requireWrite(): boolean {
 let warnedUnsigned = false;
 /**
  * The full name to credit for a change from here: the signed-in person, or on the Mac the person
- * chosen as "Editing as" (asked the first time). '' = nobody to credit; null = the person cancelled.
+ * chosen as "Editing as" beside Save. '' = nobody to credit (the Mac's built-in Admin).
  */
-export async function signer(): Promise<string | null> {
+export async function signer(): Promise<string> {
   const u = app.session.user;
   if (u && u.id !== 'admin') return u.full_name || u.name;
-  if (app.session.role !== 'admin') return '';
-  let people: { id: string; name: string; full_name: string }[] = [];
-  try { people = await api('GET', '/api/users'); } catch {}
-  if (!people.length) {
-    if (!warnedUnsigned) toast('Changes made on the Mac are credited once someone is added in Settings → People.');
+  if (app.session.role === 'admin' && !warnedUnsigned) {
     warnedUnsigned = true;
-    return '';
+    let people: unknown[] = [];
+    try { people = await api('GET', '/api/users'); } catch {}
+    if (!people.length) toast('Changes made on the Mac are credited once someone is added in Settings → People.');
   }
-  const label = (p: (typeof people)[number]) => (p.full_name && p.full_name !== p.name ? `${p.name} (${p.full_name})` : p.name);
-  const pick = await choose('Who is editing on this Mac?', people.map(label), '', 'Continue');
-  const p = people.find((x) => label(x) === pick);
-  if (!p) return null;
-  await setEditingAs(p.id);
-  return p.full_name || p.name;
+  return '';
 }
 
 /** The person the Mac edits as ('' = nobody, the built-in Admin). */
@@ -85,7 +78,6 @@ export async function newNote(dir: string) {
   const title = await ask('New recipe', '', 'Create', dir ? `In ${dir}` : undefined);
   if (!title?.trim()) return;
   const by = await signer();
-  if (by === null) return;
   try {
     const text = stamp(RECIPE_TEMPLATE(title.trim()), { by, date: today(), note: 'Created', author: true });
     const r = await saveFile(join(dir, cleanName(title) + '.md'), text, null, true);
@@ -217,6 +209,10 @@ export function entryItems(path: string, isFolder: boolean): MenuItem[] {
   if (w && (isFolder || path.endsWith('.md'))) it.push({ label: 'Icon & colour…', run: () => openPicker(path, isFolder), sep: isFolder });
   if (path.endsWith('.md')) it.push({ label: isFavorite(path) ? 'Remove from favorites' : 'Add to favorites', run: () => toggleFavorite(path) });
   if (w && path.endsWith('.md')) it.push({ label: isBookmarked(path) ? 'Remove bookmark' : 'Bookmark for everyone', run: () => toggleBookmark(path) });
+  // the file the recipe was converted from (its page opens it, or offers Download for Word)
+  const o = app.byPath[path]?.frontmatter?.original;
+  const orig = typeof o === 'string' ? o.replace(/^\//, '') : '';
+  if (orig && app.byPath[orig]) it.push({ label: 'Original file', run: () => go(noteHash(orig)) });
   if (w) it.push({ label: 'Rename…', run: () => rename(path, isFolder) }, { label: 'Move to…', run: () => moveDialog(path, isFolder) });
   if (app.session.shell) it.push({ label: 'Show in Finder', run: () => shell('reveal', { path }) });
   if (w) it.push({ label: 'Move to trash', run: () => remove(path, isFolder), danger: true, sep: true });
@@ -225,10 +221,13 @@ export function entryItems(path: string, isFolder: boolean): MenuItem[] {
 }
 
 // ---------- bookmarks are everyone's (`favorite: true` in the recipe's properties, the key kept from
-// before); favorites are each person's own (kept in this browser, see state.svelte.ts) ----------
+// before); favorites are each person's own (kept with their name on the Mac, see state.svelte.ts) ----------
 
 export const isFavorite = (path: string) => favorites.paths.includes(path);
-export const toggleFavorite = (path: string) => setFavorites(isFavorite(path) ? favorites.paths.filter((p) => p !== path) : [...favorites.paths, path]);
+export async function toggleFavorite(path: string) {
+  const on = isFavorite(path);
+  try { await changeFavorites(on ? [] : [path], on ? [path] : []); } catch (e: any) { toast(e.message, 'error'); }
+}
 
 export const isBookmarked = (path: string) => app.byPath[path]?.frontmatter?.favorite === true;
 

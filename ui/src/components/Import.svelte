@@ -12,6 +12,7 @@
   import { renderMarkdown } from '../lib/markdown';
   import { splitRaw } from '../lib/frontmatter';
   import { requireWrite, signer } from '../lib/ops';
+  import EditingAs from './EditingAs.svelte';
 
   let busy = $state('');
   let urls = $state('');
@@ -77,7 +78,6 @@
 
   async function keepItem(it: QueueItem) {
     const by = await signer();
-    if (by === null) return;
     const note = importedFrom(it);
     busy = 'Saving…';
     try {
@@ -105,7 +105,6 @@
     if (!cur?.review || !cur.job) return;
     const { review: rv, job, id } = cur;
     const by = await signer();
-    if (by === null) return;
     const markdown = stamp(rv.md, { by, date: today(), note: importedFrom(cur), added: true });
     busy = 'Saving…';
     try {
@@ -185,6 +184,7 @@
       <select class="field w" bind:value={folder} aria-label="Folder">{#each folders as f}<option value={f}>{f || 'Top level'}</option>{/each}</select>
       <span class="spacer"></span>
       {#if app.session.ai}<button class="btn" disabled={aiBusy} onclick={fixWithAi}>{aiBusy ? 'Asking AI…' : 'Fix with AI'}</button>{/if}
+      {#if app.session.role === 'admin'}<EditingAs />{/if}
       <button class="btn" onclick={discard}>Discard</button>
       <button class="btn primary" disabled={!!busy || !rv.name.trim()} onclick={save}>Save recipe</button>
     </header>
@@ -323,7 +323,7 @@
       <p>Drop PDFs, Word documents (.docx, .doc), photos, saved web pages or text files here — or</p>
       <div><button class="btn" onclick={() => fileInput?.click()}><Icon name="upload" /> Choose files</button></div>
       <input type="file" hidden multiple bind:this={fileInput} accept=".pdf,.docx,.doc,.rtf,.odt,.html,.htm,.txt,.md,image/*" onchange={(e) => { pick(e.currentTarget.files); e.currentTarget.value = ''; }} />
-      <p class="muted small">The original file is always kept with the recipe.</p>
+      <p class="muted small">The original is kept with the recipe: its menu’s Original file opens it.</p>
     </section>
 
     <section class="card block">

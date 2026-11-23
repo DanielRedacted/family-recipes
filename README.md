@@ -18,13 +18,18 @@ from, edit, import and manage them.
 - **The files:** `~/Recipes` (changeable in Settings). Markdown, one file per recipe, folder = category.
   See [docs/FORMAT.md](docs/FORMAT.md).
 - **Sync:** optional, with a private GitHub repository: every save is uploaded, other Macs' changes
-  are downloaded (see below).
+  are downloaded (see below). The app keeps `README.md` in the recipes folder as a contents list, so
+  the repository reads well on GitHub.
+- **Recipe book:** Settings → General saves every recipe as one self-contained web page, or as a PDF
+  (straight to Downloads on the Mac, the print dialog elsewhere): title page, contents, a chapter per folder.
 - **AI:** optional, off by default, your own Anthropic or OpenAI-compatible API key (stored in the
   macOS Keychain), or a model running on the Mac (Ollama, LM Studio at `http://localhost:…/v1`, no
   key). Only ever proposes changes you accept.
 
 What it does: a folder column that follows the open recipe and cards (with emoji and colours you
-can change), bookmarks for everyone and each person's own favorites (kept in their browser), a
+can change), bookmarks for everyone and each person's own favorites (kept with their name, on every device), a
+People page and a page for everyone the recipes credit (account or not: what they wrote, added and edited,
+their favorites and an optional photo or emoji), home page sections that fold away (remembered per device), a
 kitchen whiteboard on the home page (notes that last today, until a chosen date or until removed),
 a suggested dinner on the home page with Random beside it (filters: kind of recipe, default Dinner;
 protein; folder; bookmarked; Random shows every match as a shuffled grid), "Made today" under each
@@ -41,7 +46,7 @@ formatted editor in the style of Apple Notes (Markdown marks are never shown; te
 checklists and real tables with an editor in each cell; the file stays plain
 Markdown and is saved only when you press Save), `[[links]]` and Markdown links between recipes with backlinks (an ingredient named like another
 recipe links to it), an
-ingredient catalogue with pictures that also feeds suggestions while typing, a Nutrition Facts label under each recipe
+ingredient catalogue with pictures that also feeds suggestions while typing, a Nutrition Facts label and package-style ingredient list for each recipe
 worked out from its ingredients with USDA FoodData Central values (recipes used as ingredients are worked out from their own
 ingredients; it follows the scaler; an optional USDA key looks up ingredients the shipped table lacks), tabs on wider screens (each
 with its own page and Back button, ⌘[),
@@ -72,8 +77,9 @@ cd ~/Recipes && git add -A && git commit -m "…" && git push               # sh
 ```
 
 The app sees pulled changes at once. `.trash/` stays out of git. `main` holds only recipes and
-settings; the original conversions from the family's Word documents are on that repository's
-`original-markdown` branch, and the conversion and checking tools on its `tools` branch.
+settings. The files recipes were made from (the family's Word documents, PDFs and anything imported
+since) are in `attachments/originals/`, each linked from its recipe; the conversion and checking
+tools are on that repository's `tools` branch.
 
 ## Download and updates
 
@@ -145,7 +151,7 @@ docs/help/          the in-app Help pages (Settings → Help)
 
 ```sh
 cargo test -p recipes-core                                   # parser, vault, auth, importer
-VAULT=~/Recipes TECHNIQUES="$PWD/../recipe-tools/.tools/techniques.txt" cargo test -p recipes-core -- --ignored   # every note in a real recipes folder parses
+VAULT=~/Recipes TECHNIQUES="$PWD/../home-recipes-tools/.tools/techniques.txt" cargo test -p recipes-core -- --ignored   # every note in a real recipes folder parses
 cd ui && npx vitest run                                      # scaling / unit conversion
 # end-to-end (needs a running recipes-server; see the scripts for arguments)
 node e2e/flows.mjs <admin-url> <vault> <outdir>        # navigation, save, menus, icons, links

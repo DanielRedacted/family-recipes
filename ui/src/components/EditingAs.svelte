@@ -1,6 +1,6 @@
 <script lang="ts">
   // The desktop app: the person its changes are credited to (in recipes, the whiteboard and the change
-  // log). Shown in the folder column and in Settings → People.
+  // log). Shown beside Save in the editor and the importer, and in Settings → People. Admin = nobody.
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import { app } from '../lib/state.svelte';
@@ -17,7 +17,7 @@
 {#if people.length}
   <label class="editing-as">Editing as
     <select class="plain-select" value={current} onchange={(e) => setEditingAs(e.currentTarget.value)}>
-      <option value="">Choose…</option>
+      <option value="">Admin</option>
       {#each people as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
     </select>
   </label>

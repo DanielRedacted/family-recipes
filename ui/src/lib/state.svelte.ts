@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { Entry, Session } from './types';
+import type { Entry, Person, Session } from './types';
 import { buildIndex, aliasesOf } from './search';
 import { parse as parseYaml } from 'yaml';
 import { loadMessages } from './board.svelte';
@@ -19,6 +19,8 @@ export const app = $state({
   offline: false,
   /** meals made (lib/made.ts), oldest first */
   made: [] as Made[],
+  /** everyone who signs in, by short name (GET /api/users) */
+  people: [] as Person[],
   route: { view: 'folder', path: '' } as Route,
   sidebar: false, // mobile drawer open
   toasts: [] as { id: number; text: string; kind: string }[],
@@ -41,16 +43,42 @@ export function setUnits(u: 'us' | 'metric') {
   try { localStorage.setItem('units', u); } catch {}
 }
 
-/** Favorites: the signed-in person's own (recipe paths), kept in this browser. Bookmarks are everyone's
- * (`favorite: true` in the recipe, the key kept from before; see ops.ts). */
+/** Favorites: the signed-in person's own (recipe paths), kept with their name on the Mac and shown
+ * on their page. Bookmarks are everyone's (`favorite: true` in the recipe, the key kept from before;
+ * see ops.ts). The Mac's built-in Admin isn't a person, so its favorites stay in this browser. */
 export const favorites = $state({ paths: [] as string[] });
+/** a list from before favorites were kept on the Mac, and the built-in Admin's */
 const favKey = () => `favorites:${app.session.user?.id ?? ''}`;
-function loadFavorites() {
-  try { const v = JSON.parse(localStorage.getItem(favKey()) || '[]'); favorites.paths = Array.isArray(v) ? v.filter((p) => typeof p === 'string') : []; } catch { favorites.paths = []; }
+const isPerson = () => !!app.session.user && app.session.user.id !== 'admin';
+function localFavorites(): string[] {
+  try { const v = JSON.parse(localStorage.getItem(favKey()) || '[]'); return Array.isArray(v) ? v.filter((p) => typeof p === 'string') : []; } catch { return []; }
 }
-export function setFavorites(paths: string[]) {
-  favorites.paths = paths;
-  try { localStorage.setItem(favKey(), JSON.stringify(paths)); } catch {}
+function loadFavorites() {
+  if (!isPerson()) { favorites.paths = localFavorites(); return; }
+  favorites.paths = app.people.find((p) => p.id === app.session.user?.id)?.favorites ?? favorites.paths;
+}
+/** Add or remove favorites for the person signed in. */
+export async function changeFavorites(add: string[], remove: string[]) {
+  if (!isPerson()) {
+    favorites.paths = [...favorites.paths.filter((p) => !remove.includes(p)), ...add.filter((p) => !favorites.paths.includes(p))];
+    try { localStorage.setItem(favKey(), JSON.stringify(favorites.paths)); } catch {}
+    return;
+  }
+  favorites.paths = await api<string[]>('POST', '/api/favorites', { add, remove });
+  const me = app.people.find((p) => p.id === app.session.user?.id);
+  if (me) me.favorites = favorites.paths;
+}
+/** Favorites this browser kept before they moved to the Mac join the person's list, once. */
+async function carryOverFavorites() {
+  if (!isPerson()) return;
+  const old = localFavorites();
+  if (!old.length) return;
+  try { await changeFavorites(old, []); localStorage.removeItem(favKey()); } catch { /* offline: next time */ }
+}
+
+export async function loadPeople() {
+  try { app.people = await api<Person[]>('GET', '/api/users'); } catch { /* offline: keep what's shown */ }
+  loadFavorites();
 }
 
 export function toast(text: string, kind: 'info' | 'error' | 'ok' = 'info') {
@@ -59,7 +87,7 @@ export function toast(text: string, kind: 'info' | 'error' | 'ok' = 'info') {
   setTimeout(() => { app.toasts = app.toasts.filter((t) => t.id !== id); }, kind === 'error' ? 6000 : 3000);
 }
 
-// ---------- routing: #/n/<path> note, #/f/<folder> folder, #/settings, #/trash, #/import ----------
+// ---------- routing: #/n/<path> note, #/f/<folder> folder, #/people/<name>, #/settings, #/trash, #/import ----------
 
 export interface Route { view: string; path: string; mode?: string; /** the hash this route was read from */ hash?: string }
 
@@ -73,7 +101,7 @@ export function parseRoute(hash = location.hash): Route {
   }
   if (view === 'f') return { view: 'folder', path, hash };
   if (view === 'trash') return { view: 'settings', path: 'trash', hash };
-  if (['settings', 'import', 'search', 'ingredients', 'calendar'].includes(view)) return { view, path, hash };
+  if (['settings', 'import', 'search', 'ingredients', 'calendar', 'people'].includes(view)) return { view, path, hash };
   return { view: 'folder', path: '', hash };
 }
 
@@ -246,9 +274,12 @@ export function moveTab(id: number, to: number) {
 
 /** `from` (a file or folder) moved to `to`, or went to the trash (null): every tab showing it follows. */
 export function retarget(from: string, to: string | null) {
-  // ponytail: only renames made on this device; a recipe renamed elsewhere drops out of Favorites
+  // a person's favorites follow a move on the Mac (users.rs `moved`); the built-in Admin's are here
   const moved = (p: string) => (to !== null && (p === from || p.startsWith(from + '/')) ? to + p.slice(from.length) : p);
-  if (favorites.paths.some((p) => moved(p) !== p)) setFavorites(favorites.paths.map(moved));
+  if (!isPerson() && favorites.paths.some((p) => moved(p) !== p)) {
+    favorites.paths = favorites.paths.map(moved);
+    try { localStorage.setItem(favKey(), JSON.stringify(favorites.paths)); } catch {}
+  }
   const map = (hash: string) => {
     const r = parseRoute(hash);
     if ((r.view !== 'note' && r.view !== 'folder') || (r.path !== from && !r.path.startsWith(from + '/'))) return hash;
@@ -303,21 +334,29 @@ export function retarget(from: string, to: string | null) {
 
 export async function loadSession() {
   try { app.session = await api<Session>('GET', '/api/session'); } catch { /* offline */ }
-  loadFavorites();
+  await loadPeople();
+  await carryOverFavorites();
 }
 
 let loading: Promise<void> | null = null;
+/** a load asked for while one was running: that one may have read the folder before the change */
+let queued: Promise<void> | null = null;
 export function loadVault(): Promise<void> {
-  loading ??= (async () => {
+  if (loading) return (queued ??= loading.then(() => { queued = null; return loadVault(); }));
+  loading = (async () => {
     try {
       const v = await api<{ files: Entry[]; folders: string[]; folder_meta?: string }>('GET', '/api/vault');
-      app.files = v.files;
+      // a file a recipe was converted from (`original:`) is reached from that recipe, not listed on its own
+      // ponytail: `original:` is always an absolute vault path (written by the importer)
+      const originals = new Set(v.files.map((f) => f.frontmatter?.original).filter((o): o is string => typeof o === 'string').map((o) => o.replace(/^\//, '')));
+      const shown = v.files.filter((f) => !originals.has(f.path));
+      app.files = shown;
       app.byPath = Object.fromEntries(v.files.map((f) => [f.path, f]));
-      app.folders = v.folders;
+      app.folders = v.folders.filter((d) => d !== 'attachments/originals' || shown.some((f) => f.path.startsWith(d + '/')));
       app.folderMetaRaw = v.folder_meta ?? '';
       try { const m = parseYaml(app.folderMetaRaw || '{}'); app.folderMeta = m && typeof m === 'object' ? m : {}; } catch { app.folderMeta = {}; }
       app.offline = false;
-      buildIndex(v.files);
+      buildIndex(shown);
     } catch (e) {
       app.offline = true;
     } finally {
@@ -339,8 +378,9 @@ export function listenForChanges() {
     es.addEventListener('vault', () => loadVault());
     es.addEventListener('messages', () => loadMessages());
     es.addEventListener('made', () => loadMade());
+    es.addEventListener('users', () => loadPeople());
     es.onerror = () => { es?.close(); setTimeout(connect, 5000); };
-    es.onopen = () => { loadVault(); loadMessages(); loadMade(); };
+    es.onopen = () => { loadVault(); loadMessages(); loadMade(); loadPeople(); };
   };
   connect();
 }

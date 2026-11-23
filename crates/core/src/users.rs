@@ -1,14 +1,18 @@
-//! People who use the app on phones, tablets and other computers: a name, no password, and the
-//! devices they signed in on. Kept in the app's data folder (`users.json`), never in the recipes
-//! folder, which syncs to GitHub. Every change a person makes is appended to `activity.log`.
+//! People who use the app on phones, tablets and other computers: a name, no password, the
+//! devices they signed in on, their favorite recipes and an optional picture. Kept in the app's
+//! data folder (`users.json`), never in the recipes folder, which syncs to GitHub. Every change a
+//! person makes is appended to `activity.log`.
+//!
+//! What a person contributed is not kept here: it is read from the recipes' own credits (`author`,
+//! `added_by`, `changes`; see ui/src/lib/people.ts), so it outlives the account.
 
-use crate::auth::{self, Actor, Caller, Role};
+use crate::auth::{self, Actor, Caller, Role, Who};
 use crate::server::{AppState, err, write_private};
 use axum::extract::{Path as AxPath, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, put};
-use axum::{Json, Router};
+use axum::routing::{get, post, put};
+use axum::{Extension, Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::io::Write;
@@ -17,6 +21,9 @@ use std::sync::{Arc, Mutex};
 const FILE: &str = "users.json";
 const LOG: &str = "activity.log";
 const MAX_DEVICES: usize = 10;
+const MAX_FAVORITES: usize = 2000;
+/// Sent on the change stream (`/api/events`) when anyone's name, favorites or picture changes.
+pub const EVENT: &str = "users";
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Device {
@@ -38,6 +45,15 @@ pub struct User {
     pub created: u64,
     #[serde(default)]
     pub devices: Vec<Device>,
+    /// recipe paths this person marked as a favorite
+    #[serde(default)]
+    pub favorites: Vec<String>,
+    /// an emoji, or a small `data:image/…;base64,…` picture
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub picture: Option<String>,
+    /// names this person was credited under before a rename, so older recipes still count as theirs
+    #[serde(default)]
+    pub former: Vec<String>,
 }
 
 /// Loaded from disk on first use.
@@ -57,7 +73,9 @@ fn with<R>(s: &AppState, f: impl FnOnce(&mut Vec<User>) -> R) -> R {
 }
 
 fn save(s: &AppState, list: &[User]) -> Result<(), Response> {
-    write_private(&s.data_dir.join(FILE), &serde_json::to_vec_pretty(list).unwrap()).map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))
+    write_private(&s.data_dir.join(FILE), &serde_json::to_vec_pretty(list).unwrap()).map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    let _ = s.events.send(EVENT.into());
+    Ok(())
 }
 
 pub fn actor_of(s: &AppState, id: &str) -> Option<Actor> {
@@ -94,7 +112,7 @@ fn same(a: &str, b: &str) -> bool {
 }
 
 fn new_user(name: String, full_name: String) -> User {
-    User { id: format!("{:016x}", rand::random::<u64>()), name, full_name, created: auth::now(), devices: vec![] }
+    User { id: format!("{:016x}", rand::random::<u64>()), name, full_name, created: auth::now(), devices: vec![], favorites: vec![], picture: None, former: vec![] }
 }
 
 /// Sign in as the person with this name (any letter case), adding them if they're new (a full name
@@ -142,6 +160,62 @@ pub fn remove(s: &AppState, id: &str) -> Result<(), Response> {
     })
 }
 
+/// A file or folder in the recipes moved from `from` to `to`: favorites follow it.
+pub fn moved(s: &AppState, from: &str, to: &str) {
+    let follow = |p: &str| (p == from).then(|| to.to_string()).or_else(|| p.strip_prefix(from).filter(|r| r.starts_with('/')).map(|r| format!("{to}{r}")));
+    with(s, |l| {
+        let mut changed = false;
+        for u in l.iter_mut() {
+            for p in u.favorites.iter_mut() {
+                if let Some(n) = follow(p) {
+                    *p = n;
+                    changed = true;
+                }
+            }
+        }
+        if changed && let Err(e) = save(s, l) {
+            tracing::warn!("favorites after a move: {:?}", e.status());
+        }
+    });
+}
+
+/// Apply `add` then `remove` to a person's favorites (adding keeps the order, without repeats).
+fn edit_favorites(list: &mut Vec<String>, add: &[String], remove: &[String]) -> Result<(), Response> {
+    if add.iter().any(|p| p.is_empty() || p.len() > 512 || p.chars().any(char::is_control)) {
+        return Err(bad("that isn't a recipe"));
+    }
+    for p in add {
+        if !list.contains(p) {
+            list.push(p.clone());
+        }
+    }
+    list.retain(|p| !remove.contains(p));
+    if list.len() > MAX_FAVORITES {
+        return Err(bad(format!("keep at most {MAX_FAVORITES} favorites")));
+    }
+    Ok(())
+}
+
+/// An emoji, or a JPEG, PNG or WebP picture as a data URL of at most about 100 KB.
+fn clean_picture(raw: &str) -> Result<String, Response> {
+    let raw = raw.trim();
+    if let Some(rest) = raw.strip_prefix("data:") {
+        let data = ["image/jpeg;base64,", "image/png;base64,", "image/webp;base64,"].iter().find_map(|t| rest.strip_prefix(t));
+        return match data {
+            None => Err(bad("use a JPEG, PNG or WebP picture")),
+            Some(d) if d.len() > 140_000 => Err(bad("that picture is too large")),
+            Some(d) if d.is_empty() || !d.bytes().all(|b| b.is_ascii_alphanumeric() || b"+/=".contains(&b)) => Err(bad("that picture can't be read")),
+            Some(_) => Ok(raw.to_string()),
+        };
+    }
+    match raw.chars().count() {
+        0 => Err(bad("choose a picture or an emoji")),
+        n if n > 16 => Err(bad("use one emoji")),
+        _ if raw.chars().any(|c| c.is_control() || c.is_ascii_alphanumeric() || c == '<') => Err(bad("use one emoji")),
+        _ => Ok(raw.to_string()),
+    }
+}
+
 /// Requests that change nothing in the recipes or the app's data.
 fn worth_logging(path: &str) -> bool {
     let skip = ["/api/session", "/api/shell/", "/api/ai/"].iter().any(|p| path.starts_with(p));
@@ -179,18 +253,63 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/api/users", get(list).post(add))
         .route("/api/users/{id}", put(rename).delete(delete))
         .route("/api/users/{id}/activity", get(activity))
+        .route("/api/users/{id}/picture", put(set_picture))
+        .route("/api/favorites", post(favorites))
 }
 
-/// Names for the sign-in page (anyone); the desktop app also gets each person's devices.
-async fn list(State(s): State<Arc<AppState>>, Caller(role): Caller) -> Response {
+/// Names for the sign-in page (anyone). Signed-in people also see each other's pages: when they
+/// joined, their favorites, picture and former names. Only the desktop app gets their devices.
+async fn list(State(s): State<Arc<AppState>>, Caller(role): Caller, Extension(Who(who)): Extension<Who>) -> Response {
     let mut l = with(&s, |l| l.clone());
     l.sort_by_key(|u| u.name.to_lowercase());
-    let out: Vec<Value> = if role == Role::Admin {
-        l.into_iter().map(|u| serde_json::to_value(u).unwrap()).collect()
-    } else {
-        l.into_iter().map(|u| json!({ "id": u.id, "name": u.name, "full_name": u.full_name })).collect()
-    };
+    let out: Vec<Value> = l
+        .into_iter()
+        .map(|u| match (role, &who) {
+            (Role::Admin, _) => serde_json::to_value(u).unwrap(),
+            (_, Some(_)) => json!({ "id": u.id, "name": u.name, "full_name": u.full_name, "created": u.created, "favorites": u.favorites, "picture": u.picture, "former": u.former }),
+            (_, None) => json!({ "id": u.id, "name": u.name, "full_name": u.full_name }),
+        })
+        .collect();
     Json(out).into_response()
+}
+
+#[derive(Deserialize)]
+struct FavoritesBody {
+    #[serde(default)]
+    add: Vec<String>,
+    #[serde(default)]
+    remove: Vec<String>,
+}
+
+/// Add or remove the signed-in person's favorites (not a whole list, so two devices can't undo each other).
+async fn favorites(State(s): State<Arc<AppState>>, Extension(Who(who)): Extension<Who>, Json(b): Json<FavoritesBody>) -> Res {
+    let id = who.map(|a| a.id).ok_or_else(|| err(StatusCode::UNAUTHORIZED, "sign in first"))?;
+    with(&s, |l| {
+        let u = l.iter_mut().find(|u| u.id == id).ok_or_else(|| err(StatusCode::NOT_FOUND, "the Mac keeps its own favorites; choose someone in Editing as"))?;
+        edit_favorites(&mut u.favorites, &b.add, &b.remove)?;
+        let out = u.favorites.clone();
+        save(&s, l)?;
+        Ok(Json(out).into_response())
+    })
+}
+
+#[derive(Deserialize)]
+struct PictureBody {
+    picture: Option<String>,
+}
+
+/// A person changes their own picture; the Mac can change anyone's.
+async fn set_picture(State(s): State<Arc<AppState>>, Caller(role): Caller, Extension(Who(who)): Extension<Who>, AxPath(id): AxPath<String>, Json(b): Json<PictureBody>) -> Res {
+    if role != Role::Admin && who.as_ref().is_none_or(|a| a.id != id) {
+        return Err(err(StatusCode::FORBIDDEN, "you can change only your own picture"));
+    }
+    let picture = b.picture.as_deref().map(clean_picture).transpose()?;
+    with(&s, |l| {
+        let u = l.iter_mut().find(|u| u.id == id).ok_or_else(|| err(StatusCode::NOT_FOUND, "no such person"))?;
+        u.picture = picture;
+        save(&s, l)?;
+        Ok(StatusCode::NO_CONTENT.into_response())
+    })
 }
 
 #[derive(Deserialize)]
@@ -214,6 +333,25 @@ async fn add(State(s): State<Arc<AppState>>, caller: Caller, Json(b): Json<NameB
     })
 }
 
+/// The name their recipes are credited under (ops.ts `signer`: the full name, else the name).
+fn credited(u: &User) -> &str {
+    if u.full_name.is_empty() { &u.name } else { &u.full_name }
+}
+
+/// Rename a person, keeping the name they were credited under so their older recipes still count.
+fn set_names(u: &mut User, name: String, full_name: Option<String>) {
+    let before = credited(u).to_string();
+    u.name = name;
+    if let Some(f) = full_name {
+        u.full_name = f;
+    }
+    let now = credited(u).to_string();
+    if !same(&before, &now) && !u.former.iter().any(|f| same(f, &before)) {
+        u.former.push(before);
+    }
+    u.former.retain(|f| !same(f, &now));
+}
+
 async fn rename(State(s): State<Arc<AppState>>, caller: Caller, AxPath(id): AxPath<String>, Json(b): Json<NameBody>) -> Res {
     caller.need(Role::Admin)?;
     let name = clean_name(&b.name)?;
@@ -223,10 +361,7 @@ async fn rename(State(s): State<Arc<AppState>>, caller: Caller, AxPath(id): AxPa
             return Err(err(StatusCode::CONFLICT, format!("{name} is already here")));
         }
         let u = l.iter_mut().find(|u| u.id == id).ok_or_else(|| err(StatusCode::NOT_FOUND, "no such person"))?;
-        u.name = name;
-        if let Some(f) = full_name {
-            u.full_name = f;
-        }
+        set_names(u, name, full_name);
         let u = u.clone();
         save(&s, l)?;
         Ok(Json(u).into_response())
@@ -279,6 +414,35 @@ mod tests {
         log_write(&s, &Actor { id: "admin".into(), name: "Admin".into(), full_name: String::new() }, "DELETE", "/api/trash");
         let log = activity_of(&s, &ann.id, 10);
         assert_eq!(log.iter().map(|v| v["path"].as_str().unwrap()).collect::<Vec<_>>(), ["/api/import/abc/save", "/api/files/Pies/Pumpkin%20Pie.md"]);
+
+        // favorites: added once each, removed, and following a renamed recipe or folder
+        let mut favs = vec![];
+        edit_favorites(&mut favs, &["Pies/Pumpkin Pie.md".into(), "Soups/Minestrone.md".into(), "Pies/Pumpkin Pie.md".into()], &[]).unwrap();
+        edit_favorites(&mut favs, &["Pies/Apple Pie.md".into()], &["Soups/Minestrone.md".into()]).unwrap();
+        assert_eq!(favs, ["Pies/Pumpkin Pie.md", "Pies/Apple Pie.md"]);
+        assert!(edit_favorites(&mut favs, &["".into()], &[]).is_err());
+        with(&s, |l| l[0].favorites = favs.clone());
+        moved(&s, "Pies", "Desserts/Pies");
+        moved(&s, "Desserts/Pies/Apple Pie.md", "Desserts/Pies/Apple Tart.md");
+        moved(&s, "Pi", "Nothing"); // a prefix that isn't a folder moves nothing
+        assert_eq!(with(&s, |l| l[0].favorites.clone()), ["Desserts/Pies/Pumpkin Pie.md", "Desserts/Pies/Apple Tart.md"]);
+
+        // pictures: one emoji or a small raster data URL, never markup
+        assert_eq!(clean_picture(" 🥧 ").unwrap(), "🥧");
+        assert!(clean_picture("data:image/jpeg;base64,/9j/4AAQ").is_ok());
+        for bad_one in ["", "Ann", "<b>", "data:image/svg+xml;base64,PHN2Zz4=", "data:image/png;base64,<script>", &format!("data:image/png;base64,{}", "A".repeat(140_001))] {
+            assert!(clean_picture(bad_one).is_err(), "{bad_one:.40}");
+        }
+
+        // a new full name keeps the old one, so recipes credited to it still count
+        let mut u = new_user("Ann".into(), "Ann Romo".into());
+        set_names(&mut u, "Annie".into(), None);
+        assert!(u.former.is_empty(), "a new short name changes no credits");
+        set_names(&mut u, "Annie".into(), Some("Ann Smith".into()));
+        set_names(&mut u, "Annie".into(), Some("ann smith".into()));
+        assert_eq!(u.former, ["Ann Romo"]);
+        set_names(&mut u, "Annie".into(), Some("Ann Romo".into()));
+        assert_eq!(u.former, ["ann smith"], "back to an old name: it is current again, not former");
 
         remove(&s, &ann.id).unwrap();
         assert_eq!(name_of(&s, &ann.id), None);

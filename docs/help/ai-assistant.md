@@ -45,6 +45,7 @@ All three need editing rights (the desktop app, or a device signed in with the f
 
 - **Fix** and **Tidy** open a side-by-side comparison: the current text on the left, the AI suggestion on the right, editable. Nothing changes until **Use suggestion** (import) or **Save suggestion** (recipe). Saving a tidied recipe records "Accepted an AI suggestion" in its history.
 - **Ask** shows the answer under the question and never touches the file.
+- AI only ever sees and proposes text. The file a recipe was imported from is kept either way, and a tidied recipe keeps its `original` link even if the suggestion dropped it.
 - AI requests are not written to the activity log, since they change nothing.
 
 ## When it fails

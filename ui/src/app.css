@@ -1,37 +1,4 @@
-/* Family cookbook: paper palette with a very mild lavender tint (originally the earlier `recipes` app's warm greys),
-   card pastels from its colour swatches, purple accent. */
-:root {
-  --bg: #faf9fd;
-  --surface: #ffffff;
-  --sunken: #f1eef8;
-  --border: #e4e0ee;
-  --text: #1b1a22;
-  --muted: #69657a;
-  --accent: #7a52cc; /* purple, the lavender's complement in strength */
-  --accent-ink: #5e3ba8;
-  --accent-soft: #ebe3fb;
-  --on-accent: #ffffff; /* text on purple fills: 5.4:1 */
-  --danger: #dc2626;
-  --ok: #16a34a;
-  --radius: 10px;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
-  --p-red: #ffd6d6; --p-orange: #ffe5cc; --p-yellow: #fff9cc; --p-green: #d6f5d6;
-  --p-blue: #cce5ff; --p-purple: #ead6ff; --p-brown: #e8d5c4; --p-grey: #efedf5;
-  --serif: ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif;
-  --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --sidebar: 290px;
-  color-scheme: light;
-}
-:root[data-theme="dark"] {
-  --bg: #141319; --surface: #1e1c24; --sunken: #19171f; --border: #2e2b37; --text: #f1eff6; --muted: #9c98a8;
-  --accent: #b39cf2; --accent-ink: #c9b8f7; --accent-soft: #2d2442; --on-accent: #141319;
-  --p-red: #3b2626; --p-orange: #3b2e22; --p-yellow: #37341f; --p-green: #22362a;
-  --p-blue: #213040; --p-purple: #302640; --p-brown: #362d25; --p-grey: #2a2830;
-  color-scheme: dark;
-}
-
+/* the colour and type tokens and the recipe text (.prose) are in prose.css, shared with the recipe book */
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 /* nothing bounces: not the window, not the recipe or folder columns, not any scrolling panel */
@@ -50,6 +17,7 @@ h1, h2, h3, h4 { font-family: var(--serif); font-weight: 600; line-height: 1.25;
   border: 1px solid var(--border); background: var(--surface); border-radius: 8px; cursor: pointer; white-space: nowrap;
 }
 .btn:hover { border-color: var(--accent); }
+a.btn { color: var(--text); text-decoration: none; } /* a link that looks like a button (Download, Open in new tab) */
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .btn.primary:hover { filter: brightness(1.05); }
 .btn.danger { color: var(--danger); }
@@ -85,39 +53,19 @@ select.plain-select:focus-visible { outline: 2px solid var(--accent); outline-of
 .small { font-size: 13px; }
 .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .spacer { flex: 1; }
+/* a section heading on a page of cards (home, a person's page): small, muted, sans */
+.sub { font-size: 1.05rem; margin: 24px 0 12px; color: var(--muted); font-family: var(--sans); font-weight: 500; }
+/* a grid of recipe cards (RecipeCard.svelte): 220px columns, 150px on phones */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+@media (max-width: 899px) { .card-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; } }
+/* the files at the top of the recipes, after the home page's last section */
+.sect + .card-grid, .sect + .tbl { margin-top: 24px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-/* ---------- rendered notes ---------- */
-.prose { font-family: var(--serif); font-size: 17px; line-height: 1.6; max-width: 760px; overflow-wrap: anywhere; }
-.prose h1 { font-size: 2rem; margin: 0.2em 0 0.6em; }
-.prose h1:has(+ .byline) { margin-bottom: 0.1em; }
-.prose .byline { margin: 0 0 1.2em; font: 14px var(--sans); color: var(--muted); }
-.prose h2 { font-size: 1.35rem; margin: 1.6em 0 0.5em; padding-bottom: 4px; border-bottom: 2px solid var(--accent-soft); }
-.prose h3 { font-size: 1.1rem; margin: 1.2em 0 0.4em; color: var(--accent-ink); }
-.prose img { max-width: 100%; height: auto; border-radius: var(--radius); }
-.prose ul, .prose ol { padding-left: 1.4em; }
-.prose li { margin: 0.25em 0; }
-.prose li::marker { color: var(--accent); }
-.prose blockquote { margin: 1em 0; padding: 0.2em 1em; border-left: 3px solid var(--accent); background: var(--sunken); }
-.prose code { font-family: var(--mono); font-size: 0.9em; background: var(--sunken); padding: 1px 4px; border-radius: 4px; }
-.prose hr { border: none; border-top: 1px solid var(--border); }
-.prose .table-wrap { overflow-x: auto; margin: 1em 0; }
-.prose table { border-collapse: collapse; font-family: var(--sans); font-size: 15px; }
-.prose th, .prose td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
-.prose th { background: var(--sunken); }
-.prose thead tr:not(:has(th:not(:empty))) { display: none; }
-.prose a.wikilink, .prose a.internal { text-decoration: underline dashed var(--accent) 1px; text-underline-offset: 0.2em; }
-/* a link to a web page (not a recipe): ↗ after it, opens in the browser */
-a.ext::after { content: "↗"; display: inline-block; margin-left: 2px; font-size: 0.75em; color: var(--muted); text-decoration: none; }
-@media print { a.ext::after { content: none; } }
-.prose a.wikilink.missing { color: var(--muted); text-decoration-color: var(--muted); cursor: help; }
 
 @media print {
   .no-print, nav, aside, header, .toolbar { display: none !important; }
   body { background: #fff; color: #000; }
-  .prose { max-width: none; font-size: 12pt; }
-  .prose a { color: inherit; text-decoration: none; }
   main { overflow: visible !important; padding: 0 !important; }
   .app { display: block !important; height: auto !important; overflow: visible !important; }
 }

@@ -11,7 +11,7 @@ await page.goto(url);
 await page.waitForSelector('a.folder');
 
 // the catalogue page groups spellings
-await page.click('button:has-text("Ingredients")');
+await page.click('button[aria-label="Ingredients"]');
 await page.fill('input[aria-label="Find an ingredient"]', 'egg');
 await page.click('.head:has-text("eggs") >> nth=0');
 await page.waitForSelector('.more li a');
@@ -26,26 +26,37 @@ await page.waitForSelector('.list > li.open .food:has-text("left out")');
 await page.click('.list > li.open button:has-text("Undo")');
 await page.waitForSelector('.list > li.open .food:has-text("counted as")');
 
-// the Nutrition Facts label: per serving with a yield, follows the scaler; split box without one
-const cal = () => page.locator('section.nutrition .cal span').nth(1).innerText();
+// the Nutrition Facts label, in a modal opened beside More: per serving with a yield, follows the
+// scaler; split box without one; the ingredients listed under it by weight
+const cal = () => page.locator('dialog section.nutrition .cal span').nth(1).innerText();
+const openLabel = async () => { await page.click('button.nutri-btn'); await page.waitForSelector('dialog[open] section.nutrition'); };
 await page.goto(new URL('/#/n/Breakfast%20Breads/Blueberry%20Streusel%20Coffee%20Cake.md', url).href);
-await page.waitForSelector('section.nutrition');
+await openLabel();
 const perServing = Number(await cal());
 assert.ok(perServing > 300 && perServing < 600, `coffee cake per serving: ${perServing}`); // the recipe says 476
+assert.match(await page.locator('dialog .ingredients').innerText(), /^Ingredients: \S/);
+await page.keyboard.press('Escape');
+await page.waitForSelector('dialog[open]', { state: 'detached' });
 await page.click('button[aria-label="More servings"]');
+await openLabel();
 assert.equal(Number(await cal()), perServing, 'per serving stays the same when scaling');
-assert.match(await page.locator('section.nutrition .servings').innerText(), /10 servings per recipe/);
+assert.match(await page.locator('dialog section.nutrition .servings').innerText(), /10 servings per recipe/);
+await page.click('dialog button[aria-label="Close"]');
 await page.goto(new URL('/#/n/Eggs/Quiche%20Lorraine.md', url).href);
-await page.waitForSelector('section.nutrition');
+await openLabel();
 const whole = Number(await cal());
-await page.fill('section.nutrition input[type=number]', '6');
+await page.fill('dialog section.nutrition input[type=number]', '6');
 assert.ok(Math.abs(Number(await cal()) - whole / 6) <= 10, 'split into 6');
-assert.equal(await page.locator('section.nutrition .dvh').count(), 1, '% Daily Value once split');
-// mayonnaise is worked out from the book's own recipe, and what it can't count is listed here
+assert.equal(await page.locator('dialog section.nutrition .dvh').count(), 1, '% Daily Value once split');
+await page.keyboard.press('Escape');
+// mayonnaise is worked out from the book's own recipe: its ingredients in brackets, what it can't count listed
 await page.goto(new URL('/#/n/Salads/Coleslaw.md', url).href);
-await page.click('section.nutrition summary');
-assert.match(await page.locator('section.nutrition details').innerText(), /Mayonnaise[^:]*:/);
+await openLabel();
+assert.match(await page.locator('dialog .ingredients').innerText(), /Mayonnaise \([^)]+\)/);
+await page.click('dialog section.nutrition summary');
+assert.match(await page.locator('dialog section.nutrition details').innerText(), /Mayonnaise[^:]*:/);
 await page.screenshot({ path: `${out}/nutrition.png` });
+await page.keyboard.press('Escape');
 
 // ⌘K finds ingredients too
 await page.keyboard.press('Meta+k');

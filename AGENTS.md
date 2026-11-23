@@ -31,14 +31,19 @@ A family cookbook app: a folder of Markdown recipes, browsed and edited in a Tau
 
 The app ships empty. The family recipes live in a separate private repository; on the owner's Mac
 `~/Recipes` is a clone of it. Its `main` holds only what the family uses (recipes, `attachments/`,
-`.folders.yaml`). The original conversions are on its `original-markdown` branch; the agent notes and
-tools are on its `tools` branch, checked out as a worktree at `../recipe-tools/` next to this repository.
+`.folders.yaml`). The files the recipes were made from are in its `attachments/originals/`, each linked
+from its recipe with `original:` (the app archives new ones the same way); the agent notes and tools are
+on its `tools` branch, checked out as a worktree at `../home-recipes-tools/` next to this repository.
 
 - Never copy recipes into this repository, and never put tools or agent files on the recipes' `main`.
-- `../recipe-tools/` has the recipes' own `AGENTS.md` (format, tags, authors, the no-changed-information
+- `../home-recipes-tools/` has the recipes' own `AGENTS.md` (format, tags, authors, the no-changed-information
   rule), the `clean-up-recipe` skill in `.agents/skills/`, and `.tools/` (`verify.py`, `convert.py`,
   `techniques.txt`); agents working on recipes follow those. The app still hides `AGENTS.md` and
   `CLAUDE.md` at the top of a recipes folder (`vault::hidden`), and every dot-folder.
+- **Contents:** the app writes `README.md` at the top of the recipes folder after each rescan
+  (`crates/core/src/toc.rs`), a link per recipe by folder, hidden like `AGENTS.md` and synced to GitHub. It
+  only rewrites a README whose first line is its own comment, and only when the bytes change; keep its
+  output free of dates or counts, or two Macs would commit it back and forth. `verify.py` skips it.
 - **Feedback log:** `FEEDBACK.md` at the top of the recipes folder (hidden like `AGENTS.md`) is where
   the app appends feedback (`crates/core/src/feedback.rs`, `ui/src/components/Feedback.svelte`). To work
   through it when asked: `git -C ~/Recipes pull`, read it, make the changes in this repository, then
@@ -55,10 +60,8 @@ tools are on its `tools` branch, checked out as a worktree at `../recipe-tools/`
   dropping words or inventing values are not.
 - Prove it after any change to recipe files:
   ```sh
-  python3 -I ../recipe-tools/.tools/verify.py /tmp/originals/recipes ~/Recipes   # every original word kept
-  python3 -I ../recipe-tools/.tools/verify.py --since HEAD ~/Recipes             # nothing but spelling changed
+  python3 -I ../home-recipes-tools/.tools/verify.py --since HEAD ~/Recipes             # nothing but spelling changed
   ```
-  (`git -C ~/Recipes archive origin/original-markdown | tar -x -C /tmp/originals` gets the originals.)
   If a legitimate formatting change fails the check, extend `verify.py` with a narrow, explicit
   equivalence and a self-test that would catch a real change; don't loosen it generally.
 - The app never re-serialises a note body. Frontmatter is edited only through `setProp`
@@ -82,7 +85,7 @@ tools are on its `tools` branch, checked out as a worktree at `../recipe-tools/`
 
 - **`DESIGN.md`** is the visual design in Google's DESIGN.md format: YAML tokens (colours, type,
   radii, spacing, components) followed by prose on how they're used. The CSS is the implementation
-  (`ui/src/app.css` custom properties and the component styles); DESIGN.md describes it, it doesn't
+  (`ui/src/prose.css` holds the custom properties and the recipe text, shared with the saved recipe book; `ui/src/app.css` and the component styles the rest); DESIGN.md describes it, it doesn't
   generate it.
   - Before styling UI, read it and reuse an existing token or component (`var(--accent)`, not a
     new hex value; an existing button or chip style, not a new one).
@@ -145,10 +148,14 @@ covers, and follow it together with this file; where they disagree, this file an
   frontmatter by the UI when it saves (`Note.svelte` `saveEdit`/`saveRaw`, `ops.ts` `newNote`, `Import.svelte`),
   using the full name from `signer()` in `ops.ts`. The desktop window credits the person chosen as
   "Editing as" (`settings.editing_as`). Frontmatter helpers live in `ui/src/lib/frontmatter.ts`.
-  `../recipe-tools/.tools/verify.py` treats these keys as app-owned (`APP_PROPS`).
+  `../home-recipes-tools/.tools/verify.py` treats these keys as app-owned (`APP_PROPS`).
 - **Bookmarks vs favorites.** Bookmarks are everyone's: `favorite: true` in the recipe (the key kept
-  from before; `isBookmarked` in `ops.ts`). Favorites are one person's, in their browser's
-  localStorage (`favorites:<person id>`, `isFavorite`).
+  from before; `isBookmarked` in `ops.ts`). Favorites are one person's, in `users.json`
+  (`POST /api/favorites`, `changeFavorites` in `state.svelte.ts`; `users::moved` keeps them on a move) and
+  shown on their People page. Only the built-in Admin's stay in localStorage (`favorites:admin`).
+- **People pages** (`People.svelte`, `ui/src/lib/people.ts`) are built from the recipes' credits by
+  name, not from accounts, so a contributor keeps a page after their account goes. Renames record the
+  old credited name in `former`; never rewrite recipe credits to follow a rename.
 - **Parser line numbers** (`recipe.rs`) are 0-based within the whole file, frontmatter included; the
   reader maps them onto the raw text (`scaledRaw` in `ui/src/lib/markdown.ts`). Ingredient detection
   is heuristic: when you change it, dump every recipe's parse before and after
@@ -178,7 +185,7 @@ covers, and follow it together with this file; where they disagree, this file an
 
 ```sh
 cargo test -p recipes-core
-VAULT=~/Recipes TECHNIQUES="$PWD/../recipe-tools/.tools/techniques.txt" cargo test -p recipes-core -- --ignored --skip dump_vault   # the real recipes parse
+VAULT=~/Recipes TECHNIQUES="$PWD/../home-recipes-tools/.tools/techniques.txt" cargo test -p recipes-core -- --ignored --skip dump_vault   # the real recipes parse
 cd ui && npx vitest run && npm run check
 ```
 
@@ -192,16 +199,14 @@ target/debug/recipes-server --vault /tmp/e2e-vault --data /tmp/e2e-data --port 0
 # skip the first-start setup page (it covers the window): with the cookie from opening the admin URL,
 # PUT /api/settings {"setup_done": true} with header X-Recipes: 1
 cd ui && node e2e/flows.mjs "<admin-url>" /tmp/e2e-vault /tmp/e2e-out
-node e2e/editor.mjs … && node e2e/ingredients.mjs … && node e2e/accounts.mjs … && node e2e/calendar.mjs …  # fresh vault and data copy each
+node e2e/editor.mjs … && node e2e/ingredients.mjs … && node e2e/accounts.mjs … && node e2e/calendar.mjs … && node e2e/originals.mjs …  # fresh vault and data copy each
 ```
 
 `e2e/import.mjs` needs the internet and two source files from the recipes repository
 (`IMPORT_SRC`, default `/tmp/import-src`):
 
 ```sh
-mkdir -p /tmp/import-src && git -C ~/Recipes archive origin/originals \
-  "recipes/PDFs/Einkorn Pizza Dough Recipe _ GrillGirl.pdf" "recipes/Cookies - Macaroons.docx" \
-  | tar -x -C /tmp/import-src --strip-components=1
+mkdir -p /tmp/import-src && cp ~/Recipes/attachments/originals/{"Einkorn Pizza Dough Recipe _ GrillGirl.pdf","Cookies - Macaroons.docx"} /tmp/import-src/
 ```
 
 A headless browser does not reproduce the desktop webview

@@ -29,11 +29,12 @@ When you edit a recipe's ingredient list, the app suggests units after you type 
 
 ## Nutrition
 
-Below each recipe is a **Nutrition Facts** label, laid out like the one on food packages. The app works it out from the ingredients each time you open the recipe, using values from the US Department of Agriculture (USDA FoodData Central). Nothing is written into the recipe, so changing an ingredient changes the label straight away.
+Tap **Nutrition** at the top of a recipe, beside **More**, to see its **Nutrition Facts** label, laid out like the one on food packages. The app works it out from the ingredients each time you open the recipe, using values from the US Department of Agriculture (USDA FoodData Central). Nothing is written into the recipe, so changing an ingredient changes the label straight away.
 
 - It follows **−** and **+** and the portion chips, like the ingredient amounts.
 - When the recipe says how many it serves (or how many it makes, such as 24 cookies), the label is per serving and shows the **% Daily Value**. When it doesn't, the label is for the whole recipe; type a number in **Servings per recipe** to split it. That number isn't saved.
 - An ingredient that is a recipe of its own, such as mayonnaise or pie crust, is worked out from that recipe's ingredients, not from a store-bought version. This works when the ingredient links to the recipe, or has the same name as it.
+- Under the label, **Ingredients:** lists everything the recipe uses, as on a package: heaviest first, each ingredient once (butter used in the crust and the filling is added together), and a recipe used as an ingredient followed by its own ingredients in brackets. Ingredients the app can't weigh, such as "salt to taste", come last in the recipe's order, and a note says so.
 - Some lines can't be counted: ones with no amount ("salt to taste"), optional ones, ones for frying or garnish, and ingredients that aren't in the app's list yet. **Not counted** under the label lists them and why. Cooking, frying and draining aren't taken into account, so the label is an estimate.
 
 Recipes imported from a website get a label worked out from their ingredients too. If the website published its own nutrition, you can see those numbers on the **Preview** tab before saving (see [Importing recipes](#/settings/help/importing)). They're kept in the recipe, but the label doesn't use them.

@@ -11,6 +11,8 @@ use unicode_normalization::UnicodeNormalization;
 
 pub const TRASH: &str = ".trash";
 pub const ATTACHMENTS: &str = "attachments";
+/// Where the importer keeps the files recipes were converted from (a recipe points at its own with `original:`).
+pub const ORIGINALS: &str = "attachments/originals";
 
 /// A validated path relative to the vault root: NFC, `/`-separated, no `..`, no dot-components.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
@@ -126,7 +128,11 @@ pub fn read_entry(root: &Path, p: VaultPath, prev: Option<&Entry>, pdf: Option<P
     if let Some(prev) = prev.filter(|e| e.size == size && e.mtime == mt) {
         return Ok(prev.clone());
     }
-    let kind = kind_of(&p);
+    // ponytail: an archived .md is a file, not a recipe (kept out of the parser, nutrition and Random)
+    let kind = match kind_of(&p) {
+        FileKind::Note if p.as_str().starts_with(&format!("{ORIGINALS}/")) => FileKind::Other,
+        k => k,
+    };
     let stem = p.stem().to_string();
     let mut e = Entry {
         title: stem,
@@ -175,10 +181,10 @@ pub fn read_entry(root: &Path, p: VaultPath, prev: Option<&Entry>, pdf: Option<P
 }
 
 /// Not part of the recipes: hidden files and folders (the app's, git's, agents' skills) and, at the top,
-/// AGENTS.md and CLAUDE.md (instructions for agents).
+/// AGENTS.md and CLAUDE.md (instructions for agents), the feedback log and the contents (README.md).
 pub(crate) fn hidden(e: &walkdir::DirEntry) -> bool {
     let name = e.file_name().to_string_lossy();
-    name.starts_with('.') || (e.depth() == 1 && (name == "AGENTS.md" || name == "CLAUDE.md" || name == crate::feedback::FILE))
+    name.starts_with('.') || (e.depth() == 1 && (name == "AGENTS.md" || name == "CLAUDE.md" || name == crate::feedback::FILE || name == crate::toc::FILE))
 }
 
 /// Full scan; entries whose size+mtime are unchanged are reused from `prev`.
@@ -350,10 +356,27 @@ mod tests {
         std::fs::create_dir_all(dir.join("Pies")).unwrap();
         std::fs::write(dir.join("AGENTS.md"), "# Notes for agents\n").unwrap();
         std::fs::write(dir.join("CLAUDE.md"), "@AGENTS.md\n").unwrap();
+        std::fs::write(dir.join("README.md"), "# Recipes\n").unwrap();
         std::fs::write(dir.join("Pies/AGENTS.md"), "# A recipe that happens to be called AGENTS\n").unwrap();
+        std::fs::write(dir.join("Pies/README.md"), "# A recipe called README\n").unwrap();
         let idx = scan(&dir, None, None);
-        assert!(!idx.files.keys().any(|p| p.as_str() == "AGENTS.md" || p.as_str() == "CLAUDE.md"));
+        assert!(!idx.files.keys().any(|p| ["AGENTS.md", "CLAUDE.md", "README.md"].contains(&p.as_str())));
         assert!(idx.files.keys().any(|p| p.as_str() == "Pies/AGENTS.md"));
+        assert!(idx.files.keys().any(|p| p.as_str() == "Pies/README.md"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn archived_md_is_a_file_not_a_recipe() {
+        let dir = std::env::temp_dir().join(format!("rv-orig-{}", now_stamp()));
+        std::fs::create_dir_all(dir.join("attachments/originals")).unwrap();
+        std::fs::create_dir_all(dir.join("Pies")).unwrap();
+        std::fs::write(dir.join("attachments/originals/Pie.md"), "# Pie\n\n## Ingredients\n- 1 cup flour\n").unwrap();
+        std::fs::write(dir.join("Pies/Pie.md"), "# Pie\n").unwrap();
+        let idx = scan(&dir, None, None);
+        let kind = |p: &str| idx.files.get(&VaultPath::parse(p).unwrap()).map(|e| e.kind.clone());
+        assert_eq!(kind("attachments/originals/Pie.md"), Some(FileKind::Other));
+        assert_eq!(kind("Pies/Pie.md"), Some(FileKind::Note));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

@@ -26,6 +26,20 @@ export interface Entry {
   text?: string;
 }
 
+/** Someone who signs in (GET /api/users). What they contributed comes from the recipes (lib/people.ts). */
+export interface Person {
+  id: string;
+  name: string;
+  full_name: string;
+  /** the fields below only reach signed-in devices */
+  created?: number;
+  favorites?: string[];
+  /** an emoji, or a data: URL picture */
+  picture?: string | null;
+  /** names they were credited under before a rename */
+  former?: string[];
+}
+
 export interface Session {
   role: 'reader' | 'writer' | 'admin';
   /** who this device is signed in as (the desktop app is "Admin"); null before signing in */

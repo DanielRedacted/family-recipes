@@ -2,8 +2,8 @@
   // A Nutrition Facts label in the FDA's layout (21 CFR 101.9, 2016 format). The reader always shows
   // the estimate worked out from the ingredients (lib/nutrition.ts) at its scale and portion, even when
   // the recipe has `nutrition:` values; those are shown as written only on the importer's Preview.
-  import { DAILY, NUTRIENTS, UNIT, dailyValue, estimate, labelAmount, type Nutrient } from '../lib/nutrition';
-  import { foods, loadFoods } from '../lib/ingredients.svelte';
+  import { DAILY, NUTRIENTS, UNIT, dailyValue, estimate, ingredientList, labelAmount, type Nutrient } from '../lib/nutrition';
+  import { catalog, foods, loadFoods, loadIngredients } from '../lib/ingredients.svelte';
   import { subRecipeOf } from '../lib/markdown';
   import type { Yield } from '../lib/scale';
   import type { Entry } from '../lib/types';
@@ -40,8 +40,15 @@
   });
 
   // ---- otherwise worked out from the ingredients
-  $effect(() => { if (entry && !own) loadFoods(); });
+  $effect(() => { if (entry && !own) { loadFoods(); loadIngredients(); } });
   const est = $derived(entry && !own && foods.loaded ? estimate(entry, foods.table, subRecipeOf, factor, portion) : null);
+  /** the ingredient statement, named as on the Ingredients page */
+  const names = $derived(new Map(catalog.items.map((i) => [i.key, i.name])));
+  // in lower case like a package's list, except names of places and makers
+  // ponytail: a short list of proper names; add to it as they turn up
+  const PROPER = /\b(swiss|parmesan|romano|asiago|gruy[eè]re|dijon|worcestershire|tabasco|monterey|jack|kalamata|marsala|italian|french|greek|mexican|cajun|creole|thai)\b/g;
+  const common = (n: string) => n.toLowerCase().replace(PROPER, (w) => w[0].toUpperCase() + w.slice(1));
+  const statement = $derived(est?.parts.length ? ingredientList(est.parts, (k) => common(names.get(k) ?? k)) : null);
   /** "split into" for a recipe that doesn't say what it makes; not saved */
   let split = $state(1);
   const servings = $derived(yields ? yields.n * factor : Math.max(1, Math.round(split) || 1));
@@ -116,8 +123,12 @@
         <p class="foot">* The % Daily Value (DV) tells you how much a nutrient in a serving of food contributes to a daily diet. 2,000 calories a day is used for general nutrition advice.</p>
       {/if}
     </div>
+    {#if statement}
+      <p class="ingredients"><b>Ingredients:</b> {statement.text}.</p>
+    {/if}
     {#if est}
       <div class="about small muted">
+        {#if statement?.unweighed}<p>Ingredients are listed by weight, most first. {statement.unweighed === 1 ? 'One' : statement.unweighed} couldn't be weighed, so {statement.unweighed === 1 ? 'it comes' : 'they come'} last, in the recipe's order.</p>{/if}
         <p>Worked out from {est.counted} of {est.lines} ingredients with values from USDA FoodData Central. Cooking, frying and draining aren't taken into account.</p>
         {#if est.skipped.length}
           <details>
@@ -130,6 +141,8 @@
       <p class="about small muted">As given where the recipe came from.</p>
     {/if}
   </section>
+{:else if est}
+  <p class="muted">None of this recipe's ingredients could be counted, so there's no Nutrition Facts label.</p>
 {/if}
 
 <style>
@@ -163,6 +176,9 @@
   tbody tr:first-child th, tbody tr:first-child td { border-top: 0; }
   .vitamins tr:first-child th, .vitamins tr:first-child td { border-top: 10px solid var(--text); }
   .foot { border-top: 5px solid var(--text); margin-top: 2px !important; padding-top: 4px; font-size: 11px; line-height: 1.35; }
+  /* as printed under a label on a package: the plain sans, "Ingredients:" in bold */
+  .ingredients { inline-size: min(100%, 20rem); margin: 8px 0 0; font: 14px/1.4 var(--sans); }
+  .ingredients b { font-weight: 800; }
   .about { max-width: 34rem; margin-top: 8px; }
   .about p { margin: 0 0 4px; }
   details ul { margin: 4px 0 0; padding-inline-start: 18px; }

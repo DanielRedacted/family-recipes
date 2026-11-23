@@ -291,6 +291,9 @@ fn unit_grams(u: &str) -> Option<f64> {
 /// The amount one ingredient line asks for (`None` for a label, direction or equipment line).
 pub fn amount(text: &str) -> Option<Amount> {
     // alternatives read against the foods the nutrition table knows ("milk and/or half and half")
+    if CALORIES.is_match(text) {
+        return None; // "1 serving (1 slice) equals 476 calories, …" is the recipe's own nutrition
+    }
     let l = parse_line(text);
     let key = names_in(text, crate::nutrition::known())
         .first()
@@ -298,7 +301,7 @@ pub fn amount(text: &str) -> Option<Amount> {
         // a long measured line names its ingredient first ("3 lb chicken tenderloins or chicken breast cut against the grain")
         .or_else(|| l.qty.as_ref().and(ALT.split(&l.name).next()).filter(|n| !NOT_INGREDIENT.is_match(n)).and_then(key));
     // a measured line naming nothing known ("3 tbsp non-GMO, low inflammatory oil") is still an ingredient
-    if key.is_none() && (l.qty.is_none() || l.name.is_empty() || NOT_INGREDIENT.is_match(&plain(text)) || CALORIES.is_match(text)) {
+    if key.is_none() && (l.qty.is_none() || l.name.is_empty() || NOT_INGREDIENT.is_match(&plain(text))) {
         return None;
     }
     // a unit without a number is one of it ("Pinch of salt", "Tbsp sugar")
@@ -655,6 +658,7 @@ mod tests {
         assert_eq!(a("1 ½ cups milk and/or half and half").key.as_deref(), Some("milk"));
         assert!(amount("and 1/2 cup").is_none());
         assert!(amount("Mix:").is_none());
+        assert!(amount("1 serving (1 slice) equals 476 calories, 26 g fat (11 g saturated fat)").is_none());
         assert!(amount("Preheat oven to 350").is_none());
     }
 

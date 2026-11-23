@@ -25,7 +25,7 @@ Some recipes have a table with a column for each version, such as Single and Dou
 
 ## Nutrition
 
-Below the recipe is a Nutrition Facts label worked out from its ingredients. It scales with **−** and **+**. See [Ingredients](#/settings/help/ingredients) for how it's worked out and what it leaves out.
+Tap **Nutrition** beside **More** at the top of the recipe to see its Nutrition Facts label, worked out from its ingredients, with the ingredients listed under it by weight as on a package. It scales with **−** and **+**. See [Ingredients](#/settings/help/ingredients) for how it's worked out and what it leaves out.
 
 ## Links to other recipes
 
@@ -33,7 +33,7 @@ A link to another recipe opens it in the app. Links to websites are marked ↗ a
 
 ## PDFs, pictures and other files
 
-A PDF opens right in the app. Use **−** and **+** to zoom, or **Open in new tab** to see it on its own. Some recipes are kept only as their original PDF, which then shows under the title. If you can edit, **Convert to an editable recipe…** turns the PDF into a recipe you can scale and cook from (see [Importing recipes](#/settings/help/importing)). Pictures open full size.
+A PDF opens right in the app. Use **−** and **+** to zoom, or **Open in new tab** to see it on its own. Some recipes are kept only as their original PDF, which then shows under the title. If you can edit, **Convert to an editable recipe…** turns the PDF into a recipe you can scale and cook from (see [Importing recipes](#/settings/help/importing)). Pictures open full size. An imported recipe keeps the file it came from: open it from the recipe's **⋯** menu, **Original file**. Word documents can't be shown in the app, so their page has a **Download** button.
 ## Printing
 
-Tap the **⋯** button at the top of the recipe and choose **Print**. The page prints as you see it, scaled amounts included, but without the buttons.
+Tap the **⋯** button at the top of the recipe and choose **Print**. The page prints as you see it, scaled amounts included, but without the buttons, and in black on white even with the dark theme on. To print or save every recipe at once, see [The recipe book](#/settings/help/recipe-book).

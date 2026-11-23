@@ -82,7 +82,7 @@ The recipes and the app's own data are kept apart, so GitHub sync never sees peo
 | `.folders.yaml` | folder icons and colours, written by the app |
 | `.git/` | when GitHub sync is on |
 
-The app hides every dot file and dot folder, and `AGENTS.md` and `CLAUDE.md` at the top level. A file watcher (300 ms debounce) rescans when anything visible changes, so edits made in Finder, a text editor or Obsidian show up at once. The file format is in [Recipe file format](#/settings/help/file-format).
+The app hides every dot file and dot folder, and `AGENTS.md`, `CLAUDE.md`, `FEEDBACK.md` and `README.md` at the top level. `README.md` is the contents, written by the app after each rescan (`toc.rs`) only when it changes. A file watcher (300 ms debounce) rescans when anything visible changes, so edits made in Finder, a text editor or Obsidian show up at once. The file format is in [Recipe file format](#/settings/help/file-format).
 
 **The data folder** (the desktop app: `~/Library/Application Support/family.recipes.desktop`; `recipes-server`: `--data`, default `~/Library/Application Support/Recipes`). Files are written readable by the owner only:
 

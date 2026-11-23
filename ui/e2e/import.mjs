@@ -45,7 +45,7 @@ await page.screenshot({ path: `${out}/import-saved.png` });
 // 2. PDF kept as view-only
 await imp();
 await page.selectOption('label.dest select', 'Pizza');
-await page.setInputFiles('input[type=file]', `${SRC}/PDFs/Einkorn Pizza Dough Recipe _ GrillGirl.pdf`);
+await page.setInputFiles('input[type=file]', `${SRC}/Einkorn Pizza Dough Recipe _ GrillGirl.pdf`);
 await page.waitForSelector('text=Keep as a PDF');
 await page.fill('.choice input[aria-label="Title"]', 'Einkorn Pizza Dough (GrillGirl)');
 await page.click('.choice button:has-text("Keep")');

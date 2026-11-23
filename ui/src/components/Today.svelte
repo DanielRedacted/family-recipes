@@ -4,6 +4,7 @@
   // minute and when the page comes back into view, so it follows edits and rolls over at midnight.
   import { getContext } from 'svelte';
   import { app, type Tab } from '../lib/state.svelte';
+  import Section from './Section.svelte';
   import { fetchEvents, eventsOn, timeOf, addDays, startOfDay, type CalEvent } from '../lib/calendar';
 
   const tab = getContext<Tab>('tab');
@@ -30,12 +31,9 @@
 </script>
 
 {#if events.length}
-  <section class="today" aria-labelledby="today-h">
-    <div class="head row">
-      <h2 id="today-h">Today</h2>
-      <a class="small" href="#/calendar">Calendar</a>
-    </div>
-    <ul>
+  <Section id="today" class="today" title="Today" count={events.length}>
+    {#snippet aside()}<a class="small cal" href="#/calendar">Calendar</a>{/snippet}
+    <ul aria-label="Today's events">
       {#each events as e (e.title + e.start)}
         <li>
           <span class="when small">{timeOf(e, day)}</span>
@@ -43,16 +41,12 @@
         </li>
       {/each}
     </ul>
-  </section>
+  </Section>
 {/if}
 
 <style>
-  .today { margin-bottom: 24px; }
-  .head { justify-content: space-between; margin-bottom: 8px; }
-  /* the home page's section headings (.sub in Folder.svelte) */
-  h2 { font-size: 1.05rem; margin: 0; color: var(--muted); font-family: var(--sans); font-weight: 500; }
-  .head a { color: var(--accent-ink); text-decoration: none; padding: 8px 0; }
-  .head a:hover { text-decoration: underline; }
+  .cal { color: var(--accent-ink); text-decoration: none; padding: 8px 0; }
+  .cal:hover { text-decoration: underline; }
   ul { list-style: none; margin: 0; padding: 0; background: var(--p-blue); border-radius: var(--radius); }
   li { display: grid; grid-template-columns: 9.5em 1fr; gap: 12px; padding: 10px 16px; align-items: baseline; }
   li + li { border-top: 1px solid var(--border); }

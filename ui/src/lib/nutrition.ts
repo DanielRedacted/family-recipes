@@ -20,6 +20,9 @@ const SMALL_ML: Record<string, number> = { pinch: 4.929 / 16, dash: 4.929 / 8, d
 const mlOf = (unit?: string) => (unit ? UNIT_TO_ML[unit] ?? SMALL_ML[unit] : undefined);
 
 export interface Skipped { text: string; why: string }
+/** One ingredient line for the ingredient statement: a food by its key, or a recipe of the book with
+ * its own parts; `grams` null when it couldn't be weighed. */
+export interface Part { key?: string; title?: string; grams: number | null; parts?: Part[] }
 export interface Estimate {
   totals: Totals;
   /** ingredient lines counted, out of all ingredient lines (labels and directions are neither) */
@@ -29,6 +32,7 @@ export interface Estimate {
   /** weight and volume of what was counted: how much of it a recipe that uses it takes */
   grams: number;
   ml: number;
+  parts: Part[];
 }
 
 /** The recipe a line uses as an ingredient ("½ cup [mayonnaise](…)"), if any. */
@@ -73,7 +77,7 @@ function shareOf(a: Amount, of: Estimate, r: Entry): number | string {
  * counts both; tell them apart if that turns out to matter.
  */
 export function estimate(e: Entry, foods: Foods, sub: SubRecipe, factor = 1, portion = 0, seen: ReadonlySet<string> = new Set()): Estimate {
-  const out: Estimate = { totals: zero(), counted: 0, lines: 0, skipped: [], grams: 0, ml: 0 };
+  const out: Estimate = { totals: zero(), counted: 0, lines: 0, skipped: [], grams: 0, ml: 0, parts: [] };
   if (!e.recipe) return out;
   const inside = new Set(seen).add(e.path);
   for (const g of e.recipe.ingredients) {
@@ -83,15 +87,17 @@ export function estimate(e: Entry, foods: Foods, sub: SubRecipe, factor = 1, por
       const a = it.amounts?.[col];
       if (!a) continue; // a label, a direction, or not in this portion
       const text = (table ? it.alts?.[col] : it.text) || it.text;
-      const skip = (why: string) => out.skipped.push({ text, why });
+      const unweighed = { key: a.key, grams: null };
+      const skip = (why: string, part: Part | null = unweighed) => { out.skipped.push({ text, why }); if (part?.key || part?.title) out.parts.push(part); };
       out.lines++;
       if (a.skip) { skip(a.skip); continue; }
       const r = sub(text, e);
       if (r) {
-        if (inside.has(r.path)) { skip(`${r.title} uses this recipe`); continue; }
+        if (inside.has(r.path)) { skip(`${r.title} uses this recipe`, { title: r.title, grams: null }); continue; }
         const s = estimate(r, foods, sub, 1, 0, inside);
         const share = s.counted ? shareOf(a, s, r) : `nothing in ${r.title} could be counted`;
-        if (typeof share === 'string') { skip(share); continue; }
+        if (typeof share === 'string') { skip(share, { title: r.title, grams: null, parts: s.parts }); continue; }
+        out.parts.push({ title: r.title, grams: s.grams * share * scale, parts: s.parts });
         add(out.totals, s.totals, share * scale);
         out.grams += s.grams * share * scale;
         out.ml += s.ml * share * scale;
@@ -104,6 +110,7 @@ export function estimate(e: Entry, foods: Foods, sub: SubRecipe, factor = 1, por
       const grams = gramsOf(a, food);
       if (typeof grams === 'string') { skip(grams); continue; }
       add(out.totals, food.n, (grams / 100) * scale);
+      out.parts.push({ key: a.key, grams: grams * scale });
       out.grams += grams * scale;
       // ponytail: a food with no USDA volume counts as water (1 g per ml) in a recipe used by the cup
       const ml = mlOf(a.unit);
@@ -112,6 +119,32 @@ export function estimate(e: Entry, foods: Foods, sub: SubRecipe, factor = 1, por
     }
   }
   return out;
+}
+
+/**
+ * The ingredient statement as on a food label (21 CFR 101.4): each ingredient once, in descending order
+ * of weight, a recipe of the book followed by its own ingredients in brackets (101.4(b)(2)).
+ * Ingredients that couldn't be weighed follow in the recipe's order; `unweighed` counts them.
+ * ponytail: no "contains 2% or less of" grouping (101.4(a)(2), optional); add it if labels get long.
+ */
+export function ingredientList(parts: Part[], name: (key: string) => string): { text: string; unweighed: number } {
+  let unweighed = 0;
+  const list = (ps: Part[]): string => {
+    const one = new Map<string, Part>();
+    for (const p of ps) {
+      const id = p.key ? `k:${p.key}` : `r:${p.title}`;
+      const had = one.get(id);
+      if (!had) one.set(id, { ...p });
+      else if (p.grams !== null) had.grams = (had.grams ?? 0) + p.grams;
+    }
+    const all = [...one.values()];
+    const weighed = all.filter((p) => p.grams !== null).sort((x, y) => y.grams! - x.grams!);
+    const rest = all.filter((p) => p.grams === null);
+    unweighed += rest.length;
+    return [...weighed, ...rest].map((p) => (p.key ? name(p.key) : p.parts?.length ? `${p.title} (${list(p.parts)})` : p.title!)).join(', ');
+  };
+  const text = list(parts);
+  return { text, unweighed };
 }
 
 // ---------- the label ----------

@@ -27,7 +27,7 @@ If you try to edit without the PIN, the app tells you that editing needs a famil
 
 ## On the Mac: "Editing as"
 
-The Mac app never asks anyone to sign in. Instead, it credits its changes to the person chosen in **Editing as**. You'll find it at the bottom of the folder column and in **Settings → People**. Pick your name before you edit. If nobody is chosen when you save, the app asks **Who is editing on this Mac?** and remembers your answer. Until someone has been added in **Settings → People**, changes made on the Mac aren't credited to anyone.
+The Mac app never asks anyone to sign in. Instead, it credits its changes to the person chosen in **Editing as**. You'll find it beside **Save** while you edit a recipe or import one, and in **Settings → People**. It starts on **Admin**, which credits nobody; pick your name before you save and the app remembers it. Until someone has been added in **Settings → People**, the choice doesn't appear and changes made on the Mac aren't credited to anyone.
 
 ## Where to go next
 

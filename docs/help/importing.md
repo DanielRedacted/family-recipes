@@ -30,7 +30,13 @@ PDFs and photos ask first:
 - **Keep as a PDF** (or **Keep as a photo**) saves it exactly as it is, with a title and optional tags so you can find it. This is the recommended choice.
 - **Convert to an editable recipe** (PDFs only) reads the text out of the PDF into a recipe you can edit, scale and cook from. The layout usually needs some tidying.
 
-A kept PDF can be converted later: open it and tap **Convert to an editable recipe…**. The original file is always kept with the recipe.
+A kept PDF can be converted later: open it and tap **Convert to an editable recipe…**. Word documents and text files already in a folder have the same button.
+
+## The original is kept
+
+Whatever a recipe was made from is kept with it: the PDF, photo, Word document, text file or pasted text, or the recipe data a web page published. Open it from the recipe's **⋯** menu, **Original file** (or **More → Original file**). PDFs, photos and text open in the app; Word documents have a **Download** button.
+
+Once a file has been made into a recipe, it no longer shows in folders, search or Random; the recipe stands in for it. A file nobody has converted yet stays in its folder and can be searched. A recipe typed in by hand has no original, and a web page without recipe data keeps only its address.
 
 ## Review before saving
 
@@ -51,6 +57,6 @@ Paste several addresses or drop several files and they wait in the **Imports** l
 
 ## If AI is turned on
 
-When AI has been turned on in the app on the Mac, the review screen also has **Fix with AI**. It suggests a corrected version using the original text, side by side with your draft. Change anything you like, then tap **Use suggestion**, or **Cancel** to keep your draft. AI never changes a recipe unless you accept.
+When AI has been turned on in the app on the Mac, the review screen also has **Fix with AI**. It suggests a corrected version using the original text, side by side with your draft. Change anything you like, then tap **Use suggestion**, or **Cancel** to keep your draft. AI never changes a recipe unless you accept, and the original is kept either way.
 
 Next: [Editing a recipe](#/settings/help/editing).

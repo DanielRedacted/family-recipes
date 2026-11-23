@@ -360,6 +360,10 @@ fn merge<'r>(repo: &'r Repository, ours: &Commit, theirs: &Commit) -> Result<Com
             if let Some(e) = c.our {
                 add_resolved(&mut idx, e, None)?;
             }
+            // the contents are written again from the merged recipes: no copy, which would show as a recipe
+            if both && path == crate::toc::FILE.as_bytes() {
+                continue;
+            }
             if let Some(e) = c.their {
                 let copy = both.then(|| conflict_copy(&idx, &path));
                 add_resolved(&mut idx, e, copy)?;
@@ -488,6 +492,14 @@ mod tests {
         sync_once(&b, None).unwrap();
         assert!(!copy(&b).exists());
         assert!(!a.join(".DS_Store").exists());
+
+        // the contents changed on both Macs: each keeps its own (rewritten on the next rescan), no copy
+        write(&a.join("README.md"), "A\n");
+        write(&b.join("README.md"), "B\n");
+        sync_once(&a, None).unwrap();
+        sync_once(&b, None).unwrap();
+        assert_eq!(read(&b.join("README.md")), "B\n");
+        assert!(!b.join("README (from other Mac).md").exists());
 
         // a folder that already has recipes but no repository is refused
         let c = t.join("c");

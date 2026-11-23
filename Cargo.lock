@@ -4406,6 +4406,9 @@ name = "recipes-app"
 version = "0.4.1"
 dependencies = [
  "anyhow",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "objc2-web-kit",
  "recipes-core",
  "serde_json",
  "tauri",

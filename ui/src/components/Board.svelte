@@ -9,8 +9,12 @@
   import { getContext } from 'svelte';
   import type { Tab } from '../lib/state.svelte';
   import { modal } from '../lib/modal';
+  import Section from './Section.svelte';
+  import { nameOnRecipes, personHash } from '../lib/people';
 
   const tab = getContext<Tab>('tab'); // the home page can be open in more than one tab
+  /** the writer's page: found by their id (they may have been renamed since), else by the name the note shows */
+  const writer = (m: { user: string; author: string }) => { const p = app.people.find((x) => x.id === m.user); return personHash(p ? nameOnRecipes(p) : m.author); };
 
   // a "today only" note disappears at midnight even if the page stays open
   let now = $state(Date.now());
@@ -57,14 +61,13 @@
 </script>
 
 {#if notes.length}
-  <section class="board" aria-label="Kitchen whiteboard">
-    <h2>Whiteboard</h2>
-    <ul class="notes">
+  <Section id="whiteboard" class="board" title="Whiteboard" count={notes.length}>
+    <ul class="notes" aria-label="Kitchen whiteboard">
       {#each notes as m (m.id)}
         <li class="note">
           <p class="text">{m.text}</p>
           <div class="foot row">
-            <span class="muted small">{[m.author, when(m.created), lasts(m.expires)].filter(Boolean).join(' · ')}</span>
+            <span class="muted small"><a class="who" href={writer(m)}>{m.author}</a>{[when(m.created), lasts(m.expires)].filter(Boolean).map((t) => ' · ' + t).join('')}</span>
             <span class="spacer"></span>
             {#if app.session.user}
               <button class="btn ghost icon" aria-label="Remove note from {m.author}" title="Remove" onclick={() => remove(m.id)}><Icon name="x" size={16} /></button>
@@ -73,7 +76,7 @@
         </li>
       {/each}
     </ul>
-  </section>
+  </Section>
 {/if}
 
 {#if board.compose}
@@ -99,12 +102,11 @@
 {/if}
 
 <style>
-  .board { margin-bottom: 24px; }
-  /* the home page's section headings (.sub in Folder.svelte) */
-  h2 { font-size: 1.05rem; margin: 0 0 12px; color: var(--muted); font-family: var(--sans); font-weight: 500; }
   .notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
   .note { background: var(--p-yellow); color: var(--text); border-radius: var(--radius); padding: 12px 12px 4px 16px; display: grid; gap: 4px; align-content: space-between; }
   .text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--serif); font-size: 17px; line-height: 1.4; padding-right: 4px; }
+  .who { color: inherit; text-decoration: none; }
+  .who:hover { color: var(--accent-ink); text-decoration: underline; }
   .foot { flex-wrap: nowrap; gap: 4px; min-height: 36px; }
   .modal { width: min(440px, calc(100vw - 32px)); padding: 20px; display: grid; gap: 12px; }
   .modal h3 { margin: 0; }

@@ -4,13 +4,15 @@
   import { app, canWrite, go, folderHash, noteHash, dirOf, nameOf, toast, loadVault, setLeaveGuard, clearLeaveGuard, prefs, type Tab } from '../lib/state.svelte';
   import { fileUrl, saveFile, ApiError, api } from '../lib/api';
   import Crumbs from './Crumbs.svelte';
-  import { renderMarkdown, scaledRaw, bodyOf, vaultTarget, linksTo } from '../lib/markdown';
+  import { renderMarkdown, noteHtml, vaultTarget, linksTo } from '../lib/markdown';
+  import { clearBook } from '../lib/book';
   import { formatNum, parseYield, portionMultipliers, resolvePortion, yieldLabel, type Units } from '../lib/scale';
   import { openMenu, type MenuItem } from '../lib/menu.svelte';
   import { entryItems, requireWrite, attachImage, shell, signer, assumeMade } from '../lib/ops';
+  import EditingAs from './EditingAs.svelte';
   import { ASSUME_AFTER_MIN, madeToday } from '../lib/made';
   import { confirm3, askCheck } from '../lib/dialog.svelte';
-  import { stamp, today, creditedByDefault, authorsOf } from '../lib/credit';
+  import { stamp, today, creditedByDefault } from '../lib/credit';
   import Editor from './Editor.svelte';
   import Merge from './Merge.svelte';
   import Properties from './Properties.svelte';
@@ -18,8 +20,9 @@
   import CookMode from './CookMode.svelte';
   import PdfView from './PdfView.svelte';
   import Nutrition from './Nutrition.svelte';
+  import { modal } from '../lib/modal';
   import MadeToday from './MadeToday.svelte';
-  import { enqueueStarted } from '../lib/importer.svelte';
+  import { enqueueStarted, enqueueFiles, importer } from '../lib/importer.svelte';
 
   let { path, mode: routeMode }: { path: string; mode?: string } = $props();
   const tab = getContext<Tab>('tab');
@@ -37,6 +40,7 @@
   let conflict = $state<{ theirs: string; etag: string | null } | null>(null);
   let comparing = $state(false);
   let cooking = $state(false);
+  let nutrition = $state(false); // the Nutrition Facts modal
   let factor = $state(1);
   /** the chosen column of an ingredient table with alternative portions (Single / Double…) */
   let portion = $state(0);
@@ -112,7 +116,6 @@
     crediting = true;
     try {
       const by = await signer();
-      if (by === null) return;
       let text = draft;
       if (by) {
         const r = await askCheck('What changed?', undefined, 'Save', 'Credit me as an author', creditedByDefault(entry.frontmatter, by), 'e.g. Less sugar (optional)');
@@ -158,7 +161,6 @@
   async function saveRaw(raw: string, note: string) {
     if (!requireWrite()) return;
     const by = await signer();
-    if (by === null) return;
     const text = stamp(raw, { by, date: today(), note });
     draft = text;
     dirty = true;
@@ -184,13 +186,8 @@
       const fmEnd = draft.match(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/);
       return renderMarkdown(fmEnd ? draft.slice(fmEnd[0].length) : draft, path);
     }
-    const out = renderMarkdown(bodyOf(scaledRaw(entry, factor, units, portion), entry.body_line), path);
-    // the recipe's author, small, right under its title
-    const names = authorsOf(entry.frontmatter?.author);
-    if (!names.length) return out;
-    const by = new Intl.ListFormat(undefined, { type: 'conjunction' }).format(names);
-    const esc = by.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-    return out.replace('</h1>', `</h1><p class="byline">By ${esc}</p>`);
+    // the recipe's author, small, right under its title, each name a link to their page (People.svelte)
+    return noteHtml(entry, factor, units, portion);
   });
 
   const baseYield = $derived(entry ? parseYield(entry.frontmatter?.servings) ?? parseYield(entry.frontmatter?.yield) : null);
@@ -254,6 +251,31 @@
     finally { converting = false; }
   }
 
+  /** a file that isn't a note: the recipe made from it (if any), and its text for .txt/.json/.md originals */
+  const madeInto = $derived(entry && entry.kind !== 'note' ? app.files.find((f) => f.frontmatter?.original === '/' + path) : undefined);
+  const convertible = $derived(entry?.kind === 'other' && /\.(docx?|rtf|odt|txt|md|markdown|html?)$/i.test(path));
+  let text = $state<string | null>(null);
+  $effect(() => {
+    text = null;
+    if (entry?.kind !== 'other' || !/\.(txt|json|md|markdown)$/i.test(path)) return;
+    const p = path;
+    fetch(fileUrl(p)).then((r) => (r.ok ? r.text() : null)).then((t) => { if (p === path) text = t; }).catch(() => {});
+  });
+  /** Word, text or a web page already in the folder: the normal file import, converted where it is */
+  async function convertFile(p: string) {
+    if (!requireWrite()) return;
+    converting = true;
+    try {
+      const r = await fetch(fileUrl(p));
+      if (!r.ok) throw new Error(`Couldn’t read “${nameOf(p)}”.`);
+      importer.folder = p.startsWith('attachments/') ? null : dirOf(p);
+      importer.selected = null;
+      enqueueFiles([new File([await r.blob()], nameOf(p))], p);
+      go('#/import');
+    } catch (e: any) { toast(e.message, 'error'); }
+    finally { converting = false; }
+  }
+
   // optional AI (only when enabled in Settings on the Mac)
   let aiProposal = $state<string | null>(null);
   let aiBusy = $state(false);
@@ -263,7 +285,12 @@
   async function aiTidy() {
     if (!requireWrite() || !entry) return;
     aiBusy = true;
-    try { aiProposal = (await api('POST', '/api/ai/tidy', { markdown: entry.raw ?? '' })).markdown; }
+    try {
+      const t: string = (await api('POST', '/api/ai/tidy', { markdown: entry.raw ?? '' })).markdown;
+      const o = entry.frontmatter?.original;
+      // the prompt asks to keep every property; the link to the original is too important to leave to it
+      aiProposal = typeof o === 'string' && !t.includes(o) ? setProp(t, 'original', o) : t;
+    }
     catch (e: any) { toast(e.message, 'error'); }
     finally { aiBusy = false; }
   }
@@ -278,6 +305,7 @@
   }
 
   function doPrint() {
+    clearBook(); // a recipe book left from a print whose dialog never reported back
     if (app.session.shell) shell('print');
     else window.print();
   }
@@ -327,6 +355,7 @@
       <span class="spacer"></span>
       {#if entry.kind === 'note' && mode !== 'read'}
         <span class="save small muted" aria-live="polite">{saving ? 'Saving…' : dirty ? 'Unsaved changes' : 'Saved'}</span>
+        {#if app.session.role === 'admin'}<EditingAs />{/if}
         <button class="btn" onclick={() => setMode('read')}>Done</button>
         <button class="btn primary" disabled={!dirty || saving || !!conflict} onclick={saveEdit} title="Save (⌘S)"><Icon name="check" size={16} /> Save</button>
       {/if}
@@ -370,6 +399,7 @@
             </div>
           {/if}
           <div class="details"><Properties {entry} editable={canWrite()} onchange={detailChanged} collapsible /></div>
+          <button class="nutri-btn" aria-haspopup="dialog" onclick={() => (nutrition = true)}><Icon name="carrot" size={14} /> Nutrition</button>
         </div>
       {/if}
 
@@ -391,7 +421,6 @@
               </form>
             {/if}
             <div class="prose">{@html html}</div>
-            {#if mode === 'read'}<Nutrition entry={entry.recipe ? entry : null} {factor} {portion} yields={baseYield} />{/if}
             {#if mode === 'read' && entry.recipe}<MadeToday {entry} />{/if}
             {#if mode === 'read' && origPdf && !entry.recipe}
               {#if canWrite()}<p class="no-print"><button class="btn" disabled={converting} onclick={() => convertPdf(origPdf!)}>Convert to an editable recipe…</button></p>{/if}
@@ -408,15 +437,22 @@
       </div>
     {:else if entry.kind === 'pdf'}
       <h1 class="ftitle">{entry.title}</h1>
-      {#if canWrite()}<p class="no-print"><button class="btn" disabled={converting} onclick={() => convertPdf(path)}>Convert to an editable recipe…</button></p>{/if}
+      {#if madeInto}<p class="muted no-print">The original of <a href={noteHash(madeInto.path)}>{madeInto.title}</a>.</p>
+      {:else if canWrite()}<p class="no-print"><button class="btn" disabled={converting} onclick={() => convertPdf(path)}>Convert to an editable recipe…</button></p>{/if}
       <PdfView {path} />
     {:else if entry.kind === 'image'}
       <h1 class="ftitle">{nameOf(path)}</h1>
       <img class="full" src={fileUrl(path)} alt={nameOf(path)} />
     {:else}
       <h1 class="ftitle">{nameOf(path)}</h1>
-      <p class="muted">This file can’t be shown here.</p>
-      {#if app.session.shell}<button class="btn" onclick={() => shell('reveal', { path })}>Show in Finder</button>{/if}
+      {#if madeInto}<p class="muted no-print">The original of <a href={noteHash(madeInto.path)}>{madeInto.title}</a>.</p>{/if}
+      {#if text !== null}<div class="prose"><pre>{text}</pre></div>
+      {:else}<p class="muted">This file can’t be shown here. Download it to open it.</p>{/if}
+      <p class="row no-print">
+        <a class="btn" href={fileUrl(path)} download={nameOf(path)}>Download</a>
+        {#if convertible && !madeInto && canWrite()}<button class="btn" disabled={converting} onclick={() => convertFile(path)}>Convert to an editable recipe…</button>{/if}
+        {#if app.session.shell}<button class="btn" onclick={() => shell('reveal', { path })}>Show in Finder</button>{/if}
+      </p>
     {/if}
   </div>
 
@@ -427,6 +463,14 @@
   {#if aiBusy && !asking}<div class="busy" role="status">Asking AI…</div>{/if}
   {#if comparing && conflict}
     <Merge theirs={conflict.theirs} mine={draft} leftLabel="Version saved elsewhere" onaccept={(t) => { draft = t; keepMine(); }} oncancel={() => (comparing = false)} />
+  {/if}
+  {#if nutrition && entry.recipe && mode === 'read'}
+    <dialog class="modal-host" aria-label="Nutrition Facts" use:modal={{ onclose: () => (nutrition = false), active: tab.id === app.tab, outside: true }}>
+      <div class="card nutri-box">
+        <button class="btn ghost icon close" aria-label="Close" onclick={() => (nutrition = false)}><Icon name="x" /></button>
+        <Nutrition {entry} {factor} {portion} yields={baseYield} />
+      </div>
+    </dialog>
   {/if}
   {#if cooking && entry.recipe}
     <CookMode {entry} {factor} {units} {portion} onclose={() => (cooking = false)} />
@@ -447,7 +491,13 @@
   /* the property pills flow in the card's row after the scaler; what More opens takes its own line */
   .details, .details :global(.props) { display: contents; }
   .details :global(.chips:not(.more)) { flex: 1 1 auto; }
-  .details :global(.chips.more), .details :global(.warn) { flex-basis: 100%; }
+  .details :global(.chips.more), .details :global(.warn) { flex-basis: 100%; order: 1; }
+  /* beside More, like it: accent ink, no border */
+  .nutri-btn { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; min-height: 32px; padding: 4px 8px; border: 0; background: none; color: var(--accent-ink); font: inherit; font-size: 14px; cursor: pointer; }
+  .nutri-box { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; padding: 12px; overflow-y: auto;
+    max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); width: min(calc(20rem + 68px), calc(100vw - 32px)); }
+  .nutri-box .close { grid-column: 2; grid-row: 1; }
+  .nutri-box :global(.nutrition) { margin: 0; grid-column: 1; grid-row: 1; }
   .details :global(.chip.toggle) { margin-left: auto; }
   .chip { border: 1px solid var(--border); background: var(--surface); border-radius: 16px; padding: 4px 12px; min-height: 32px; cursor: pointer; font-size: 14px; }
   .chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }

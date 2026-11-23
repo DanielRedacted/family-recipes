@@ -14,6 +14,7 @@ pub mod nutrition;
 pub mod recipe;
 pub mod schema;
 pub mod server;
+pub mod toc;
 pub mod users;
 pub mod vault;
 

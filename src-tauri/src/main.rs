@@ -2,6 +2,9 @@
 //! listener, and keeps serving the network from the menu bar when the window is closed.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(target_os = "macos")]
+mod pdf;
+
 use recipes_core::server::{self, Config, Listener, Shell};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -67,6 +70,13 @@ impl Shell for TauriShell {
         })?;
         self.restart();
         Ok(())
+    }
+    fn downloads(&self) -> Option<PathBuf> {
+        self.0.path().download_dir().ok()
+    }
+    #[cfg(target_os = "macos")]
+    fn save_pdf(&self, to: &Path) -> Result<(), String> {
+        pdf::save(&self.0, to)
     }
     fn restart(&self) {
         let app = self.0.clone();
@@ -162,17 +172,8 @@ fn main() {
                 })
                 .on_download(move |_, ev| {
                     if let DownloadEvent::Requested { destination, .. } = ev {
-                        let name = destination.file_name().map(|n| n.to_owned()).unwrap_or_else(|| "download".into());
-                        let mut target = downloads.join(&name);
-                        let mut n = 2;
-                        while target.exists() {
-                            let p = Path::new(&name);
-                            let stem = p.file_stem().unwrap_or_default().to_string_lossy();
-                            let ext = p.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
-                            target = downloads.join(format!("{stem} ({n}){ext}"));
-                            n += 1;
-                        }
-                        *destination = target;
+                        let name = destination.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "download".into());
+                        *destination = server::unique_file(&downloads, &name);
                     }
                     true
                 })

@@ -78,9 +78,7 @@ Once the server runs and before the scripts, skip the first-start setup page (it
 `e2e/import.mjs` needs the internet and two source files from the recipes repository (`IMPORT_SRC`, default `/tmp/import-src`):
 
 ```sh
-mkdir -p /tmp/import-src && git -C ~/Recipes archive origin/originals \
-  "recipes/PDFs/Einkorn Pizza Dough Recipe _ GrillGirl.pdf" "recipes/Cookies - Macaroons.docx" \
-  | tar -x -C /tmp/import-src --strip-components=1
+mkdir -p /tmp/import-src && cp ~/Recipes/attachments/originals/{"Einkorn Pizza Dough Recipe _ GrillGirl.pdf","Cookies - Macaroons.docx"} /tmp/import-src/
 ```
 
 A headless browser does not reproduce the desktop webview (WKWebView). Behaviour that depends on it (opening links, downloads, print) needs a manual check in `Recipes.app`.

@@ -79,7 +79,7 @@ assert.equal((await call(page, 'GET', '/api/made')).length, 1, 'only one guess p
 assert.ok(await page.locator('.made button:not([disabled])').count(), 'a guess leaves Made today pressable');
 
 // the Calendar page shows it as a guess; "Yes, cooked" makes it a fact
-await page.click('button:has-text("Calendar")');
+await page.click('button[aria-label="Calendar"]');
 await page.waitForSelector('.week');
 await page.waitForSelector('.ev');
 assert.ok(await page.locator('.log.guess:has-text("Probably cooked")').count());
