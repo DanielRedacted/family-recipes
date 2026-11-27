@@ -216,7 +216,8 @@ await page.goto(new URL('/#/n/Breads/Pizza%20Dough%20%26%20Sauce.md', url).href)
 await page.waitForSelector('.portions');
 await page.click('.portions .chip:has-text("Large")');
 assert.ok((await ingText()).includes('12 oz Liquid (water or beer)'));
-assert.ok((await ingText()).some((t) => /^11 oz canned tomato paste/.test(t)), 'the sauce scales too: ' + (await ingText()).filter((t) => /tomato/.test(t)));
+// the sauce is a recipe of its own now, linked where it was
+assert.ok(await page.locator('.prose a:has-text("Pizza Sauce")').count(), 'the sauce is linked');
 // no table rows joined with " · " in the ingredient catalogue
 await page.goto(new URL('/#/ingredients', url).href);
 await page.waitForSelector('.ing, table, li');
@@ -293,7 +294,8 @@ assert.ok((await ingText()).includes('16 tbsp Butter'), 'as written at ×1');
 await page.click('button[aria-label="Fewer"]');
 assert.ok((await ingText()).includes('½ cup Butter'), '16 tbsp × ½ reads ½ cup: ' + (await ingText()).slice(0, 3));
 await units('metric');
-assert.ok((await ingText()).some((t) => /^\d+ ml Butter$/.test(t)), 'metric converts');
+// a solid in grams (the nutrition table's weights, loaded for Metric), a liquid stays in ml
+await page.waitForFunction(() => [...document.querySelectorAll('.prose li')].some((li) => /^\d+ g Butter$/.test(li.textContent.trim())), null, { timeout: 10000 });
 await units('us');
 
 // tabs: each keeps its own page, Back steps and scroll; switching leaves the folder column alone

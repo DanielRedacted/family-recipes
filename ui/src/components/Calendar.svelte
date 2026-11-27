@@ -7,7 +7,7 @@
   import { app, noteHash, type Tab } from '../lib/state.svelte';
   import { settleGuess } from '../lib/ops';
   import { ASSUME_AFTER_MIN } from '../lib/made';
-  import { daysOf, keyOf, addDays, startOfDay, fetchEvents, eventsOn, history, timeOf, type CalEvent, type Item } from '../lib/calendar';
+  import { daysOf, keyOf, addDays, startOfDay, fetchEvents, eventsOn, history, timeOf, refreshAtNaturalTimes, type CalEvent, type Item } from '../lib/calendar';
 
   const tab = getContext<Tab>('tab');
   let view = $state<'week' | 'month'>((() => { try { return localStorage.getItem('calendarView') === 'month' ? 'month' : 'week'; } catch { return 'week'; } })());
@@ -41,7 +41,7 @@
   }
   function goToday() { anchor = startOfDay(new Date()); picked = today = keyOf(new Date()); }
 
-  // the Mac's events for the days on screen; refreshed each minute and when the page comes back
+  // the Mac's events for the days on screen; asked again every 15 minutes and when the page comes back
   async function load() {
     if (!app.session.calendar || !app.session.user) { events = []; return; }
     if (tab.id !== app.tab || document.visibilityState !== 'visible') return;
@@ -50,11 +50,7 @@
   }
   $effect(() => {
     days; app.session.calendar; app.tab;
-    load();
-    const t = setInterval(load, 60_000);
-    const vis = () => load();
-    document.addEventListener('visibilitychange', vis);
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', vis); };
+    return refreshAtNaturalTimes(load);
   });
 
   const clock = (s: number) => new Date(s * 1000).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });

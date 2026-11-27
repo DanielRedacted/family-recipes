@@ -19,7 +19,7 @@ All three run the same router (`server::router`). Each request is tagged with th
 
 - The plain-HTTP listener needs nothing on the device. The PIN, names and session cookie cross the Wi-Fi unencrypted, as with a home file share.
 - The HTTPS listener is only needed for the home-screen app (PWA), which keeps working for reading while the Mac is asleep.
-- On a device opened over `http://`, the page probes `https://<same host>/api/ping`. If the device already trusts the certificate the probe succeeds and the page moves to HTTPS by itself; otherwise it stays on HTTP (`ui/src/main.ts`). The probe only tries port 443, so a Mac that fell back to 8443 never moves devices to HTTPS automatically.
+- On a device opened over `http://`, the page probes `https://<same host>/api/ping`, then the same on port 8443. If the device already trusts the certificate a probe succeeds and the page moves to that HTTPS address by itself; otherwise it stays on HTTP (`ui/src/main.ts`). Another app holding 443 fails the certificate check, so a Mac that fell back to 8443 is still found.
 
 Sharing is on by default (`settings.lan`) and is switched in Settings → Phones & tablets. Closing the window keeps sharing from the menu-bar item; quitting the app stops it.
 

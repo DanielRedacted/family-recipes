@@ -7,7 +7,7 @@ order: 25
 
 ## Starting cook mode
 
-Open a recipe and tap **Cook mode** at the top. The button only appears on recipes that have ingredients or steps the app can find. Scale the recipe and pick a portion first. Cook mode uses the same amounts and units you were looking at, and shows the multiplier (×2) at the top when the recipe is scaled.
+Open a recipe and tap **Cook mode** at the top. The button only appears on recipes that have ingredients or steps the app can find. Scale the recipe and pick a portion, or a version, first. Cook mode uses the same amounts and units you were looking at, and shows the multiplier (×2) and the version's name at the top.
 
 Anyone can use cook mode. You don't need the family PIN.
 
@@ -18,6 +18,7 @@ Cook mode fills the screen with the recipe's ingredients and its steps.
 - Tap an ingredient or a step to tick it off. Ticked lines fade and are crossed out.
 - The next step you haven't ticked is highlighted, so you can find your place at a glance.
 - **On phones and narrow windows**, **Ingredients** and **Steps** buttons switch between the two lists. Wider screens show both side by side.
+- A recipe that is only steps, such as a way of cooking a roast, shows just its steps. It has no scaling and no Nutrition button.
 - When your device allows it, the screen stays on while cook mode is open, and the top of the screen says **Screen stays on**.
 - **Reset** clears every tick.
 - **Done**, or Esc on a keyboard, closes cook mode.

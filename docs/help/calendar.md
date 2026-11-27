@@ -35,7 +35,7 @@ When the Mac's calendar is turned on and there's something on today, the home pa
 
 The events come from the Calendar app on the Mac that runs Recipes, and only someone at that Mac can turn them on: **Settings → Calendar → Show events from this Mac's calendar**. The first time, the Mac asks whether Recipes may see the calendar. Then tick the calendars to show, such as a family calendar. Nothing shows until you tick one, and a calendar you add later stays hidden until you tick it. The Mac only lets an app see all of its calendars or none, but Recipes reads only the ones ticked here.
 
-Recipes only reads the calendar. To add, move or delete an event, use the Calendar app, or anything that syncs with it such as a phone's calendar. Recipes shows the change within a minute.
+Recipes only reads the calendar. To add, move or delete an event, use the Calendar app, or anything that syncs with it such as a phone's calendar. Recipes shows the change the next time you open the Calendar or the home page, or come back to them from another app; a page left open checks every 15 minutes.
 
 Everyone signed in sees the events, on the Mac and on phones and tablets.
 

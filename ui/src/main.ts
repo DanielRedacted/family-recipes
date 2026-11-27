@@ -12,10 +12,11 @@ document.addEventListener('gesturestart', (e) => e.preventDefault());
 // certificate moves to HTTPS (where the offline app lives); untrusted, the probe fails and we stay.
 const loopback = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
 if (location.protocol === 'http:' && !loopback) {
-  const https = 'https://' + location.hostname; // ponytail: probes 443 only, not the 8443 fallback used when 443 is taken
-  fetch(https + '/api/ping', { mode: 'no-cors', cache: 'no-store' })
-    .then(() => location.replace(https + location.pathname + location.search + location.hash))
-    .catch(() => {});
+  // 443, else the 8443 the Mac falls back to when another app holds 443 (that app fails the certificate check)
+  const go = (https: string) => location.replace(https + location.pathname + location.search + location.hash);
+  const probe = (https: string) => fetch(https + '/api/ping', { mode: 'no-cors', cache: 'no-store' }).then(() => https);
+  const host = 'https://' + location.hostname;
+  probe(host).catch(() => probe(host + ':8443')).then(go, () => {});
 }
 
 // Offline-capable PWA for phones/tablets. Not inside the desktop app (loopback), where a

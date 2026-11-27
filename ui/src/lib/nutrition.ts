@@ -2,7 +2,7 @@
 // `Line.amounts`) weighed in grams and multiplied by USDA's values per 100 g (`/api/foods`). An
 // ingredient that is a recipe in the book is worked out from that recipe's own ingredients.
 // Nothing is written to the recipe; lines that can't be weighed are left out and listed.
-import { UNIT_TO_G, UNIT_TO_ML, parseYield, portionMultipliers, resolvePortion } from './scale';
+import { UNIT_TO_G, UNIT_TO_ML, inVersion, parseYield, portionMultipliers, resolvePortion, versionsOf } from './scale';
 import type { Amount, Entry } from './types';
 
 /** In the order of the FDA Nutrition Facts label; the keys of `nutrition` in docs/FORMAT.md. */
@@ -72,15 +72,17 @@ function shareOf(a: Amount, of: Estimate, r: Entry): number | string {
 
 /**
  * The recipe's nutrition at a scale and portion (as the reader shows it), whole recipe. A table with
- * alternative portions counts the chosen portion's column, like the reader.
- * ponytail: every ingredient set in a file is added up, so a file holding two versions of a recipe
- * counts both; tell them apart if that turns out to matter.
+ * alternative portions counts the chosen portion's column, like the reader. Every ingredient set in
+ * the file is added up, except in a recipe with versions (`versionsOf`), which counts the chosen one;
+ * used as an ingredient of another recipe, such a recipe counts its first version.
  */
-export function estimate(e: Entry, foods: Foods, sub: SubRecipe, factor = 1, portion = 0, seen: ReadonlySet<string> = new Set()): Estimate {
+export function estimate(e: Entry, foods: Foods, sub: SubRecipe, factor = 1, portion = 0, seen: ReadonlySet<string> = new Set(), version = 0): Estimate {
   const out: Estimate = { totals: zero(), counted: 0, lines: 0, skipped: [], grams: 0, ml: 0, parts: [] };
   if (!e.recipe) return out;
   const inside = new Set(seen).add(e.path);
+  const v = versionsOf(e)[version];
   for (const g of e.recipe.ingredients) {
+    if (!inVersion(g.items[0]?.line ?? 0, v)) continue;
     const table = !!g.portions?.length;
     const { col, scale } = table ? resolvePortion(portionMultipliers(g.items, g.portions!), portion, factor) : { col: 0, scale: factor };
     for (const it of g.items) {
@@ -120,6 +122,24 @@ export function estimate(e: Entry, foods: Foods, sub: SubRecipe, factor = 1, por
   }
   return out;
 }
+
+/** Names of places, makers and people kept capitalised in the ingredient statement, as they are spelled.
+ * The list is kept by hand from the Ingredients page's names; add a name when one turns up in lower case. */
+const PROPER = [
+  'Amish', 'Asiago', 'Brady', 'Cajun', 'California', 'Chinese', 'Cognac', 'Costco', 'Creole', 'Crisco', 'Crystal Louisiana', 'Dijon',
+  'Fage', "Frank's", 'Frank’s', 'French', 'Ghirardelli', 'Gorgonzola', 'Greek', 'Gruyère', 'Gruyere', 'Guittard', 'Heinz', 'Himalayan',
+  'Italian', 'Jell-O', 'Kalamata', 'Knox', 'Kodiak', 'Kool-Aid', 'Lo Han', 'Louisiana', 'Marsala', 'Mexican', 'Monterey Jack',
+  'Now®', 'Nutella', 'Old Bay', 'Parmesan', 'Parmigiano-Reggiano', 'Philadelphia', 'Roma', 'Romano', 'Romo', 'Rumford', 'Shaoxing',
+  'Swiss', 'Tabasco', 'Thai', 'Wholesome®', 'Worcestershire',
+];
+const SPELLING = new Map(PROPER.map((w) => [w.toLowerCase(), w]));
+const escape = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const names = [...SPELLING.keys()].sort((a, b) => b.length - a.length).map(escape).join('|');
+// no lookbehind: Safari 15 (macOS 12) can't parse it
+const PROPER_RE = new RegExp(`(^|[^\\p{L}\\p{N}])(${names})(?![\\p{L}\\p{N}])`, 'gu');
+
+/** An ingredient's name as on a package's list: lower case, except the names in `PROPER`. */
+export const commonName = (n: string) => n.toLowerCase().replace(PROPER_RE, (_, pre: string, w: string) => pre + SPELLING.get(w));
 
 /**
  * The ingredient statement as on a food label (21 CFR 101.4): each ingredient once, in descending order

@@ -40,6 +40,21 @@ export async function fetchEvents(from: Date, to: Date): Promise<CalEvent[]> {
   try { return await api<CalEvent[]>('GET', `/api/calendar?from=${Math.floor(from.getTime() / 1000)}&to=${Math.floor(to.getTime() / 1000)}`); } catch { return []; }
 }
 
+/** How often a calendar page left on screen asks again (a kitchen tablet; also catches midnight). */
+export const REFRESH_MS = 15 * 60_000;
+
+/** Call `load` now, when the page comes back to the front (another tab or app was in front), and every
+ * `REFRESH_MS` while it stays on screen. Returns the clean-up. Events change rarely, so these natural
+ * moments are enough; `load` itself skips the work while the page is hidden. */
+export function refreshAtNaturalTimes(load: () => void): () => void {
+  load();
+  const t = setInterval(load, REFRESH_MS);
+  const back = () => { if (document.visibilityState === 'visible') load(); };
+  document.addEventListener('visibilitychange', back);
+  window.addEventListener('focus', back); // the Mac app's window coming to the front
+  return () => { clearInterval(t); document.removeEventListener('visibilitychange', back); window.removeEventListener('focus', back); };
+}
+
 /** Events that touch the local day starting at `d` (a several-day event shows on each of its days). */
 export const eventsOn = (events: CalEvent[], d: Date) => {
   const from = d.getTime() / 1000, to = addDays(d, 1).getTime() / 1000;

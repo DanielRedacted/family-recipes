@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { dailyValue, estimate, gramsOf, ingredientList, labelAmount, type Food, type Foods } from './nutrition';
+import { commonName, dailyValue, estimate, gramsOf, ingredientList, labelAmount, type Food, type Foods } from './nutrition';
+import { versionsOf } from './scale';
 import type { Amount, Entry, Group } from './types';
 
 // Foods with round numbers, so totals can be checked by hand (per 100 g).
@@ -28,6 +29,32 @@ const bread = note('Bread.md', [list(
 const none = () => null;
 
 describe('nutrition', () => {
+  it('counts one version at a time in a recipe marked versions', () => {
+    const groups: Group[] = [
+      list(line('100 g flour', { qty: 100, unit: 'g', key: 'flour' }, 5)),
+      list(line('10 g oil', { qty: 10, unit: 'g', key: 'oil' }, 9)), // a part of the first version
+      list(line('50 g egg', { qty: 50, unit: 'g', key: 'egg' }, 20)),
+    ];
+    const cakes = (fm: Record<string, unknown>) =>
+      ({ ...note('Mug Cakes.md', groups, fm), recipe: { ingredients: groups, steps: [], sections: [{ name: '', line: 3 }, { name: 'Flourless', line: 15 }] } });
+    const marked = cakes({ versions: true });
+    expect(versionsOf(marked)).toEqual([{ label: 'Mug Cakes', from: 3, to: 15 }, { label: 'Flourless', from: 15, to: Infinity }]);
+    expect(estimate(marked, foods, none).totals.calories).toBeCloseTo(400 + 90);
+    expect(estimate(marked, foods, none, 1, 0, undefined, 1).totals.calories).toBeCloseTo(75);
+    // not marked: parts of one dish, all added up
+    expect(versionsOf(cakes({}))).toEqual([]);
+    expect(estimate(cakes({}), foods, none).totals.calories).toBeCloseTo(400 + 90 + 75);
+  });
+
+  it('writes ingredient names in lower case but for proper names', () => {
+    expect(commonName('Shredded MONTEREY JACK cheese')).toBe('shredded Monterey Jack cheese');
+    expect(commonName('raspberry jell-o')).toBe('raspberry Jell-O');
+    expect(commonName('Old Bay Seasoning')).toBe('Old Bay seasoning');
+    expect(commonName('Frank’s Red Hot')).toBe('Frank’s red hot');
+    expect(commonName('Romaine lettuce')).toBe('romaine lettuce'); // "Roma" only as a word
+    expect(commonName('Swiss-style')).toBe('Swiss-style');
+  });
+
   it('weighs a line by weight, volume, size and count', () => {
     const f = foods.flour as Food;
     expect(gramsOf({ qty: 2, unit: 'cup' }, f)).toBeCloseTo(2 * 236.588 * 0.5);

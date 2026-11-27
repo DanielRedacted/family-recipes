@@ -7,7 +7,9 @@ export interface Amount { qty?: number; unit?: string; size?: string; key?: stri
 export interface Line { line: number; text: string; alts?: string[]; amounts?: (Amount | null)[] }
 /** `portions`: the labels of a table's alternative portions; `table`: its first and last line */
 export interface Group { name: string | null; items: Line[]; portions?: string[]; table?: [number, number] }
-export interface Recipe { ingredients: Group[]; steps: Group[] }
+/** `sections`: one per top-level Ingredients heading when there are two or more: its name ("" = unnamed)
+ * and the line it starts on (versions: `versionsOf` in scale.ts) */
+export interface Recipe { ingredients: Group[]; steps: Group[]; sections?: { name: string; line: number }[] }
 
 export interface Entry {
   path: string;

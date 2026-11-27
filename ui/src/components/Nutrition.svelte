@@ -2,19 +2,21 @@
   // A Nutrition Facts label in the FDA's layout (21 CFR 101.9, 2016 format). The reader always shows
   // the estimate worked out from the ingredients (lib/nutrition.ts) at its scale and portion, even when
   // the recipe has `nutrition:` values; those are shown as written only on the importer's Preview.
-  import { DAILY, NUTRIENTS, UNIT, dailyValue, estimate, ingredientList, labelAmount, type Nutrient } from '../lib/nutrition';
+  import { DAILY, NUTRIENTS, UNIT, commonName, dailyValue, estimate, ingredientList, labelAmount, type Nutrient } from '../lib/nutrition';
   import { catalog, foods, loadFoods, loadIngredients } from '../lib/ingredients.svelte';
   import { subRecipeOf } from '../lib/markdown';
-  import type { Yield } from '../lib/scale';
+  import { versionsOf, type Yield } from '../lib/scale';
   import type { Entry } from '../lib/types';
 
-  let { data = null, entry = null, factor = 1, portion = 0, yields = null }: {
+  let { data = null, entry = null, factor = 1, portion = 0, version = $bindable(0), yields = null }: {
     /** the `nutrition:` property (importer Preview only) */
     data?: unknown;
     /** the recipe to estimate */
     entry?: Entry | null;
     factor?: number;
     portion?: number;
+    /** a recipe marked `versions: true`: the version counted (shared with the reader) */
+    version?: number;
     /** what the recipe makes (servings, else yield) */
     yields?: Yield | null;
   } = $props();
@@ -41,14 +43,12 @@
 
   // ---- otherwise worked out from the ingredients
   $effect(() => { if (entry && !own) { loadFoods(); loadIngredients(); } });
-  const est = $derived(entry && !own && foods.loaded ? estimate(entry, foods.table, subRecipeOf, factor, portion) : null);
+  /** a recipe marked `versions: true`: one version at a time */
+  const versions = $derived(entry && !own ? versionsOf(entry) : []);
+  const est = $derived(entry && !own && foods.loaded ? estimate(entry, foods.table, subRecipeOf, factor, portion, undefined, version) : null);
   /** the ingredient statement, named as on the Ingredients page */
   const names = $derived(new Map(catalog.items.map((i) => [i.key, i.name])));
-  // in lower case like a package's list, except names of places and makers
-  // ponytail: a short list of proper names; add to it as they turn up
-  const PROPER = /\b(swiss|parmesan|romano|asiago|gruy[eè]re|dijon|worcestershire|tabasco|monterey|jack|kalamata|marsala|italian|french|greek|mexican|cajun|creole|thai)\b/g;
-  const common = (n: string) => n.toLowerCase().replace(PROPER, (w) => w[0].toUpperCase() + w.slice(1));
-  const statement = $derived(est?.parts.length ? ingredientList(est.parts, (k) => common(names.get(k) ?? k)) : null);
+  const statement = $derived(est?.parts.length ? ingredientList(est.parts, (k) => commonName(names.get(k) ?? k)) : null);
   /** "split into" for a recipe that doesn't say what it makes; not saved */
   let split = $state(1);
   const servings = $derived(yields ? yields.n * factor : Math.max(1, Math.round(split) || 1));
@@ -82,6 +82,13 @@
 
 {#if rows}
   <section class="nutrition" aria-labelledby="{id}-h">
+    {#if versions.length}
+      <div class="versions" role="radiogroup" aria-label="Version">
+        {#each versions as v, k}
+          <button class="chip" role="radio" aria-checked={version === k} class:on={version === k} onclick={() => (version = k)}>{v.label}</button>
+        {/each}
+      </div>
+    {/if}
     <div class="label">
       <h2 id="{id}-h">Nutrition Facts</h2>
       {#if est}<p class="estimate">Estimated from the ingredients</p>{/if}
@@ -149,6 +156,10 @@
   /* The label's own type: the sans in heavy weights and the hairline-to-bar rules of the FDA format,
      drawn in the theme's ink on its surface so it reads in light and dark. */
   .nutrition { margin: 32px 0 24px; }
+  /* the reader's portion chips (Note.svelte) */
+  .versions { display: flex; flex-wrap: wrap; gap: 4px; margin-block-end: 12px; inline-size: min(100%, 20rem); }
+  .chip { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 16px; padding: 4px 12px; min-height: 32px; cursor: pointer; font-size: 14px; text-align: start; }
+  .chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
   .label {
     inline-size: min(100%, 20rem); padding: 4px 8px 6px; border: 1px solid var(--text); background: var(--surface);
     color: var(--text); font: 14px/1.3 var(--sans);

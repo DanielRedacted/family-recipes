@@ -7,7 +7,7 @@
   };
   /** not in the row of details: tags as chips, nutrition as its own table, icon/colour on the cards;
    *  added_by and changes under More, with the source */
-  export const HIDDEN = ['tags', 'needs_review', 'original', 'nutrition', 'emoji', 'color', 'favorite', 'author', 'added_by', 'changes'];
+  export const HIDDEN = ['tags', 'needs_review', 'original', 'nutrition', 'emoji', 'color', 'favorite', 'author', 'added_by', 'changes', 'versions'];
   export const fmtVal = (v: unknown) => (Array.isArray(v) ? v.join(', ') : v === true ? 'yes' : v === false ? 'no' : v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 </script>
 

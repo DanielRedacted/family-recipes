@@ -25,6 +25,9 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
 pub const HOST: &str = "recipes.local";
+/// The ports tried in order: the usual one, then the fallback when another app holds it.
+const HTTPS_PORTS: [u16; 2] = [443, 8443];
+const HTTP_PORTS: [u16; 2] = [80, 8080];
 
 #[derive(Serialize, Clone, Default, Debug)]
 pub struct LanStatus {
@@ -235,8 +238,8 @@ async fn start_inner(state: Arc<AppState>, app: Router) -> Result<()> {
     *lan.ips.lock().unwrap() = ips.clone();
     set_hosts(&state, &ips);
 
-    let https_port = bind_first(&[443, 8443])?;
-    let http_port = bind_first(&[80, 8080])?;
+    let https_port = bind_first(&HTTPS_PORTS)?;
+    let http_port = bind_first(&HTTP_PORTS)?;
     let h1 = Handle::new();
     let h2 = Handle::new();
     lan.handles.lock().unwrap().extend([h1.clone(), h2.clone()]);
@@ -292,10 +295,14 @@ async fn other_server(own: &[Ipv4Addr]) -> Option<Ipv4Addr> {
     if own.contains(&ip) {
         return None;
     }
-    // ponytail: asks port 80 only, not the 8080 fallback a Mac uses when 80 is taken
+    // both ports at once, so a Mac on the 8080 fallback is found within the same 2 s
     let client = reqwest::Client::builder().timeout(Duration::from_secs(2)).build().ok()?;
-    let r = client.get(format!("http://{ip}/api/session")).send().await.ok()?;
-    r.status().is_success().then_some(ip)
+    let ask = |port: u16| {
+        let req = client.get(format!("http://{ip}:{port}/api/session"));
+        async move { req.send().await.is_ok_and(|r| r.status().is_success()) }
+    };
+    let (a, b) = tokio::join!(ask(HTTP_PORTS[0]), ask(HTTP_PORTS[1]));
+    (a || b).then_some(ip)
 }
 
 /// The IPv4 address recipes.local is registered at on this network (`dns-sd -G`, up to 2 s).

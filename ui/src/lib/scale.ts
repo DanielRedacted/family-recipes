@@ -1,5 +1,6 @@
 // Serving scaler + unit conversion for ingredient lines, working on the text as written.
 import { normalizeUnits } from './units';
+import type { Amount, Entry } from './types';
 // Unit tables and rounding first ported from the earlier `recipes` app's frontend.
 
 const GLYPH: Record<string, number> = { '½': 1 / 2, '¼': 1 / 4, '¾': 3 / 4, '⅓': 1 / 3, '⅔': 2 / 3, '⅛': 1 / 8, '⅜': 3 / 8, '⅝': 5 / 8, '⅞': 7 / 8 };
@@ -57,6 +58,11 @@ export function formatNum(x: number): string {
  */
 const COUNT_RX = /^([*_]{0,2}\s*(?:\([^)]*\)\s*)?(?:(?:extra[- ]large|large|medium|small|jumbo|whole|garlic)\s+)*)(egg\s+yolk|egg\s+white|yolk|egg|clove|can|slice|piece|head|package|bunch|sprig|stalk)(s|es)?\b/i;
 const roundCount = (x: number) => String(Math.max(1, Math.round(x)));
+/** A container word agreeing with its count: "can" / "cans", "box" / "boxes". */
+const packNoun = (w: string, n: number) => {
+  const one = /xes$/i.test(w) ? w.slice(0, -2) : w.replace(/s$/i, '');
+  return n > 1 ? one + (/x$/i.test(one) ? 'es' : 's') : one;
+};
 /** The noun agrees with the rounded count: "1 eggs" → "1 egg", "2 clove" → "2 cloves", "3 EGGS". */
 function countNoun(rest: string, n: number): string {
   const m = rest.match(COUNT_RX)!;
@@ -65,12 +71,61 @@ function countNoun(rest: string, n: number): string {
   return m[1] + m[2] + plural + rest.slice(m[0].length);
 }
 
-/** Metric: millilitres / grams (litres / kilograms from 950 up). */
-function toMetric(val: number, unit: string): { val: number; unit: string } | null {
+/** Metric: millilitres / grams (litres / kilograms from 950 up). A volume becomes grams when the
+ * ingredient's grams per ml is given (a solid: `solidGramsPerMl`). */
+function toMetric(val: number, unit: string, gPerMl?: number): { val: number; unit: string } | null {
   const u = unit.toLowerCase().replace(/\.$/, '').replace('fl. oz', 'fl oz');
-  if (UNIT_TO_ML[u] !== undefined) { const ml = val * UNIT_TO_ML[u]; return ml >= 950 ? { val: ml / 1000, unit: 'l' } : { val: ml, unit: 'ml' }; }
-  if (UNIT_TO_G[u] !== undefined) { const g = val * UNIT_TO_G[u]; return g >= 950 ? { val: g / 1000, unit: 'kg' } : { val: g, unit: 'g' }; }
+  const grams = (g: number) => (g >= 950 ? { val: g / 1000, unit: 'kg' } : { val: g, unit: 'g' });
+  if (UNIT_TO_ML[u] !== undefined) {
+    const ml = val * UNIT_TO_ML[u];
+    if (gPerMl) return grams(ml * gPerMl);
+    return ml >= 950 ? { val: ml / 1000, unit: 'l' } : { val: ml, unit: 'ml' };
+  }
+  if (UNIT_TO_G[u] !== undefined) return grams(val * UNIT_TO_G[u]);
   return null;
+}
+
+/** Ingredients poured rather than weighed, by the last word of their key before any added remark
+ * ("juice from lemon", "vanilla save"): Metric keeps them in ml. Kept by hand; "cream cheese" and
+ * "milk chocolate chips" end in a solid, "sour cream" in a liquid. */
+const LIQUIDS = new Set(['water', 'milk', 'buttermilk', 'cream', 'half', 'oil', 'broth', 'stock', 'soup', 'juice', 'cider',
+  'vinegar', 'wine', 'beer', 'ale', 'sake', 'sherry', 'bourbon', 'cognac', 'tequila', 'sauce', 'hotsauce', 'dressing', 'syrup',
+  'honey', 'molasses', 'extract', 'vanilla', 'worcestershire', 'worchestershire', 'worchestshire', 'tabasco']);
+
+/** Grams per ml of a line's ingredient when Metric should show it in grams: a solid with a USDA weight
+ * per volume (`/api/foods`), on a line that doesn't write its own weight ("½ cup (50 g)"). */
+export function solidGramsPerMl(a: Amount | null | undefined, foods: Record<string, { ml?: number } | null>): number | undefined {
+  if (!a?.key || a.grams) return undefined;
+  const head = a.key.replace(/\s*shopping list$/, '').split(/ (?:from|like|before|added|use|save)\b/)[0];
+  if (LIQUIDS.has(head.split(' ').pop()!)) return undefined;
+  return foods[a.key]?.ml || undefined;
+}
+
+const TEMP = String.raw`\d{2,3}(?:\s*(?:[-–]|to)\s*\d{2,3})?`;
+/** both written: "350°F (175°C)", "110°F/45°C", "165°C (325°F)" */
+const BOTH_RX = new RegExp(String.raw`\b(${TEMP}°\s?F)(?:\s*\(\s*(${TEMP}°\s?C)\s*\)|\s*\/\s*(${TEMP}°\s?C)\b)|\b(${TEMP}°\s?C)\s*\(\s*${TEMP}°\s?F\s*\)`, 'g');
+/** 350°F, 350°, 350° degrees, 350 degrees (three digits: "rotate 90 degrees" is an angle), not 180°C */
+const F_RX = /\b(\d{2,3})(?:(\s*(?:[-–]|to)\s*)(\d{2,3}))?(?:\s?°(\s?F\b|\s+degrees?\b(?:\s?F\b)?)?|(\s*degrees?\b(?:\s?F\b)?))(?!\s?C\b)/gi;
+
+/** Fahrenheit to Celsius in Metric mode: "350°F" → "175°C", "350–375°F" → "175–190°C"; where the recipe
+ * gives both ("350°F (175°C)") its own Celsius is kept. A bare degree ("350°", "warm water (about 115°)",
+ * "350 degrees") is Fahrenheit too, as the family writes, except an oven set under 250 ("preheat oven to
+ * 180°"), which is already Celsius. An oven setting (a multiple of 25 from 250°F) rounds to 5°C, any
+ * other temperature (candy, meat, water) to the degree. */
+export function toCelsius(text: string): string {
+  const c = (f: number) => { const v = ((f - 32) * 5) / 9; return f >= 250 && f % 25 === 0 ? Math.round(v / 5) * 5 : Math.round(v); };
+  // the recipe's own Celsius is set aside so the Fahrenheit pass can't touch it
+  const own: string[] = [];
+  const keep = (t: string) => `\u0000${own.push(t.replace(/\s(?=C)/, '')) - 1}\u0000`;
+  return text
+    .replace(BOTH_RX, (_, _f, c1?: string, c2?: string, c3?: string) => keep((c1 ?? c2 ?? c3)!))
+    .replace(F_RX, (all: string, a: string, sep: string | undefined, b: string | undefined, deg: string | undefined, word: string | undefined, at: number, whole: string) => {
+      if (word !== undefined && (a.length < 3 || (b !== undefined && b.length < 3))) return all;
+      const f = /F/i.test(deg ?? word ?? '');
+      if (!f && +(b ?? a) < 250 && /\boven\s+(?:to|at)\s*$/i.test(whole.slice(0, at))) return all;
+      return `${c(+a)}${b ? (sep ?? '') + c(+b) : ''}°C`;
+    })
+    .replace(/\u0000(\d+)\u0000/g, (_, k: string) => own[+k]);
 }
 
 /** US units and the amounts each reads well in; a scaled amount outside its unit's range moves to the next unit. */
@@ -115,12 +170,31 @@ const GLYPHS: Record<string, string> = { '1/2': '½', '1/4': '¼', '3/4': '¾', 
 const glyphs = (q: string) => q.replace(/(\d+\s+)?(?<!\d)(\d)\s*[/⁄]\s*(\d)(?!\d)/g,
   (all, whole: string | undefined, a: string, b: string) => (GLYPHS[a + '/' + b] ? (whole?.trim() ?? '') + GLYPHS[a + '/' + b] : all));
 
+/** What follows a "range" that is really a count and a package size: "1 - 14 oz can", "3 - 15 oz cans"
+ * (a real range has no container after its unit: "4 - 5 oz curry paste"). */
+const PACK_RX = /^\s*(?:fl\.? oz|oz|ounces?|lbs?|pounds?|g|grams?|kg|ml|l)\.?\s+(cans?|jars?|packages?|pkgs?|box(?:es)?|bags?|bottles?|containers?|cartons?|tubs?|blocks?|envelopes?|packets?)\b/i;
+/** A count of packages ("1 - 14 oz can"): the leading match cut to its first number, else as matched. */
+function leading(text: string): RegExpMatchArray | null {
+  const m = text.match(QTY_RX);
+  if (!m || m[3] === undefined || !PACK_RX.test(text.slice(m[0].length))) return m;
+  const cut = text.match(new RegExp(`^(\\s*(?:[*_]{1,2}|\\()?)(${NUM})`))!;
+  return Object.assign(cut, { 3: undefined, pack: true });
+}
+
 /** Rewrite the leading quantity (and unit, when converting) of an ingredient line; units in one spelling. */
-export function scaleLine(text: string, factor: number, units: Units = 'us'): string {
+export function scaleLine(text: string, factor: number, units: Units = 'us', gPerMl?: number): string {
   text = normalizeUnits(text);
   if (factor === 1 && units === 'us') return text.replace(QTY_RX, glyphs);
-  const m = text.match(QTY_RX);
+  const m = leading(text);
   if (!m) return text;
+  if ('pack' in m) {
+    // a whole number of packages; the package size stays as written ("2 - 14 oz cans")
+    const n = Number.isInteger(parseNum(m[2])) ? +roundCount(parseNum(m[2]) * factor) : parseNum(m[2]) * factor;
+    let rest = text.slice(m[0].length);
+    const size = rest.match(new RegExp(`^\\s*(?:-|–|to)\\s*${NUM}`))?.[0] ?? '';
+    rest = size + rest.slice(size.length).replace(PACK_RX, (all, c: string) => all.slice(0, all.length - c.length) + packNoun(c, n));
+    return m[1] + (Number.isInteger(n) ? String(n) : formatNum(n)) + rest;
+  }
   const a = parseNum(m[2]);
   const b = m[3] !== undefined ? parseNum(m[3]) : null;
   if (!isFinite(a) || (b !== null && !isFinite(b))) return text;
@@ -131,8 +205,8 @@ export function scaleLine(text: string, factor: number, units: Units = 'us'): st
   if (um) {
     const unit = um[1].replace(/^cups$/, 'cup');
     if (units === 'metric') {
-      const ca = toMetric(a * factor, unit);
-      const cb = b !== null ? toMetric(b * factor, unit) : null;
+      const ca = toMetric(a * factor, unit, gPerMl);
+      const cb = b !== null ? toMetric(b * factor, unit, gPerMl) : null;
       if (ca) {
         fmtA = metricFmt(ca.val, ca.unit);
         fmtB = cb ? metricFmt(cb.val, ca.unit === cb.unit ? cb.unit : ca.unit) : null;
@@ -162,7 +236,8 @@ export function scaleLine(text: string, factor: number, units: Units = 'us'): st
 /** "1 ½ cups flour" → "**1 ½ cups** flour": the reader shows the leading amount (and its unit) in bold.
  * A line whose amount is already marked up is left as written. */
 export function boldQty(text: string): string {
-  const m = text.match(QTY_RX);
+  const m = leading(text);
+  if (m && 'pack' in m) return `${m[1]}**${m[2]}**${text.slice(m[0].length)}`;
   if (!m || /[*_]/.test(m[1]) || /^\s*[*_]/.test(text.slice(m[0].length))) return text;
   const um = text.slice(m[0].length).match(UNIT_RX);
   const u = um?.[1].toLowerCase().replace('fl. oz', 'fl oz');
@@ -267,15 +342,35 @@ export function resolvePortion(mults: (number | null)[], portion: number, factor
   return { col: p, scale: factor / (mults[p] ?? 1) };
 }
 
+/** Grams per ml for a line's amount in Metric mode (`solidGramsPerMl` over the foods table). */
+export type Weigh = (a: Amount | null | undefined) => number | undefined;
+
 /** A group's ingredient lines at a portion and factor: a table shows that portion's amounts (lines it
  * doesn't use are left out); other groups are scaled as written. */
-export function groupLines<L extends { line: number; text: string; alts?: string[] }>(
-  g: { items: L[]; portions?: string[] }, portion: number, factor: number, units: Units,
+export function groupLines<L extends { line: number; text: string; alts?: string[]; amounts?: (Amount | null)[] }>(
+  g: { items: L[]; portions?: string[] }, portion: number, factor: number, units: Units, weigh?: Weigh,
 ): { line: number; text: string }[] {
-  if (!g.portions?.length) return g.items.filter((it) => it.text).map((it) => ({ line: it.line, text: scaleLine(it.text, factor, units) }));
+  const w = (it: L, col: number) => (units === 'metric' ? weigh?.(it.amounts?.[col]) : undefined);
+  if (!g.portions?.length) return g.items.filter((it) => it.text).map((it) => ({ line: it.line, text: scaleLine(it.text, factor, units, w(it, 0)) }));
   const { col, scale } = resolvePortion(portionMultipliers(g.items, g.portions), portion, factor);
   return g.items
-    .map((it) => ({ line: it.line, text: it.alts?.[col] ?? it.text }))
-    .filter((it) => it.text)
-    .map((it) => ({ line: it.line, text: scaleLine(it.text, scale, units) }));
+    .filter((it) => it.alts?.[col] ?? it.text)
+    .map((it) => ({ line: it.line, text: scaleLine(it.alts?.[col] ?? it.text, scale, units, w(it, col)) }));
 }
+
+// ---------- versions ----------
+
+/** One version of a recipe that holds several: its label and its lines, `from` up to (not including) `to`. */
+export interface Version { label: string; from: number; to: number }
+
+/** The versions of a recipe marked `versions: true`, one per top-level Ingredients heading (parser:
+ * `Recipe.sections`), each running to the next one; a label from its heading or bold line, else the
+ * recipe's title for the first and "Version 2"… for the rest. Empty when it isn't marked. */
+export function versionsOf(e: Pick<Entry, 'title' | 'frontmatter' | 'recipe'>): Version[] {
+  const s = e.recipe?.sections ?? [];
+  if (e.frontmatter?.versions !== true || s.length < 2) return [];
+  return s.map((x, k) => ({ label: x.name || (k === 0 ? e.title : `Version ${k + 1}`), from: x.line, to: s[k + 1]?.line ?? Infinity }));
+}
+
+/** Whether a line belongs to the chosen version (every line does when there is none). */
+export const inVersion = (line: number, v: Version | undefined) => !v || (line >= v.from && line < v.to);

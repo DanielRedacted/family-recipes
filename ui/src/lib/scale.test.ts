@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boldQty, formatNum, groupLines, parseNum, parseYield, portionMultipliers, resolvePortion, scaleLine, yieldLabel } from './scale';
+import { boldQty, formatNum, groupLines, inVersion, parseNum, parseYield, portionMultipliers, resolvePortion, scaleLine, solidGramsPerMl, toCelsius, yieldLabel } from './scale';
 
 // Ingredient tables with one column per portion, as the parser hands them over (row = the line's alternatives).
 const table = (portions: string[], ...rows: string[][]) =>
@@ -165,5 +165,79 @@ describe('boldQty', () => {
     expect(boldQty('3 large eggs')).toBe('**3** large eggs');
     expect(boldQty('**1 ½** tbsp sugar')).toBe('**1 ½** tbsp sugar');
     expect(boldQty('Salt to taste')).toBe('Salt to taste');
+  });
+});
+
+describe('metric weights and temperatures', () => {
+  const foods = { flour: { ml: 0.53 }, milk: { ml: 1.03 }, 'sour cream': { ml: 1.02 }, 'cream cheese': { ml: 0.98 }, lard: null };
+  const w = (key: string, grams?: number) => solidGramsPerMl({ key, grams }, foods);
+  it('weighs solids, pours liquids', () => {
+    expect(w('flour')).toBe(0.53);
+    expect(w('cream cheese')).toBe(0.98); // ends in a solid
+    expect(w('milk')).toBeUndefined();
+    expect(w('sour cream')).toBeUndefined();
+    expect(solidGramsPerMl({ key: 'juice from lemon' }, { 'juice from lemon': { ml: 1 } })).toBeUndefined();
+    expect(solidGramsPerMl({ key: 'olive oil shopping list' }, { 'olive oil shopping list': { ml: 0.9 } })).toBeUndefined();
+    expect(w('lard')).toBeUndefined(); // left out on the Ingredients page
+    expect(w('sugar')).toBeUndefined(); // no weight
+    expect(w('flour', 50)).toBeUndefined(); // the line writes its own weight
+  });
+  it('shows grams for a solid in metric', () => {
+    expect(scaleLine('1 cup flour', 1, 'metric', 0.53)).toBe('125 g flour');
+    expect(scaleLine('1–2 cups flour', 1, 'metric', 0.53)).toBe('125–251 g flour');
+    expect(scaleLine('8 cups flour', 1, 'metric', 0.53)).toBe('1 kg flour');
+    expect(scaleLine('1 cup milk', 1, 'metric')).toBe('237 ml milk');
+    expect(scaleLine('1 cup flour', 1, 'us', 0.53)).toBe('1 cup flour');
+  });
+  it('passes weights through groupLines in metric only', () => {
+    const g = { items: [{ line: 0, text: '2 cups flour', amounts: [{ qty: 2, unit: 'cup', key: 'flour' }] }] };
+    const weigh = (a: any) => solidGramsPerMl(a, foods);
+    expect(groupLines(g, 0, 1, 'metric', weigh)[0].text).toBe('251 g flour');
+    expect(groupLines(g, 0, 1, 'us', weigh)[0].text).toBe('2 cups flour');
+  });
+  it('converts Fahrenheit to Celsius', () => {
+    expect(toCelsius('Bake at 350°F for 20 minutes')).toBe('Bake at 175°C for 20 minutes');
+    expect(toCelsius('400°F, then 425°F')).toBe('205°C, then 220°C');
+    expect(toCelsius('350–375°F')).toBe('175–190°C');
+    expect(toCelsius('to 165°F inside')).toBe('to 74°C inside');
+    expect(toCelsius('to 240°F (soft ball)')).toBe('to 116°C (soft ball)');
+    expect(toCelsius('180°C already')).toBe('180°C already');
+    expect(toCelsius('Heat oven to 350°. Grease the pans.')).toBe('Heat oven to 175°C. Grease the pans.');
+    expect(toCelsius('warm water (about 115°)')).toBe('warm water (about 46°C)');
+    expect(toCelsius('proof at 85° to 95°')).toBe('proof at 29°C to 35°C');
+    // both written: the recipe's own Celsius
+    expect(toCelsius('Preheat oven to 350°F (175°C). Grease')).toBe('Preheat oven to 175°C. Grease');
+    expect(toCelsius('warm water (110°F/45°C)')).toBe('warm water (45°C)');
+    expect(toCelsius('warm water 105-115°F / 40-46°C')).toBe('warm water 40-46°C');
+    expect(toCelsius('bake at 165°C (325°F) for')).toBe('bake at 165°C for');
+    expect(toCelsius('to 300 to 310°F (149 to 154°C), or')).toBe('to 149 to 154°C, or');
+    expect(toCelsius('350° F')).toBe('175°C');
+    expect(toCelsius('preheat oven to 180°.')).toBe('preheat oven to 180°.'); // an oven under 250: Celsius already
+    expect(toCelsius('Bake in 275° oven until an internal temperature of 185°')).toBe('Bake in 135°C oven until an internal temperature of 85°C');
+    expect(toCelsius('Bake at 325 degrees until it reaches 200°.')).toBe('Bake at 165°C until it reaches 93°C.');
+    expect(toCelsius('between 80° and 90° degrees')).toBe('between 27°C and 32°C');
+    expect(toCelsius('a 200 degree oven')).toBe('a 93°C oven');
+    expect(toCelsius('Cook at 300 ° until heated')).toBe('Cook at 150°C until heated');
+    expect(toCelsius('Rotate the dough 90 degrees; it will rise about 10 degrees')).toBe('Rotate the dough 90 degrees; it will rise about 10 degrees');
+  });
+  it('finds a line in a version', () => {
+    expect(inVersion(4, { label: '', from: 3, to: 15 })).toBe(true);
+    expect(inVersion(15, { label: '', from: 3, to: 15 })).toBe(false);
+    expect(inVersion(15, undefined)).toBe(true);
+  });
+});
+
+describe('a count of packages', () => {
+  it('reads "1 - 14 oz can" as one can, not a range', () => {
+    expect(scaleLine('1 - 14 oz can of sweetened condensed milk', 2)).toBe('2 - 14 oz cans of sweetened condensed milk');
+    expect(scaleLine('3 - 15 oz cans of tomato sauce', 0.5)).toBe('2 - 15 oz cans of tomato sauce');
+    expect(scaleLine('3 - 15 oz cans of tomato sauce', 1 / 3)).toBe('1 - 15 oz can of tomato sauce');
+    expect(scaleLine('1 - 14 oz can of sweetened condensed milk', 1, 'metric')).toBe('1 - 14 oz can of sweetened condensed milk');
+    expect(boldQty('1 - 14 oz can of sweetened condensed milk')).toBe('**1** - 14 oz can of sweetened condensed milk');
+  });
+  it('still reads real ranges', () => {
+    expect(scaleLine('4 - 5 oz green curry paste', 2)).toBe('8–10 oz green curry paste');
+    expect(scaleLine('6-8 oz cream cheese', 1, 'metric')).toBe('170–227 g cream cheese');
+    expect(boldQty('4 - 5 oz green curry paste')).toBe('**4 - 5 oz** green curry paste');
   });
 });

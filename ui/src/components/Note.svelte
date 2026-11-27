@@ -6,7 +6,8 @@
   import Crumbs from './Crumbs.svelte';
   import { renderMarkdown, noteHtml, vaultTarget, linksTo } from '../lib/markdown';
   import { clearBook } from '../lib/book';
-  import { formatNum, parseYield, portionMultipliers, resolvePortion, yieldLabel, type Units } from '../lib/scale';
+  import { formatNum, parseYield, portionMultipliers, resolvePortion, versionsOf, yieldLabel, type Units } from '../lib/scale';
+  import { loadFoods } from '../lib/ingredients.svelte';
   import { openMenu, type MenuItem } from '../lib/menu.svelte';
   import { entryItems, requireWrite, attachImage, shell, signer, assumeMade } from '../lib/ops';
   import EditingAs from './EditingAs.svelte';
@@ -44,6 +45,8 @@
   let factor = $state(1);
   /** the chosen column of an ingredient table with alternative portions (Single / Double…) */
   let portion = $state(0);
+  /** a recipe marked `versions: true`: the version shown (reader, cook mode and Nutrition) */
+  let version = $state(0);
   // US or Metric, chosen in Settings → General for this device
   const units = $derived<Units>(prefs.units);
   let editor: Editor | undefined = $state();
@@ -61,6 +64,7 @@
       conflict = null;
       factor = 1;
       portion = 0;
+      version = 0;
     });
   });
 
@@ -188,8 +192,11 @@
       return renderMarkdown(fmEnd ? draft.slice(fmEnd[0].length) : draft, path);
     }
     // the recipe's author, small, right under its title, each name a link to their page (People.svelte)
-    return noteHtml(entry, factor, units, portion);
+    return noteHtml(entry, factor, units, portion, false, versions.length ? version : undefined);
   });
+  const versions = $derived(entry?.kind === 'note' ? versionsOf(entry) : []);
+  // Metric shows solids in grams, from the nutrition table's weights
+  $effect(() => { if (units === 'metric') loadFoods(); });
 
   const baseYield = $derived(entry ? parseYield(entry.frontmatter?.servings) ?? parseYield(entry.frontmatter?.yield) : null);
   const yieldFallbackUnit = $derived(parseYield(entry?.frontmatter?.servings) ? 'servings' : '');
@@ -384,12 +391,15 @@
 
       {#if mode === 'read' && entry.recipe}
         <div class="recipebar row no-print">
+          <!-- a recipe of steps only ("## Directions" and no ingredients) has nothing to scale or count -->
+          {#if entry.recipe.ingredients.length}
           <div class="row scaler" role="group" aria-label="Scale recipe">
             <button class="btn icon" onclick={() => step(-1)} aria-label="Fewer"><Icon name="minus" /></button>
             <span class="qty">{#if baseYield}{yieldLabel(baseYield, factor, yieldFallbackUnit)}{:else}×{+factor.toFixed(2)}{/if}</span>
             <button class="btn icon" onclick={() => step(1)} aria-label="More servings"><Icon name="plus" /></button>
             {#if factor !== 1}<button class="btn ghost small" onclick={() => { factor = 1; portion = 0; }}>Reset</button>{/if}
           </div>
+          {/if}
           {#if chips.length}
             <div class="row portions" role="radiogroup" aria-label="Portion">
               {#each chips as c, k}
@@ -399,8 +409,15 @@
               {/each}
             </div>
           {/if}
+          {#if versions.length}
+            <div class="row portions" role="radiogroup" aria-label="Version">
+              {#each versions as v, k}
+                <button class="chip" role="radio" aria-checked={version === k} class:on={version === k} onclick={() => (version = k)}>{v.label}</button>
+              {/each}
+            </div>
+          {/if}
           <div class="details"><Properties {entry} editable={canWrite()} onchange={detailChanged} collapsible /></div>
-          <button class="nutri-btn" aria-haspopup="dialog" onclick={() => (nutrition = true)}><Icon name="carrot" size={14} /> Nutrition</button>
+          {#if entry.recipe.ingredients.length}<button class="nutri-btn" aria-haspopup="dialog" onclick={() => (nutrition = true)}><Icon name="carrot" size={14} /> Nutrition</button>{/if}
         </div>
       {/if}
 
@@ -469,12 +486,12 @@
     <dialog class="modal-host" aria-label="Nutrition Facts" use:modal={{ onclose: () => (nutrition = false), active: tab.id === app.tab, outside: true }}>
       <div class="card nutri-box">
         <button class="btn ghost icon close" aria-label="Close" onclick={() => (nutrition = false)}><Icon name="x" /></button>
-        <Nutrition {entry} {factor} {portion} yields={baseYield} />
+        <Nutrition {entry} {factor} {portion} bind:version yields={baseYield} />
       </div>
     </dialog>
   {/if}
   {#if cooking && entry.recipe}
-    <CookMode {entry} {factor} {units} {portion} onclose={() => (cooking = false)} />
+    <CookMode {entry} {factor} {units} {portion} {version} onclose={() => (cooking = false)} />
   {/if}
 {/if}
 

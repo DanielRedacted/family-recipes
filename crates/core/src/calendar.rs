@@ -1,8 +1,7 @@
 //! The Mac's calendar, read-only, through EventKit: events are changed in Calendar.app, never here.
 //! Off until switched on in Settings → Calendar (`settings.calendar`). Each request opens its own
-//! event store, so it always sees what Calendar.app has now.
-//! ponytail: one store per request; keep one and push an SSE event on
-//! EKEventStoreChangedNotification if the UI's one-minute refresh ever feels slow.
+//! event store, so it always sees what Calendar.app has now. The UI asks when a calendar page is
+//! shown or comes back to the front, and every 15 minutes while it stays on screen.
 
 use crate::auth::{Caller, Role, Who};
 use crate::server::{AppState, err};

@@ -135,7 +135,7 @@ See [People](#/settings/help/people).
 
 ### The Mac's calendar
 
-Read-only, through EventKit (`calendar.rs`). Off until `settings.calendar.enabled`; `calendars` lists the calendar ids to show; none are shown until one is ticked, and a calendar added later stays hidden. macOS grants access to every calendar at once; the server reads only the listed ones. Each request opens its own event store, so edits in Calendar.app show on the next request (the UI asks every minute).
+Read-only, through EventKit (`calendar.rs`). Off until `settings.calendar.enabled`; `calendars` lists the calendar ids to show; none are shown until one is ticked, and a calendar added later stays hidden. macOS grants access to every calendar at once; the server reads only the listed ones. Each request opens its own event store, so edits in Calendar.app show on the next request (the UI asks when a calendar page is shown or comes back to the front, and every 15 minutes while it stays open).
 
 | Method | Path | Purpose | Who |
 |---|---|---|---|

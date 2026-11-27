@@ -17,7 +17,11 @@ Every list of ingredients in the recipe scales together. Amounts round to kitche
 
 ## US or metric
 
-Choose **Units** in **Settings → General**. **US** keeps the recipe's own units and swaps in a handier one when scaling makes an amount awkward (16 tbsp halved becomes ½ cup). **Metric** converts ingredient amounts to ml and g. The choice applies to this device only.
+Choose **Units** in **Settings → General**. **US** keeps the recipe's own units and swaps in a handier one when scaling makes an amount awkward (16 tbsp halved becomes ½ cup). **Metric** shows flour, sugar, butter and other solids in grams, liquids such as milk, water and oil in ml, and oven and other temperatures in °C. The choice applies to this device only.
+
+## Versions
+
+Some recipes hold two versions of a dish in one, such as two mug cakes. A button for each version sits at the top of the recipe; tap one to see just that version's ingredients and steps. Cook mode and Nutrition show the same version.
 
 ## Portions
 
@@ -25,7 +29,7 @@ Some recipes have a table with a column for each version, such as Single and Dou
 
 ## Nutrition
 
-Tap **Nutrition** beside **More** at the top of the recipe to see its Nutrition Facts label, worked out from its ingredients, with the ingredients listed under it by weight as on a package. It scales with **−** and **+**. See [Ingredients](#/settings/help/ingredients) for how it's worked out and what it leaves out.
+Tap **Nutrition** beside **More** at the top of the recipe to see its Nutrition Facts label, worked out from its ingredients, with the ingredients listed under it by weight as on a package. It scales with **−** and **+**. In a recipe that holds two versions, the label is for the version you're looking at. See [Ingredients](#/settings/help/ingredients) for how it's worked out and what it leaves out.
 
 ## Links to other recipes
 

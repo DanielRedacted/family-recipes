@@ -1,11 +1,11 @@
 <script lang="ts">
   // Today's events from the Mac's calendar, on the home page: only when the calendar is switched on
-  // (Settings → Calendar) and today has events. Changed in Calendar.app, never here; refreshed each
-  // minute and when the page comes back into view, so it follows edits and rolls over at midnight.
+  // (Settings → Calendar) and today has events. Changed in Calendar.app, never here; asked again when
+  // the page comes back to the front and every 15 minutes, so it follows edits and rolls over at midnight.
   import { getContext } from 'svelte';
   import { app, type Tab } from '../lib/state.svelte';
   import Section from './Section.svelte';
-  import { fetchEvents, eventsOn, timeOf, addDays, startOfDay, type CalEvent } from '../lib/calendar';
+  import { fetchEvents, eventsOn, timeOf, addDays, startOfDay, refreshAtNaturalTimes, type CalEvent } from '../lib/calendar';
 
   const tab = getContext<Tab>('tab');
   let events = $state<CalEvent[]>([]);
@@ -22,11 +22,7 @@
 
   $effect(() => {
     app.session.calendar; app.tab; // reload when switched on, or when this tab comes back to the front
-    load();
-    const t = setInterval(load, 60_000);
-    const vis = () => load();
-    document.addEventListener('visibilitychange', vis);
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', vis); };
+    return refreshAtNaturalTimes(load);
   });
 </script>
 

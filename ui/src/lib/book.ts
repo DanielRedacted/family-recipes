@@ -4,6 +4,7 @@
 import { app, prefs, dirOf } from './state.svelte';
 import { api } from './api';
 import { noteHtml, escHtml } from './markdown';
+import { loadFoods } from './ingredients.svelte';
 import { LABELS, HIDDEN, fmtVal } from '../components/Properties.svelte';
 import type { Entry } from './types';
 import css from '../prose.css?raw';
@@ -68,6 +69,8 @@ function relink(book: HTMLElement, ids: Map<string, string>) {
 }
 
 async function buildBook(): Promise<HTMLElement> {
+  // Metric weighs solids with the nutrition table; offline, they stay in ml
+  if (prefs.units === 'metric') await loadFoods().catch(() => {});
   const chapters = bookOrder(app.files);
   const ids = new Map<string, string>();
   for (const c of chapters) for (const r of c.recipes) ids.set(r.path, `book-r${ids.size + 1}`);

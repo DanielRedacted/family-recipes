@@ -1,7 +1,8 @@
 # VOICE — timers, conversions and a kitchen voice assistant (planned, not built)
 
 A Google-Home-style wake-word assistant for **cooking timers** and **measurement conversions**,
-and the timer and conversion features in the app that it depends on. Nothing here exists yet.
+and the timer and conversion features in the app that it depends on. Only the reader's conversions
+exist so far (see "The app owns conversions").
 
 The decisions were grilled and confirmed on 2026-07-07 for the earlier `cookbook` project, which
 was meant to run on a Raspberry Pi in the kitchen. This version maps them onto this app; the
@@ -54,7 +55,9 @@ Two processes, one owner of state:
   estimate. **Built for nutrition:** `crates/core/data/foods.json` holds USDA's grams per ml (`ml`)
   and per item (`g`) for about 200 ingredient keys, from SR Legacy via the reviewed
   `crates/core/data/foods-map.tsv`, extended on each Mac by optional USDA lookups (owner's choice,
-  2026-11-22); `GET /api/foods` serves it. Conversions can use the same table.
+  2026-11-22); `GET /api/foods` serves it. **Built in the reader (2026-11-26):** Metric mode weighs
+  solids with that table and keeps liquids in ml (`solidGramsPerMl`), and converts °F to °C
+  (`toCelsius`), both in `ui/src/lib/scale.ts`. `/api/convert` would still need them on the server.
 - **Editing rights.** Creating and cancelling timers changes state, so a daemon on another device
   needs the same rights as any phone or tablet: the editing PIN (`auth.rs`). Its requests carry the
   `X-Recipes: 1` header like the UI's.

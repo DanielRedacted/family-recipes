@@ -20,6 +20,10 @@ use std::sync::{Arc, Mutex};
 
 const FILE: &str = "users.json";
 const LOG: &str = "activity.log";
+/// The log is renamed to this once it passes `LOG_LIMIT`, replacing the one before.
+const OLD_LOG: &str = "activity.log.1";
+/// about 8,000 changes; the two files together keep the latest 8,000 to 16,000
+const LOG_LIMIT: u64 = 1_000_000;
 const MAX_DEVICES: usize = 10;
 const MAX_FAVORITES: usize = 2000;
 /// Sent on the change stream (`/api/events`) when anyone's name, favorites or picture changes.
@@ -225,7 +229,6 @@ fn worth_logging(path: &str) -> bool {
 }
 
 /// Append one change to the activity log (called by the guard after a successful write).
-// ponytail: one append-only file read whole for each person's list; rotate it if it ever gets big.
 // Moves and import saves record the endpoint, not the recipe's name (that is in the request body).
 pub fn log_write(s: &AppState, a: &Actor, method: &str, path: &str) {
     use std::os::unix::fs::OpenOptionsExt;
@@ -233,7 +236,13 @@ pub fn log_write(s: &AppState, a: &Actor, method: &str, path: &str) {
         return;
     }
     let line = json!({ "t": auth::now(), "user": a.id, "name": a.name, "method": method, "path": path }).to_string() + "\n";
-    let file = std::fs::OpenOptions::new().create(true).append(true).mode(0o600).open(s.data_dir.join(LOG));
+    let log = s.data_dir.join(LOG);
+    if std::fs::metadata(&log).is_ok_and(|m| m.len() > LOG_LIMIT) {
+        if let Err(e) = std::fs::rename(&log, s.data_dir.join(OLD_LOG)) {
+            tracing::warn!("activity log: {e}");
+        }
+    }
+    let file = std::fs::OpenOptions::new().create(true).append(true).mode(0o600).open(&log);
     if let Err(e) = file.and_then(|mut f| f.write_all(line.as_bytes())) {
         tracing::warn!("activity log: {e}");
     }
@@ -241,7 +250,8 @@ pub fn log_write(s: &AppState, a: &Actor, method: &str, path: &str) {
 
 /// The latest changes by one person, newest first.
 pub fn activity_of(s: &AppState, id: &str, limit: usize) -> Vec<Value> {
-    let text = std::fs::read_to_string(s.data_dir.join(LOG)).unwrap_or_default();
+    let read = |f: &str| std::fs::read_to_string(s.data_dir.join(f)).unwrap_or_default();
+    let text = read(OLD_LOG) + &read(LOG);
     let mut items: Vec<Value> = text.lines().filter_map(|l| serde_json::from_str::<Value>(l).ok()).filter(|v| v["user"] == id).collect();
     items.reverse();
     items.truncate(limit);
@@ -414,6 +424,15 @@ mod tests {
         log_write(&s, &Actor { id: "admin".into(), name: "Admin".into(), full_name: String::new() }, "DELETE", "/api/trash");
         let log = activity_of(&s, &ann.id, 10);
         assert_eq!(log.iter().map(|v| v["path"].as_str().unwrap()).collect::<Vec<_>>(), ["/api/import/abc/save", "/api/files/Pies/Pumpkin%20Pie.md"]);
+
+        // a full log moves to activity.log.1 and the person's list still reads both
+        let filler = format!("{}\n", json!({ "user": "someone-else", "path": "x".repeat(200) })).repeat(5000);
+        std::fs::OpenOptions::new().append(true).open(s.data_dir.join(LOG)).unwrap().write_all(filler.as_bytes()).unwrap();
+        log_write(&s, &a, "PUT", "/api/files/Pies/Apple%20Pie.md");
+        assert!(s.data_dir.join(OLD_LOG).is_file());
+        assert!(std::fs::metadata(s.data_dir.join(LOG)).unwrap().len() < 1000);
+        let log = activity_of(&s, &ann.id, 10);
+        assert_eq!(log.iter().map(|v| v["path"].as_str().unwrap()).collect::<Vec<_>>(), ["/api/files/Pies/Apple%20Pie.md", "/api/import/abc/save", "/api/files/Pies/Pumpkin%20Pie.md"]);
 
         // favorites: added once each, removed, and following a renamed recipe or folder
         let mut favs = vec![];

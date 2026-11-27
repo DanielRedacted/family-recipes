@@ -51,6 +51,18 @@ impl Group {
 pub struct Recipe {
     pub ingredients: Vec<Group>,
     pub steps: Vec<Group>,
+    /// With two or more top-level Ingredients headings: one per heading. A recipe marked
+    /// `versions: true` treats each as a version, running to the next one's `line`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub sections: Vec<Section>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct Section {
+    /// the heading's name ("Cake" from "## Cake Ingredients"), else a bold line right above it, else ""
+    pub name: String,
+    /// where it starts: that bold line, else the heading (0-based in the whole file)
+    pub line: usize,
 }
 
 impl Recipe {
@@ -459,6 +471,27 @@ fn row_lines(b: &Block, name_col: Option<usize>, portions: &[usize]) -> Vec<Stri
 
 /// Rewrite the ingredient lines that come from tables: one clean line per row, and for tables with
 /// alternative portions every portion's line plus the portion labels on the group.
+/// The top-level Ingredients headings, when there are two or more: each one's name and first line.
+fn sections(r: &mut Recipe, blocks: &[Block], sec_name: &[Option<String>]) {
+    let heads: Vec<usize> = (0..blocks.len())
+        .filter(|&i| matches!(blocks[i].kind, BlockKind::Heading(l) if l <= 2) && section_kind(&blocks[i].text).is_some_and(|(k, _)| k == Kind::Ing))
+        .collect();
+    if heads.len() < 2 {
+        return;
+    }
+    r.sections = heads
+        .iter()
+        .map(|&h| {
+            let above = h.checked_sub(1).map(|i| &blocks[i]).filter(|b| b.kind == BlockKind::BoldPara);
+            match (&sec_name[h], above.and_then(|b| Some((label_name(&b.text)?, b.line)))) {
+                (Some(n), _) => Section { name: n.clone(), line: blocks[h].line },
+                (None, Some((n, line))) => Section { name: n, line },
+                (None, None) => Section { name: String::new(), line: blocks[h].line },
+            }
+        })
+        .collect();
+}
+
 fn table_groups(r: &mut Recipe, blocks: &[Block]) {
     let by_line: std::collections::HashMap<usize, &Block> = blocks.iter().map(|b| (b.line, b)).collect();
     for g in &mut r.ingredients {
@@ -604,10 +637,14 @@ fn detect(blocks: &[Block]) -> Option<Recipe> {
                 continue;
             }
             let end = (i..blocks.len()).find(|&k| heading(k)).unwrap_or(blocks.len());
-            let has_items = blocks[i..end].iter().any(|x| matches!(x.kind, BlockKind::Item { .. } | BlockKind::Row { .. }));
+            let start = (0..i).rev().find(|&k| heading(k)).map_or(0, |k| k + 1);
+            let is_item = |x: &Block| matches!(x.kind, BlockKind::Item { .. } | BlockKind::Row { .. });
+            let has_items = blocks[i..end].iter().any(is_item);
             let take = match b.kind {
                 BlockKind::Item { .. } | BlockKind::Row { .. } => true,
-                BlockKind::Para => !has_items,
+                // paragraph lines are the ingredients when the section has no list; after a list, only
+                // a line that reads like one ("Salt"), not a sentence ("Note: smaller rings work better")
+                BlockKind::Para => !has_items && (!blocks[start..i].iter().any(is_item) || ingredient_like(&b.text)),
                 _ => false,
             };
             if take {
@@ -659,7 +696,8 @@ fn detect(blocks: &[Block]) -> Option<Recipe> {
         let ok = match src {
             // numbered lists are steps, unless the recipe has no other ingredient list (as before)
             Src::List(_, true) => !steps && !first_found && !has_ing_section && n >= 2 && loose * 2 >= n,
-            Src::List(..) if steps => label.is_some() && strict * 2 >= n && strict >= 1,
+            // under Directions, a labelled list of amounts, or an unlabelled bullet list that is nothing but amounts
+            Src::List(..) if steps => (label.is_some() && strict * 2 >= n && strict >= 1) || (n >= 3 && strict == n),
             Src::List(..) => (n >= 2 && loose * 2 >= n) || (label.is_some() && strict == n),
             Src::Table(t) => !steps && ingredient_table(&items, head_says_ingredients(*t)),
             Src::Paras if steps => label.is_some() && strict * 2 >= n && strict >= 1,
@@ -681,12 +719,15 @@ fn detect(blocks: &[Block]) -> Option<Recipe> {
         }
         ing.push((idx[0], Group::new(name, items.iter().map(|b| Line::new(b.line, b.text.clone())).collect())));
     }
-    if ing.is_empty() {
+    // no ingredients: a recipe of steps only when a Directions section holds some ("## Directions" + steps)
+    let steps_only = ing.is_empty();
+    if steps_only && !(0..blocks.len()).any(|i| region[i] == Region::Steps && !heading(i) && matches!(blocks[i].kind, BlockKind::Item { .. } | BlockKind::Para)) {
         return None;
     }
     ing.sort_by_key(|x| x.0);
-    let mut r = Recipe { ingredients: ing.into_iter().map(|x| x.1).collect(), steps: vec![] };
+    let mut r = Recipe { ingredients: ing.into_iter().map(|x| x.1).collect(), steps: vec![], sections: vec![] };
     table_groups(&mut r, blocks);
+    sections(&mut r, blocks, &sec_name);
 
     // 3. Steps: Directions sections (list items, or paragraph lines when there is no list)
     let mut group: Option<String> = None;
@@ -696,23 +737,21 @@ fn detect(blocks: &[Block]) -> Option<Recipe> {
         }
         let b = &blocks[i];
         if heading(i) {
-            group = None;
+            // "## Frosting Directions" names its steps, as "## Frosting Ingredients" names its ingredients
+            group = sec_name[i].clone();
             continue;
         }
         if is_group_label(b, blocks.get(i + 1)) {
             group = label_name(&b.text);
             continue;
         }
-        let end = (i..blocks.len()).find(|&k| heading(k)).unwrap_or(blocks.len());
-        let has_items = (i..end).any(|k| !used[k] && matches!(blocks[k].kind, BlockKind::Item { .. }));
-        let take = match b.kind {
-            BlockKind::Item { .. } => true,
-            BlockKind::Para => !has_items,
-            _ => false,
-        };
-        if take {
+        // every list item and paragraph line is a step, a sentence between numbered steps included
+        if matches!(b.kind, BlockKind::Item { .. } | BlockKind::Para) {
             push(&mut r.steps, group.clone(), Line::new(b.line, b.text.clone()));
         }
+    }
+    if steps_only {
+        return (!r.steps.is_empty()).then_some(r);
     }
     // no Directions heading: what follows the first ingredients, up to the next main heading
     if r.steps.is_empty() {
@@ -724,9 +763,9 @@ fn detect(blocks: &[Block]) -> Option<Recipe> {
         let after: Vec<usize> = (first..blocks.len())
             // a main heading ends the steps once no ingredients follow it ("## Notes")
             .take_while(|&k| !(heading(k) && (k..blocks.len()).all(|j| !used[j])))
-            .filter(|&k| !used[k] && region[k] != Region::Ing && matches!(blocks[k].kind, BlockKind::Item { .. } | BlockKind::Para | BlockKind::BoldPara))
+            // a "### Par-baking" heading among the steps names the steps after it
+            .filter(|&k| !used[k] && region[k] != Region::Ing && matches!(blocks[k].kind, BlockKind::Item { .. } | BlockKind::Para | BlockKind::BoldPara | BlockKind::Heading(3..)))
             .collect();
-        let has_items = after.iter().any(|&k| matches!(blocks[k].kind, BlockKind::Item { .. }));
         let mut g = None;
         for (j, &k) in after.iter().enumerate() {
             let b = &blocks[k];
@@ -734,7 +773,7 @@ fn detect(blocks: &[Block]) -> Option<Recipe> {
                 g = label_name(&b.text);
                 continue;
             }
-            if has_items && b.kind == BlockKind::Para {
+            if matches!(b.kind, BlockKind::Heading(_)) {
                 continue;
             }
             push(&mut r.steps, g.clone(), Line::new(b.line, b.text.clone()));
@@ -768,6 +807,40 @@ mod tests {
         assert_eq!(r.steps[0].name.as_deref(), Some("Cake"));
         assert_eq!(r.steps[0].items.len(), 2);
         assert_eq!(md.lines().nth(r.steps[0].items[1].line), Some("2. Bake."));
+    }
+
+    #[test]
+    fn notes_sentences_and_steps_only() {
+        let steps = |r: &Recipe| r.steps.iter().flat_map(|g| g.items.iter().map(|l| l.text.clone())).collect::<Vec<_>>();
+        let ings = |r: &Recipe| r.ingredients.iter().flat_map(|g| g.items.iter().map(|l| l.text.clone())).collect::<Vec<_>>();
+        // a sentence before or between numbered steps is a step
+        let r = parse("# Bread\n\n## Ingredients\n\n- 1 cup flour\n\n## Directions\n\n**Day 1:** Feed the starter.\n\n1. Mix.\n\nOptionally, rest it.\n\n2. Bake.\n").recipe.unwrap();
+        assert_eq!(steps(&r), ["**Day 1:** Feed the starter.", "Mix.", "Optionally, rest it.", "Bake."]);
+        // after an ingredient list, a sentence is a note; a line that reads like an ingredient is one
+        let r = parse("# Rings\n\n## Ingredients\n\n- 1 cup flour\n- 1 egg\n\nSalt\n\nNote: smaller rings work better than the large ones\n\n## Directions\n\nFry.\n").recipe.unwrap();
+        assert_eq!(ings(&r), ["1 cup flour", "1 egg", "Salt"]);
+        // with no list, the paragraph lines are still the ingredients
+        assert_eq!(ings(&parse("# Tri Tip\n\n## Ingredients\n\n1 roast\n\nSalt\n\n## Directions\n\nSear.\n").recipe.unwrap()), ["1 roast", "Salt"]);
+        // under Directions, an unlabelled bullet list of amounts is an ingredient set; a list of steps is not
+        let md = "# Chicken\n\n## Ingredients\n\n- 1 chicken\n\n## Directions\n\n1. Fry it.\n\nThe spice mix, if you like\n\n- 1 tbsp rosemary\n- 1 tsp thyme\n- 2 tbsp paprika\n\nBlend.\n";
+        let r = parse(md).recipe.unwrap();
+        assert_eq!(ings(&r), ["1 chicken", "1 tbsp rosemary", "1 tsp thyme", "2 tbsp paprika"]);
+        assert_eq!(steps(&r), ["Fry it.", "The spice mix, if you like", "Blend."]);
+        let r = parse("# Pie\n\n## Ingredients\n\n- 1 egg\n\n## Directions\n\n- Mix it.\n- Bake it.\n- Cool it.\n").recipe.unwrap();
+        assert_eq!(steps(&r), ["Mix it.", "Bake it.", "Cool it."]);
+        // no section headings: a ### heading among the steps names the steps after it
+        let r = parse("# Rolls\n\n- 3 cups flour\n- 1 tbsp yeast\n\nKnead and bake.\n\n### Par-baking: (Note – rolls may be a little dry)\n\nBake at 275° for 30 minutes.\n").recipe.unwrap();
+        assert_eq!(r.steps[1].name.as_deref(), Some("Par-baking: (Note – rolls may be a little dry)"));
+        assert_eq!(steps(&r), ["Knead and bake.", "Bake at 275° for 30 minutes."]);
+        // steps with no ingredients: a recipe only under a Directions heading
+        let r = parse("# Tri Tip\n\n## Directions\n\nSeason roast\n\nChar on grill.\n").recipe.unwrap();
+        assert!(r.ingredients.is_empty());
+        assert_eq!(steps(&r), ["Season roast", "Char on grill."]);
+        assert!(parse("# Tri Tip\n\nSeason roast\n\nChar on grill.\n").recipe.is_none());
+        assert!(parse("# Notes\n\n## Directions\n\n").recipe.is_none());
+        // a prefix on a Directions heading names its steps
+        let r = parse("# Cake\n\n## Cake Ingredients\n\n- 1 cup flour\n\n## Cake Directions\n\n1. Bake.\n\n## Frosting Directions\n\n1. Whip.\n").recipe.unwrap();
+        assert_eq!(r.steps.iter().map(|g| g.name.as_deref()).collect::<Vec<_>>(), [Some("Cake"), Some("Frosting")]);
     }
 
     #[test]
@@ -846,6 +919,22 @@ mod tests {
         let groups: Vec<_> = r.ingredients.iter().map(|g| (g.name.as_deref(), g.items.len())).collect();
         assert_eq!(groups, [(Some("Topping"), 2), (Some("Cake"), 2)]);
         assert_eq!(r.steps, vec![Group::new(None, vec![Line::new(14, "Mix the topping."), Line::new(16, "Bake.")])]);
+    }
+
+    #[test]
+    fn ingredient_sections() {
+        // versions under plain headings, named by a bold line above; a group label stays in its section
+        let md = "# Mug Cakes\n\n**Brownie**\n\n## Ingredients\n\n- 1/4 cup Nutella\n\n**Ganache:**\n\n- 1 tbsp cream\n\n## Directions\n\nMix.\n\n**Peanut Butter Cake**\n\n## Ingredients\n\n- 3 tbsp peanut butter\n\n## Directions\n\nBake.\n";
+        let r = parse(md).recipe.unwrap();
+        let names = |r: &Recipe| r.sections.iter().map(|s| (s.name.clone(), s.line)).collect::<Vec<_>>();
+        // lines: "**Brownie**" 2, "**Peanut Butter Cake**" 16
+        assert_eq!(names(&r), [("Brownie".to_string(), 2), ("Peanut Butter Cake".to_string(), 16)]);
+        // named headings
+        let md = "# Cups\n\n## Cheese Cups Ingredients\n\n- 1 cup cheese\n\n## Directions\n\nBake.\n\n## Wonton Ingredients\n\n- 24 wontons\n";
+        let r = parse(md).recipe.unwrap();
+        assert_eq!(names(&r), [("Cheese Cups".to_string(), 2), ("Wonton".to_string(), 10)]);
+        // one heading: no sections
+        assert!(parse("## Ingredients\n\n- 1 egg\n").recipe.unwrap().sections.is_empty());
     }
 
     #[test]
@@ -943,7 +1032,8 @@ mod tests {
                 if let Some(r) = &p.recipe {
                     // a short quantity line ("1 tsp vanilla") among the steps is a missed ingredient
                     for it in r.steps.iter().flat_map(|g| &g.items) {
-                        if QTY_UNIT.is_match(lead(&it.text)) && it.text.split_whitespace().count() <= 14 && !it.text.starts_with('(') {
+                        // a ratio ("25 g starter : 30 g flour : 20 g water") is a step, not an ingredient
+                        if QTY_UNIT.is_match(lead(&it.text)) && it.text.split_whitespace().count() <= 14 && !it.text.starts_with('(') && !it.text.contains(" : ") {
                             steps_qty.push(format!("{rel}: {}", it.text));
                         }
                     }

@@ -2,7 +2,8 @@ import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import { fileUrl } from './api';
 import { app, noteHash, resolveLink, dirOf, stemOf } from './state.svelte';
-import { groupLines, scaleLine, boldQty, type Units } from './scale';
+import { groupLines, scaleLine, boldQty, inVersion, solidGramsPerMl, toCelsius, versionsOf, type Units, type Weigh } from './scale';
+import { foods } from './ingredients.svelte';
 import { aliasesOf } from './search';
 import { authorsOf } from './credit';
 import { personHash } from './people';
@@ -78,18 +79,23 @@ md.renderer.rules.link_open = (tokens, idx, opts, _env, self) => {
 md.renderer.rules.table_open = () => '<div class="table-wrap"><table>\n';
 md.renderer.rules.table_close = () => '</table></div>\n';
 
+/** Metric mode's grams for solids, from the nutrition table (empty until `loadFoods` has run). */
+export const weigh: Weigh = (a) => solidGramsPerMl(a, foods.table);
+
 /**
  * Raw note text with ingredient quantities scaled/converted in place. A table with alternative
- * portions becomes a list of the chosen portion's lines (see `groupLines`).
+ * portions becomes a list of the chosen portion's lines (see `groupLines`). Metric: solids in grams
+ * once the nutrition table is loaded, temperatures in °C. `version`: in a recipe with versions, the
+ * other versions' lines are left out (what comes before the first version stays).
  */
-export function scaledRaw(e: Entry, factor: number, units: Units, portion = 0): string {
+export function scaledRaw(e: Entry, factor: number, units: Units, portion = 0, version?: number): string {
   const raw = e.raw ?? '';
   if (!e.recipe) return raw;
-  const lines = raw.split('\n');
+  let lines = raw.split('\n');
   for (const g of e.recipe.ingredients) {
     if (g.table) {
       const [a, b] = g.table;
-      const list = groupLines(g, portion, factor, units).map((it) => '- ' + boldQty(autoLink(it.text, e.path)));
+      const list = groupLines(g, portion, factor, units, weigh).map((it) => '- ' + boldQty(autoLink(it.text, e.path)));
       for (let k = a; k <= b; k++) lines[k] = '';
       lines[a] = (a > 0 && lines[a - 1].trim() ? '\n' : '') + list.join('\n');
       continue;
@@ -97,9 +103,13 @@ export function scaledRaw(e: Entry, factor: number, units: Units, portion = 0): 
     for (const it of g.items) {
       const l = lines[it.line];
       if (l === undefined) continue;
-      lines[it.line] = l.replace(/^(\s*(?:(?:[-*+]|\d+[.)])\s+)*)(.*)$/, (_, mk: string, rest: string) => mk + boldQty(autoLink(scaleLine(rest, factor, units), e.path)));
+      const w = units === 'metric' ? weigh(it.amounts?.[0]) : undefined;
+      lines[it.line] = l.replace(/^(\s*(?:(?:[-*+]|\d+[.)])\s+)*)(.*)$/, (_, mk: string, rest: string) => mk + boldQty(autoLink(scaleLine(rest, factor, units, w), e.path)));
     }
   }
+  const vs = versionsOf(e);
+  if (version !== undefined && vs[version]) lines = lines.map((l, k) => (k < vs[0].from || inVersion(k, vs[version]) ? l : ''));
+  if (units === 'metric') lines = lines.map((l, k) => (k < e.body_line ? l : toCelsius(l)));
   return lines.join('\n');
 }
 
@@ -168,8 +178,8 @@ export const escHtml = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;
  * A recipe as the reader shows it: scaled and converted, with "By …" under its title (each name a link to
  * their page). `withTitle` adds the title as a heading when the file has none (the recipe book).
  */
-export function noteHtml(e: Entry, factor: number, units: Units, portion = 0, withTitle = false): string {
-  let out = renderMarkdown(bodyOf(scaledRaw(e, factor, units, portion), e.body_line), e.path);
+export function noteHtml(e: Entry, factor: number, units: Units, portion = 0, withTitle = false, version?: number): string {
+  let out = renderMarkdown(bodyOf(scaledRaw(e, factor, units, portion, version), e.body_line), e.path);
   if (withTitle && !/<h1[\s>]/.test(out)) out = `<h1>${escHtml(e.title)}</h1>\n` + out;
   const names = authorsOf(e.frontmatter?.author);
   if (!names.length) return out;

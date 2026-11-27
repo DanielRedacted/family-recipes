@@ -92,6 +92,7 @@ Freezes well. See [[Pie Crust]].
 | `color` | card colour: `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `brown` or `grey` |
 | `favorite` | `true` bookmarks the recipe: it is listed under Bookmarks (home page and the top of the folder column) and marked with a bookmark icon |
 | `note` | a short remark kept out of the title, e.g. `not tried yet` |
+| `versions` | `true` when the file holds versions of one recipe, each under its own Ingredients heading (`## Ingredients` twice, or `## Cheesy Artichoke Cups Ingredients` and `## Artichoke Wonton Ingredients`): the reader shows one version at a time, with a chip per version above the recipe (cook mode and Nutrition follow it); what comes before the first version, such as the title, always shows. A version runs from its heading, or the bold line right above it, to the next version. Without it, the sets under several Ingredients headings are parts of one dish (cake and frosting) and are added up. Not shown in the Properties panel |
 | `aliases` | another name the recipe is known by (or a list); search and `[[links]]` find the recipe by it |
 | `nutrition` | map of values as written, e.g. `calories: 320 kcal`, kept from an import; shown only on the importer's Preview, the reader shows the estimate worked out from the ingredients (see *Nutrition* below). Keys: `serving_size`, `calories`, `carbohydrates`, `protein`, `fat`, `saturated_fat`, `unsaturated_fat`, `polyunsaturated_fat`, `monounsaturated_fat`, `trans_fat`, `cholesterol`, `sodium`, `potassium`, `fiber`, `sugar`, `vitamin_a`, `vitamin_c`, `calcium`, `iron` |
 
@@ -105,18 +106,24 @@ Unknown keys are kept as they are.
 - **Title:** the first `# ` heading before any `## ` heading, otherwise the file name.
 - **Sections:** a `##` heading named Ingredients / Directions / Instructions / Method / Preparation /
   Procedure(s) / Steps (any case, optional trailing colon). A prefix becomes a group:
-  `## CAKE INGREDIENTS` is the "CAKE" group.
+  `## CAKE INGREDIENTS` is the "CAKE" group, and `## Frosting Directions` names the frosting's steps.
 - **Groups:** `###` headings, or a bold-only line, inside a section.
-- **Items:** list items; if a section has no list, each line of text.
+- **Items:** under Ingredients, list items; if the section has no list, each line of text. After a
+  list, a line that reads like an ingredient ("Salt") is one more; a sentence ("Note: smaller rings
+  work better") is a note, not an ingredient. Under Directions, every list item and line of text is
+  a step, a sentence between numbered steps included.
+- **Steps only:** a page with a Directions section and no ingredients is a recipe of steps: it gets
+  cook mode, but no scaler or Nutrition. A page with neither heading nor ingredients stays a note.
 - **Tables:** under an Ingredients heading, each table row is an ingredient (see *Ingredient
   tables* below). The reading view and cook mode show a table as a scaled list.
 - **Ingredient sets elsewhere:** every list, table or run of lines that mostly start with an
   amount is a set of ingredients, wherever it is: before the Ingredients heading (“**Dumplings**:”
   + list), with no headings at all (“**Pizza Sauce**” + list, “Add:” + list), or labelled under
-  Directions (“### Turmeric Rice” + amounts). A bold or heading label names the set; an
-  instruction label (“Add:”, “Mix:”, “Then add:”) stays a step. Numbered lists under Directions
-  are steps. Charts such as cooking times are not read as recipes. With no Directions heading,
-  the rest is the steps.
+  Directions (“### Turmeric Rice” + amounts, or a bullet list of three or more lines that all start
+  with an amount and a unit). A bold or heading label names the set; an instruction label (“Add:”,
+  “Mix:”, “Then add:”) stays a step. Numbered lists under Directions are steps. Charts such as
+  cooking times are not read as recipes. With no Directions heading, the rest is the steps, and a
+  `###` heading among them names the steps after it.
 - **Lists of lists:** `- + 3 cups flour` (an item holding only a nested list) reads its nested
   items.
 - **Equipment:** an ordinary `## Equipment` section (the importer writes one when the source lists
@@ -141,8 +148,17 @@ whole folder (each changed line is printed).
 
 Scaling (US or Metric, chosen per device in Settings → General), **US** (the default): the recipe's own unit while the scaled amount reads well in it (⅛ up
 to 3 tsp, 1 up to 4 tbsp, ¼ up to 16 cups, under 16 oz, ½ lb and up), otherwise the unit it does
-read well in ("16 tbsp" × ½ → "½ cup"); qt, pt, fl oz and metric units keep their unit. **Metric**
-converts to ml / g (l / kg from 950; one decimal under 1, e.g. "0.3 ml").
+read well in ("16 tbsp" × ½ → "½ cup"); qt, pt, fl oz and metric units keep their unit. A count of
+packages written with a dash ("1 - 14 oz can", "3 - 15 oz cans") is not a range: the count scales as a
+whole number and the package size stays as written ("2 - 14 oz cans"). **Metric**
+converts to ml / g (l / kg from 950; one decimal under 1, e.g. "0.3 ml"). A cup or spoon of a solid
+becomes grams with its USDA grams per ml (the nutrition table, `solidGramsPerMl` in `ui/src/lib/scale.ts`):
+"1 cup flour" → "125 g flour". Liquids stay in ml, by the last word of the ingredient's key (a hand-kept
+list: water, milk, cream, oil, broth, juice, vinegar, sauce, syrup, vanilla…), and so does an ingredient
+with no weight or a line that writes its own ("½ cup (50 g)"). Temperatures become °C (`toCelsius`):
+"350°F", "350°", "350 degrees" → "175°C"; where both are written ("350°F (175°C)") the recipe's own Celsius
+stays. A bare degree is read as Fahrenheit, except an oven set under 250 ("preheat oven to 180°"). Oven
+settings (a multiple of 25 from 250°F) round to 5°C, other temperatures to the degree.
 
 ## Ingredient tables
 
@@ -204,6 +220,8 @@ and the reader doesn't use that: it works nutrition out from the ingredients eac
   "Servings per recipe" box (not saved). Rounding and % Daily Values follow the FDA label rules.
 - **Ingredient statement:** under the label, the ingredients as on a package (21 CFR 101.4): each
   ingredient key once with its weights added up, in descending order of weight, named as on the
-  Ingredients page in lower case; a recipe used as an ingredient by its title, with its own
+  Ingredients page in lower case (names of places, makers and people keep their capitals: `commonName` in `ui/src/lib/nutrition.ts`); a recipe used as an ingredient by its title, with its own
   ingredients in brackets. Lines that can't be weighed follow in the recipe's order.
-- Every ingredient set in a file is added up, so a file holding two versions of a recipe counts both.
+- Every ingredient set in a file is added up, except in a recipe marked `versions: true`: there each
+  top-level Ingredients heading starts a version, the version chips (the reader's, or the label's own)
+  choose one, and a version's labelled parts ("Ganache") count with it. Used as an ingredient of another recipe, it counts its first version.

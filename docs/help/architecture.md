@@ -91,7 +91,7 @@ The app hides every dot file and dot folder, and `AGENTS.md`, `CLAUDE.md`, `FEED
 | `settings.json` | settings: recipes folder, PIN hash, AI provider and model, sharing, keep awake, GitHub sync on/off, Editing as |
 | `cookie.key` | the key that signs session cookies |
 | `users.json` | people and their devices |
-| `activity.log` | every change a person made, one JSON line each |
+| `activity.log` | every change a person made, one JSON line each; past 1 MB it becomes `activity.log.1` (replacing the older one), and a person's list reads both |
 | `messages.json` | the whiteboard |
 | `made.json` | meals made, with who logged them and which are guesses |
 | `tls/` | the local CA and the server certificate |
