@@ -4403,7 +4403,7 @@ dependencies = [
 
 [[package]]
 name = "recipes-app"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "anyhow",
  "objc2-app-kit",
@@ -4425,7 +4425,7 @@ dependencies = [
 
 [[package]]
 name = "recipes-core"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "anyhow",
  "argon2",
