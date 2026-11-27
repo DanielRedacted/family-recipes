@@ -21,7 +21,7 @@ A family cookbook app: a folder of Markdown recipes, browsed and edited in a Tau
 - `docs/FORMAT.md`: the recipe file format and how the app reads it.
 - `docs/help/`: the in-app Help (Settings → Help), one Markdown page each, bundled into the UI by
   `ui/src/lib/help.ts`. FORMAT.md is shown there too, as an admin page.
-- `DESIGN.md`, `VOICE.md`: the visual design and the timers/voice plan (see "Design documents").
+- `DESIGN.md`, `VOICE.md`: the visual design and the shelved timers/voice plan (see "Design documents").
 - `docs/legacy/`: code and a backlog of ideas kept from the two earlier projects. Nothing there is
   built or tested; check its README before building something it lists.
 - `scripts/`: `release.mjs` (build, sign, publish) and `normalize-units.ts` (one-off maintenance of a
@@ -95,14 +95,11 @@ on its `tools` branch, checked out as a worktree at `../home-recipes-tools/` nex
   - Check it with `npx @google/design.md lint DESIGN.md` (ask the owner before running `npx`). It
     flags broken references and low contrast; the Do's and Don'ts section lists the known
     contrast issues.
-- **`VOICE.md`** is the agreed plan for cooking timers, unit and temperature conversion, and a
-  kitchen voice assistant. None of it is built.
-  - Read it before building timers, conversions or anything voice related. Its decisions are
-    settled (the app owns timers and conversions; no AI in the voice path; openWakeWord, faster-whisper,
-    Piper); raise a change with the owner rather than working around one.
-  - Build timers and conversions in the app first; they're useful without voice.
-  - As parts get built, update VOICE.md to say what exists and where, and FORMAT.md or the README
-    if what users see changes.
+- **`VOICE.md`** is the shelved plan for cooking timers and a kitchen voice assistant (shelved by
+  the owner on 2026-11-26; its header says why). Don't build timers or anything voice related, and
+  don't suggest them as next work, unless the owner reopens it. The unit and temperature
+  conversions it describes are built (`ui/src/lib/scale.ts`); when they change, keep its
+  "The app owns conversions" section accurate.
 
 ## Skills
 

@@ -32,15 +32,9 @@ Ideas the earlier projects had, built or planned, that this app doesn't have. No
 
 ### Cooking
 
-- **Timers.** A "set timer" button on steps that name a time, countdown chips that stay visible
-  in cook mode, and an alert when one ends. `cookbook` planned a small timer API so a voice
-  assistant could share them. See [VOICE.md](../../VOICE.md).
 - ~~Temperature conversion~~ and ~~cups ↔ grams per ingredient~~: built (2026-11-26). Metric mode
   shows °C and weighs solids with the USDA table (`toCelsius`, `solidGramsPerMl` in `ui/src/lib/scale.ts`).
-  A voice assistant would still need them on the server; see [VOICE.md](../../VOICE.md).
-- **Kitchen voice assistant.** A separate offline program: a wake word, speech recognition with a
-  fixed set of commands ("set a pasta timer for 8 minutes", "how long left", "what's 350
-  fahrenheit in celsius"), spoken answers, no AI. See [VOICE.md](../../VOICE.md) for the chosen components.
+- Timers and a kitchen voice assistant: shelved (see "Decided against, on purpose").
 
 ### Recipes and links
 
@@ -113,4 +107,6 @@ So these aren't reopened by accident: cloud AI is allowed (optional, off by defa
 accept PDFs, Word files, photos and text, not only JSON-LD; editing needs a PIN on other devices;
 the app never rewrites a recipe into a standard layout; one file may hold several ingredient sets
 and portion tables; times are written for people (`1 hr 20 min`), not ISO 8601; files are named
-by title, not slug; the UI has a build step (Svelte).
+by title, not slug; the UI has a build step (Svelte); no cooking timers or voice assistant in the
+app, since phones' Clock and Siri already do both and keep ringing while the phone is locked
+(shelved 2026-11-26, see [VOICE.md](../../VOICE.md)).

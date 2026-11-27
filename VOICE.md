@@ -1,4 +1,14 @@
-# VOICE — timers, conversions and a kitchen voice assistant (planned, not built)
+# VOICE — timers, conversions and a kitchen voice assistant (shelved)
+
+**Shelved by the owner on 2026-11-26.** Timers and the voice assistant are not to be built: the
+phones' own Clock app and Siri already do both, and do the one thing a timer must do better. The
+app is a web page on phones, and iOS pauses web pages when the screen locks, so an in-app timer
+would go quiet exactly when the phone is face down on the counter. Making it ring anyway would
+take web push to the home-screen app, a push server on the Mac and a permission prompt on every
+device. What the app would add (one tap from a step that names a time, a timer labelled with its
+step, timers seen on every device) is small, and nobody in the family asked for it. Reopen this
+only if the family asks for timers in the app. The conversions below are built and stay; the rest
+of this file is kept as the record of what was planned.
 
 A Google-Home-style wake-word assistant for **cooking timers** and **measurement conversions**,
 and the timer and conversion features in the app that it depends on. Only the reader's conversions
