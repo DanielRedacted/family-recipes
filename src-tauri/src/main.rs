@@ -152,35 +152,72 @@ fn show(app: &AppHandle) {
 /// Started by "Open Recipes at login": serve phones and tablets from the menu bar, no window.
 const HIDDEN: &str = "--hidden";
 
+/// The release check (`scripts/release.mjs`): `RECIPES_SMOKE=<dir>` runs the built app on `<dir>/vault`
+/// and `<dir>/data` with sharing off, no single-instance lock and no login item, so the installed app,
+/// its settings and its login item are left alone. It builds the sharing certificate, then exits 0 once
+/// the window shows the folders with no script errors, or 1. The window is shown (unfocused): WebKit
+/// all but stops timers in a hidden one.
+const SMOKE: &str = "RECIPES_SMOKE";
+const SMOKE_SCRIPT: &str = r#"
+  const errors = [];
+  addEventListener('error', (e) => errors.push(String(e.message)));
+  addEventListener('unhandledrejection', (e) => errors.push(String(e.reason)));
+  const poll = setInterval(() => {
+    if (!document.querySelector('a.folder')) return; // the app gives up after 45 s
+    clearInterval(poll);
+    location.href = '/__smoke?' + new URLSearchParams({ ok: errors.length ? '0' : '1', errors: errors.join('\n') });
+  }, 250);
+"#;
+
 fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
 
-    let app = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
+    let smoke = std::env::var_os(SMOKE).map(PathBuf::from);
+    let mut builder = tauri::Builder::default();
+    if smoke.is_none() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _| {
             if !args.iter().any(|a| a == HIDDEN) {
                 show(app);
             }
-        }))
+        }));
+    }
+    let app = builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::Builder::new().arg(HIDDEN).build())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .setup(|app| {
+        .setup(move |app| {
             let handle = app.handle().clone();
-            let data_dir = app.path().app_data_dir()?;
-            let hidden = std::env::args().any(|a| a == HIDDEN) || std::fs::remove_file(data_dir.join(RESTART_HIDDEN)).is_ok();
+            let data_dir = match &smoke { Some(d) => d.join("data"), None => app.path().app_data_dir()? };
+            let hidden = smoke.is_none() && (std::env::args().any(|a| a == HIDDEN) || std::fs::remove_file(data_dir.join(RESTART_HIDDEN)).is_ok());
             // a login item written by an older version starts without the flag: write it again
-            if !hidden && app.autolaunch().is_enabled().unwrap_or(false) {
+            // (not from the release check, which would point it at a build about to be deleted)
+            if smoke.is_none() && !hidden && app.autolaunch().is_enabled().unwrap_or(false) {
                 let _ = app.autolaunch().enable();
             }
-            let vault = app.path().home_dir()?.join("Recipes");
+            let vault = match &smoke { Some(d) => d.join("vault"), None => app.path().home_dir()?.join("Recipes") };
             let shell: Arc<dyn Shell> = Arc::new(TauriShell(handle.clone(), Mutex::new(None)));
+            let dir = data_dir.clone();
             // init spawns the file watcher, so it must run inside the async runtime
             let state = tauri::async_runtime::block_on(async move {
                 server::init(Config { vault, data_dir, shell: Some(shell), pdf_text: recipes_core::pdf_text() })
             })?;
+            if smoke.is_some() {
+                {
+                    let mut s = state.settings.write().unwrap();
+                    s.lan = false; // never advertise a test copy to the family's devices
+                    s.setup_done = true;
+                }
+                tauri::async_runtime::block_on(recipes_core::lan::tls_config(&dir, &recipes_core::lan::lan_ips()))?;
+                let h = handle.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(45));
+                    eprintln!("smoke: the window did not show the recipes within 45 s");
+                    h.exit(1);
+                });
+            }
 
             let std_listener = std::net::TcpListener::bind(("127.0.0.1", 0))?;
             std_listener.set_nonblocking(true)?;
@@ -199,7 +236,11 @@ fn main() {
             let opener = handle.clone();
             let opener2 = handle.clone();
             let downloads = app.path().download_dir().unwrap_or_else(|_| std::env::temp_dir());
-            let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url.parse()?));
+            let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url.parse()?));
+            if smoke.is_some() {
+                builder = builder.initialization_script(SMOKE_SCRIPT);
+            }
+            let (smoking, reporter) = (smoke.is_some(), handle.clone());
             #[cfg(target_os = "macos")]
             let builder = builder.title_bar_style(tauri::TitleBarStyle::Transparent);
             builder
@@ -210,8 +251,20 @@ fn main() {
                 .min_inner_size(380.0, 480.0)
                 .disable_drag_drop_handler() // let the page handle HTML5 drag & drop and file drops
                 .visible(!hidden) // still loads (and signs in as the desktop app); `show` reveals it
+                .focused(!smoking)
                 .on_navigation(move |u| {
                     let local = u.host_str() == Some("127.0.0.1");
+                    if smoking && local && u.path() == "/__smoke" {
+                        let q: std::collections::HashMap<_, _> = u.query_pairs().collect();
+                        let ok = q.get("ok").is_some_and(|v| v == "1");
+                        if ok {
+                            println!("smoke: ok");
+                        } else {
+                            eprintln!("smoke: the window did not show the recipes\n{}", q.get("errors").map(|e| e.as_ref()).unwrap_or(""));
+                        }
+                        reporter.exit(if ok { 0 } else { 1 });
+                        return false;
+                    }
                     if !local && (u.scheme() == "http" || u.scheme() == "https") {
                         let _ = opener.opener().open_url(u.as_str(), None::<&str>);
                     }

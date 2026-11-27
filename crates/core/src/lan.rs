@@ -220,6 +220,16 @@ pub fn stop(state: &AppState) {
     s.other = None;
 }
 
+/// The sharing server's TLS setup and its CA certificate, made on first use. Public so the desktop
+/// app's release check can run it: a second TLS backend in the build makes this panic (the blank
+/// window of 0.1.1).
+pub async fn tls_config(data_dir: &Path, ips: &[Ipv4Addr]) -> Result<(RustlsConfig, String)> {
+    let dir = data_dir.join("tls");
+    let (ca_pem, ca_key) = load_or_create_ca(&dir)?;
+    let (chain, key) = leaf(&dir, &ca_pem, &ca_key, ips)?;
+    Ok((RustlsConfig::from_pem(chain, key).await.context("loading certificate")?, ca_pem))
+}
+
 async fn start_inner(state: Arc<AppState>, app: Router) -> Result<()> {
     let lan = &state.ext.lan;
     let ips = lan_ips();
@@ -230,10 +240,7 @@ async fn start_inner(state: Arc<AppState>, app: Router) -> Result<()> {
         *lan.status.write().unwrap() = LanStatus { other: Some(ip.to_string()), ..Default::default() };
         return Ok(());
     }
-    let dir = state.data_dir.join("tls");
-    let (ca_pem, ca_key) = load_or_create_ca(&dir)?;
-    let (chain, key) = leaf(&dir, &ca_pem, &ca_key, &ips)?;
-    let tls = RustlsConfig::from_pem(chain, key).await.context("loading certificate")?;
+    let (tls, ca_pem) = tls_config(&state.data_dir, &ips).await?;
     *lan.tls.lock().unwrap() = Some(tls.clone());
     *lan.ips.lock().unwrap() = ips.clone();
     set_hosts(&state, &ips);

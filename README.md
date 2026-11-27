@@ -105,8 +105,13 @@ Allow** / **Allow**.
 node scripts/release.mjs 0.2.0 "What changed, one line per item"
 ```
 
-It refuses a dirty tree, an existing tag or a version that isn't newer, then builds a universal
-`Recipes.app` on this Mac, signs the update, commits the version, tags `v0.2.0` (the message becomes
+It refuses a dirty tree, an existing tag or a version that isn't newer, and stops if any test fails:
+the Rust tests, the parse of every recipe in `~/Recipes`, the UI tests and type check, and a smoke
+check that loads the app on a copy of the recipes at desktop and phone width (`ui/e2e/smoke.mjs`).
+Then it builds a universal `Recipes.app` on this Mac and signs the update. It starts the built app
+on a copy of the recipes (its window appears for a few seconds) and stops if the window doesn't show
+the folders; that copy never shares on the network or touches the installed app's settings or login
+item. Then it commits the version, tags `v0.2.0` (the message becomes
 the release notes, shown in the app under *What's new*), pushes, and publishes the GitHub release
 with the disk image, the update bundle and `latest.json`. Nothing is committed or published if the
 build fails. Needs `gh` signed in and the Rust target `x86_64-apple-darwin`
