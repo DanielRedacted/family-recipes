@@ -5,7 +5,7 @@
 //! saved beside ours as "<name> (from other Mac).md".
 
 use crate::auth::{Caller, Role};
-use crate::server::{AppState, err};
+use crate::server::{AppState, Bk, Book, FIRST_BOOK, err};
 use anyhow::{Result, anyhow, bail};
 use axum::Json;
 use axum::extract::State;
@@ -22,16 +22,28 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
 const KEYCHAIN_SERVICE: &str = "family.recipes.desktop";
-const KEYCHAIN_USER: &str = "github-token";
+/// The Keychain entry of a cookbook's token: each cookbook may be a different repository, and
+/// disconnecting one must not cut off another.
+fn keychain_user(book: &str) -> String {
+    if book == FIRST_BOOK { "github-token".into() } else { format!("github-token:{book}") }
+}
 /// How often GitHub is checked for changes from other Macs (and failed uploads retried).
 const EVERY: Duration = Duration::from_secs(300);
 const AUTH_ERR: &str = "GitHub refused the token. Connect again with a new one.";
 
+/// One cookbook's sync: its loop is woken by changes in the folder.
 #[derive(Default)]
 pub struct Sync {
     notify: tokio::sync::Notify,
     lock: Mutex<()>,
     status: RwLock<Status>,
+}
+
+impl Sync {
+    /// Something in the folder changed (or the cookbook closed): sync soon.
+    pub fn wake(&self) {
+        self.notify.notify_one();
+    }
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -58,26 +70,26 @@ pub fn routes() -> axum::Router<Arc<AppState>> {
         .route("/api/git", delete(disconnect))
 }
 
-/// Something in the recipes folder changed (called by the file watcher).
-pub fn changed(s: &AppState) {
-    s.ext.git.notify.notify_one();
+fn sync_on(s: &AppState, id: &str) -> bool {
+    s.settings.read().unwrap().cookbooks.iter().any(|c| c.id == id && c.git_sync)
 }
 
-pub fn status(s: &AppState) -> Status {
-    let mut st = s.ext.git.status.read().unwrap().clone();
-    st.connected = s.settings.read().unwrap().git_sync;
+/// Cookbook `id`'s sync status (a cookbook whose folder is missing has only `connected`).
+pub fn status(s: &AppState, id: &str) -> Status {
+    let mut st = s.book(id).map(|b| b.git.status.read().unwrap().clone()).unwrap_or_default();
+    st.connected = sync_on(s, id);
     st
 }
 
-/// Background loop: a sync right away (pulls what changed while the app was closed), then after
-/// every change in the folder and every few minutes.
-pub fn spawn(s: Arc<AppState>) {
+/// Background loop for one cookbook, until it closes: a sync right away (pulls what changed while
+/// the app was closed), then after every change in the folder and every few minutes.
+pub fn spawn(s: Arc<AppState>, b: Arc<Book>) {
     tokio::spawn(async move {
-        loop {
-            let s2 = s.clone();
-            let _ = tokio::task::spawn_blocking(move || run(&s2)).await;
+        while !b.closed.load(std::sync::atomic::Ordering::Relaxed) {
+            let (s2, b2) = (s.clone(), b.clone());
+            let _ = tokio::task::spawn_blocking(move || run(&s2, &b2)).await;
             tokio::select! {
-                _ = s.ext.git.notify.notified() => {}
+                _ = b.git.notify.notified() => {}
                 _ = tokio::time::sleep(EVERY) => {}
             }
         }
@@ -85,19 +97,19 @@ pub fn spawn(s: Arc<AppState>) {
 }
 
 /// One sync round when sync is on (blocking). Records the outcome in the status.
-fn run(s: &AppState) -> Status {
-    let g = &s.ext.git;
+fn run(s: &AppState, b: &Book) -> Status {
+    let g = &b.git;
     let _one_at_a_time = g.lock.lock().unwrap();
-    if !s.settings.read().unwrap().git_sync {
-        return status(s);
+    if !sync_on(s, &b.id) || b.closed.load(std::sync::atomic::Ordering::Relaxed) {
+        return status(s, &b.id);
     }
-    let res = sync_once(&s.root, token().as_deref());
+    let res = sync_once(&b.root, token(&b.id).as_deref());
     if let Err(e) = &res {
         tracing::warn!("recipes sync: {e:#}");
     }
     {
         let mut st = g.status.write().unwrap();
-        if let Ok(repo) = Repository::open(&s.root) {
+        if let Ok(repo) = Repository::open(&b.root) {
             st.remote = repo.find_remote("origin").ok().and_then(|r| r.url().ok().map(display_url)).unwrap_or_default();
             st.waiting = waiting(&repo);
         }
@@ -113,7 +125,7 @@ fn run(s: &AppState) -> Status {
             }
         }
     }
-    status(s)
+    status(s, &b.id)
 }
 
 // ---------- routes ----------
@@ -125,24 +137,24 @@ struct ConnectBody {
     token: String,
 }
 
-async fn connect(State(s): St, caller: Caller, Json(b): Json<ConnectBody>) -> Res {
+async fn connect(State(s): St, Bk(book): Bk, caller: Caller, Json(b): Json<ConnectBody>) -> Res {
     caller.need(Role::Admin)?;
     let s2 = s.clone();
     let st = tokio::task::spawn_blocking(move || -> Result<Status> {
         let url = repo_url(&b.url)?;
         let given = b.token.trim().to_string();
-        let token = if given.is_empty() { token() } else { Some(given.clone()) };
+        let token = if given.is_empty() { token(&book.id) } else { Some(given.clone()) };
         {
-            let _one_at_a_time = s2.ext.git.lock.lock().unwrap();
-            prepare(&s2.root, &url, token.as_deref())?;
-            sync_once(&s2.root, token.as_deref())?; // a bad token or repository name fails here, before anything is saved
+            let _one_at_a_time = book.git.lock.lock().unwrap();
+            prepare(&book.root, &url, token.as_deref())?;
+            sync_once(&book.root, token.as_deref())?; // a bad token or repository name fails here, before anything is saved
         }
         if !given.is_empty() {
-            entry()?.set_password(&given).map_err(|e| anyhow!("Keychain: {e}"))?;
+            entry(&book.id)?.set_password(&given).map_err(|e| anyhow!("Keychain: {e}"))?;
         }
-        s2.settings.write().unwrap().git_sync = true;
+        s2.cookbook_mut(&book.id, |c| c.git_sync = true);
         s2.save_settings()?;
-        Ok(run(&s2))
+        Ok(run(&s2, &book))
     })
     .await
     .unwrap()
@@ -150,29 +162,36 @@ async fn connect(State(s): St, caller: Caller, Json(b): Json<ConnectBody>) -> Re
     Ok(Json(st).into_response())
 }
 
-async fn sync_now(State(s): St, caller: Caller) -> Res {
+async fn sync_now(State(s): St, Bk(b): Bk, caller: Caller) -> Res {
     caller.need(Role::Admin)?;
-    let s2 = s.clone();
-    Ok(Json(tokio::task::spawn_blocking(move || run(&s2)).await.unwrap()).into_response())
+    Ok(Json(tokio::task::spawn_blocking(move || run(&s, &b)).await.unwrap()).into_response())
 }
 
 /// Stop syncing and forget the token. The files and their git history stay in the folder.
-async fn disconnect(State(s): St, caller: Caller) -> Res {
+async fn disconnect(State(s): St, Bk(b): Bk, caller: Caller) -> Res {
     caller.need(Role::Admin)?;
-    s.settings.write().unwrap().git_sync = false;
+    s.cookbook_mut(&b.id, |c| c.git_sync = false);
     s.save_settings().map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
-    let _ = tokio::task::spawn_blocking(|| entry().map(|e| e.delete_credential())).await;
-    Ok(Json(status(&s)).into_response())
+    let id = b.id.clone();
+    let _ = tokio::task::spawn_blocking(move || forget_token(&id)).await;
+    Ok(Json(status(&s, &b.id)).into_response())
 }
 
 // ---------- token ----------
 
-fn entry() -> Result<keyring::Entry> {
-    Ok(keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_USER)?)
+fn entry(book: &str) -> Result<keyring::Entry> {
+    Ok(keyring::Entry::new(KEYCHAIN_SERVICE, &keychain_user(book))?)
 }
 
-fn token() -> Option<String> {
-    entry().ok()?.get_password().ok().filter(|t| !t.is_empty())
+fn token(book: &str) -> Option<String> {
+    entry(book).ok()?.get_password().ok().filter(|t| !t.is_empty())
+}
+
+/// Delete a cookbook's token from the Keychain (disconnected, or the cookbook removed).
+pub fn forget_token(book: &str) {
+    if let Ok(e) = entry(book) {
+        let _ = e.delete_credential();
+    }
 }
 
 fn callbacks(token: Option<&str>) -> RemoteCallbacks<'_> {
@@ -506,6 +525,12 @@ mod tests {
         write(&c.join("Pie.md"), "# Pie\n");
         assert!(prepare(&c, url, None).is_err());
         let _ = std::fs::remove_dir_all(&t);
+    }
+
+    #[test]
+    fn each_cookbook_has_its_own_token() {
+        assert_eq!(keychain_user(FIRST_BOOK), "github-token"); // the entry from before cookbooks
+        assert_eq!(keychain_user("ab12cd34"), "github-token:ab12cd34");
     }
 
     #[test]

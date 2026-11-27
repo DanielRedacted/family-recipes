@@ -2,9 +2,8 @@
 //! names grouped under a normalised key so "Eggs", "2 large eggs, beaten" and "egg" are one
 //! ingredient. Read-only; used for the Ingredients page and editor suggestions.
 
-use crate::server::AppState;
+use crate::server::Bk;
 use crate::vault::Index;
-use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use regex::Regex;
@@ -558,9 +557,9 @@ pub fn catalogue(idx: &Index) -> Vec<Ingredient> {
 pub struct Cache(Mutex<Option<(String, Arc<Vec<u8>>)>>);
 
 /// `GET /api/ingredients`: everyone who can read recipes can read this.
-pub async fn route(State(s): State<Arc<AppState>>, headers: HeaderMap) -> Result<Response, Response> {
+pub async fn route(Bk(s): Bk, headers: HeaderMap) -> Result<Response, Response> {
     let etag = s.payload.read().unwrap().etag.clone();
-    let cached = s.ext.ingredients.0.lock().unwrap().clone().filter(|c| c.0 == etag);
+    let cached = s.ingredients.0.lock().unwrap().clone().filter(|c| c.0 == etag);
     let body = match cached {
         Some((_, b)) => b,
         None => {
@@ -574,7 +573,7 @@ pub async fn route(State(s): State<Arc<AppState>>, headers: HeaderMap) -> Result
             .await
             .unwrap();
             let b = Arc::new(b);
-            *s.ext.ingredients.0.lock().unwrap() = Some((etag.clone(), b.clone()));
+            *s.ingredients.0.lock().unwrap() = Some((etag.clone(), b.clone()));
             b
         }
     };

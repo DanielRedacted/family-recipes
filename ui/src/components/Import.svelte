@@ -5,7 +5,7 @@
   import Editor from './Editor.svelte';
   import Merge from './Merge.svelte';
   import Nutrition from './Nutrition.svelte';
-  import { api, saveFile } from '../lib/api';
+  import { api, bookKey, saveFile } from '../lib/api';
   import { stamp, today } from '../lib/credit';
   import { app, go, noteHash, toast, loadVault, canWrite } from '../lib/state.svelte';
   import { importer, enqueueUrls, enqueueFiles, enqueueText, convert, keep, retry, remove, type QueueItem, type LogStep } from '../lib/importer.svelte';
@@ -22,8 +22,8 @@
   let fileInput: HTMLInputElement | undefined = $state();
   let urlInput: HTMLTextAreaElement | undefined = $state();
   let pasteBox: HTMLTextAreaElement | undefined = $state();
-  let folder = $state((() => { try { return localStorage.getItem('importFolder') ?? ''; } catch { return ''; } })());
-  $effect(() => { try { localStorage.setItem('importFolder', folder); } catch {} });
+  let folder = $state((() => { try { return localStorage.getItem(bookKey('importFolder')) ?? ''; } catch { return ''; } })());
+  $effect(() => { try { localStorage.setItem(bookKey('importFolder'), folder); } catch {} });
   $effect(() => { if (importer.folder !== null) { folder = importer.folder; importer.folder = null; } });
 
   let tab = $state<'edit' | 'preview' | 'source'>('edit');

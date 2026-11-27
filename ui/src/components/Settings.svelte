@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { app, toast, loadSession, loadVault, noteHash, dirOf, prefs, setUnits, canWrite } from '../lib/state.svelte';
-  import { api } from '../lib/api';
-  import { shell } from '../lib/ops';
+  import { api, inBook } from '../lib/api';
+  import { shell, chooseCookbookFolder } from '../lib/ops';
   import { confirmIt } from '../lib/dialog.svelte';
   import { update, checkForUpdate, type UpdateMode } from '../lib/update.svelte';
   import { saveBookHtml, printBook } from '../lib/book';
@@ -73,13 +73,21 @@
     } catch (e: any) { toast(e.message, 'error'); }
   }
 
-  async function chooseVault() {
-    const r = await shell('choose-vault');
-    if (r?.path) {
-      if (!(await confirmIt('Use this folder for recipes?', r.path + ' — the app restarts its file watcher on that folder.', 'Use folder'))) return;
-      await put({ vault: r.path });
-      toast('Restart Recipes to finish switching folders.', 'info');
-    }
+  // ---------- cookbooks (Settings → Cookbooks): folders the app serves; each device picks one ----------
+  async function addCookbook() {
+    if (await chooseCookbookFolder()) { await refresh(); toast('Cookbook added. Choose it at the top of the folder column.', 'ok'); }
+  }
+  async function locateCookbook(c: any) {
+    if (await chooseCookbookFolder(c.id)) { await refresh(); toast(`${c.name} is back`, 'ok'); }
+  }
+  async function setMacOnly(c: any, on: boolean) {
+    try { await api('PUT', `/api/cookbooks/${c.id}`, { mac_only: on }); c.mac_only = on; await loadSession(); }
+    catch (e: any) { toast(e.message, 'error'); }
+  }
+  async function removeCookbook(c: any) {
+    if (!(await confirmIt(`Remove ${c.name} from Recipes?`, 'Its folder and recipes stay where they are on this Mac. Devices showing it switch to another cookbook, and it stops syncing with GitHub. You can open it again later.', 'Remove', true))) return;
+    try { await api('DELETE', `/api/cookbooks/${c.id}`); toast(`Removed ${c.name}`, 'ok'); await refresh(); await loadSession(); }
+    catch (e: any) { toast(e.message, 'error'); }
   }
 
   async function saveKey() {
@@ -182,20 +190,37 @@
   {:else if !s}
     <p class="muted">Loading…</p>
   {:else if sec === 'folder'}
-    <section class="card">
-      <p class="mono">{s.vault}</p>
-      <p class="muted small">Every recipe is a plain text (Markdown) file in this folder. You can also open and edit them with any text editor or Obsidian; changes show up here instantly.</p>
-      <div class="row">
-        {#if app.session.shell}
-          <button class="btn" onclick={() => shell('reveal', { path: '' })}>Show in Finder</button>
-          <button class="btn" onclick={chooseVault}>Use a different folder…</button>
+    {@const many = s.cookbooks.length > 1}
+    <p class="muted small">Every recipe is a plain text (Markdown) file in a cookbook's folder. You can also open and edit them with any text editor or Obsidian; changes show up here instantly.</p>
+    {#each s.cookbooks as c (c.id)}
+      <section class="card">
+        <h2>{c.name}</h2>
+        <p class="mono">{c.path}</p>
+        {#if c.missing}
+          <p class="err small">This folder isn't there. If it moved, choose where it is now; if it's on a drive, connect the drive and open Recipes again.</p>
         {/if}
-      </div>
-    </section>
-    <section class="card">
-      <h2>GitHub</h2>
-      <GitHub status={s.git} onchange={(g) => (s.git = g)} />
-    </section>
+        <div class="row">
+          {#if app.session.shell && !c.missing}<button class="btn" onclick={() => api('POST', inBook('/api/shell/reveal', c.id), { path: '' }).catch((e) => toast(e.message, 'error'))}>Show in Finder</button>{/if}
+          {#if app.session.shell && c.missing}<button class="btn" onclick={() => locateCookbook(c)}>Choose its folder…</button>{/if}
+          {#if many}<button class="btn danger" onclick={() => removeCookbook(c)}>Remove</button>{/if}
+        </div>
+        {#if many}
+          <label class="row toggle"><input type="checkbox" checked={c.mac_only} onchange={(e) => setMacOnly(c, e.currentTarget.checked)} /> Only on this Mac</label>
+          <p class="muted small">Phones, tablets and other computers don't see it, or its meals on the Calendar.</p>
+        {/if}
+        {#if !c.missing}
+          <h3>GitHub</h3>
+          <GitHub book={c.id} status={c.git} onchange={(g) => (c.git = g)} />
+        {/if}
+      </section>
+    {/each}
+    {#if app.session.shell}
+      <section class="card">
+        <h2>Another cookbook</h2>
+        <p class="muted small">Keep a second collection apart from this one, in its own folder, with its own GitHub repository if you like. Choose a folder of recipes, or make a new folder in the window that opens. Each device then picks its cookbook at the top of the folder column; people, the whiteboard and the meal history are shared.</p>
+        <div class="row"><button class="btn" onclick={addCookbook}>Open or create a cookbook…</button></div>
+      </section>
+    {/if}
   {:else if sec === 'app'}
       <section class="card">
         <label class="row toggle"><input type="checkbox" checked={!!s.autostart} onchange={async (e) => { const r = await shell('autostart', { enabled: e.currentTarget.checked }); if (r) s.autostart = r.enabled; }} /> Open Recipes at login</label>

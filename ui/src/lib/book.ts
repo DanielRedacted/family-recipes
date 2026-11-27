@@ -1,7 +1,7 @@
 // The recipe book (Settings → General → Recipe book): every recipe in one document, a chapter per folder,
 // with a title page and contents. Rendered here with the reader's own renderer (noteHtml), then saved as
 // one self-contained web page, or put into this page and printed (to a PDF in the desktop app).
-import { app, prefs, dirOf } from './state.svelte';
+import { app, prefs, dirOf, cookbookName } from './state.svelte';
 import { api } from './api';
 import { noteHtml, escHtml } from './markdown';
 import { loadFoods } from './ingredients.svelte';
@@ -79,7 +79,7 @@ async function buildBook(): Promise<HTMLElement> {
   const date = new Date().toLocaleDateString(undefined, { dateStyle: 'long' });
   const count = ids.size === 1 ? '1 recipe' : `${ids.size} recipes`;
   book.innerHTML =
-    `<section class="cover"><h1>Recipes</h1><p>${count}, saved ${escHtml(date)}</p></section>` +
+    `<section class="cover"><h1>${escHtml(cookbookName())}</h1><p>${count}, saved ${escHtml(date)}</p></section>` +
     `<section class="toc"><h2>Contents</h2><div class="toc-cols">` +
     chapters.map((c, i) => `<div class="toc-group"><h3><a href="#book-c${i + 1}">${escHtml(c.name)}</a></h3><ul>` +
       c.recipes.map((r) => `<li><a href="#${ids.get(r.path)}">${escHtml(r.title)}</a></li>`).join('') + '</ul></div>').join('') +
@@ -134,7 +134,7 @@ export async function bookHtml(): Promise<string> {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Recipes</title>
+<title>${escHtml(cookbookName())}</title>
 <style>
 ${css}
 </style>
@@ -149,11 +149,11 @@ ${book.outerHTML}
 /** Save the web page: to Downloads by the desktop app (returns the file name), else as a browser download. */
 export async function saveBookHtml(): Promise<string | null> {
   const html = await bookHtml();
-  if (app.session.shell) return (await api<{ name: string }>('POST', '/api/shell/save-html', { html })).name;
+  if (app.session.shell) return (await api<{ name: string }>('POST', '/api/shell/save-html', { html, name: cookbookName() })).name;
   const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'Recipes.html';
+  a.download = `${cookbookName()}.html`;
   document.body.append(a);
   a.click();
   a.remove();
@@ -178,7 +178,7 @@ export async function printBook(): Promise<string | null> {
   await Promise.all([...book.querySelectorAll('img')].map((i) => i.decode().catch(() => {})));
   document.body.classList.add('printing-book');
   if (app.session.shell) {
-    try { return (await api<{ name: string }>('POST', '/api/shell/save-pdf')).name; }
+    try { return (await api<{ name: string }>('POST', '/api/shell/save-pdf', { name: cookbookName() })).name; }
     finally { clearBook(); }
   }
   addEventListener('afterprint', clearBook, { once: true });

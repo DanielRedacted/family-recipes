@@ -36,7 +36,7 @@ After this, the device always opens the secure address by itself.
 
 ## When the Mac is asleep or away
 
-The home-screen app keeps the last copy it saw. While it can't reach the Mac, the home page says **Offline — showing the last saved copy**. You can still find and read recipes you've opened before, but you won't see new changes and you can't edit until the Mac is back.
+The home-screen app keeps the last copy it saw. While it can't reach the Mac, the home page says **Offline — showing the last saved copy**. You can still find and read recipes you've opened before, but you won't see new changes and you can't edit until the Mac is back. With several [cookbooks](#/settings/help/cookbooks), each one you've opened is kept.
 
 ## Getting around on a phone
 

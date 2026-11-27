@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, ApiError, BOOK, bookKey, inBook, openBook, settleBook } from './api';
 import type { Entry, Person, Session } from './types';
 import { buildIndex, aliasesOf } from './search';
 import { parse as parseYaml } from 'yaml';
@@ -35,6 +35,11 @@ export const app = $state({
 
 export const canWrite = () => app.session.role !== 'reader';
 
+/** Several cookbooks this device may open (else the app looks as it did with one). */
+export const manyBooks = () => (app.session.books?.length ?? 0) > 1;
+/** What this tab's cookbook is called: its folder's name, or "Recipes" while there is only one. */
+export const cookbookName = () => (manyBooks() && app.session.books?.find((b) => b.id === BOOK)?.name) || 'Recipes';
+
 /** Reading preferences for this device (Settings → General), kept in this browser. */
 export const prefs = $state({
   units: ((): 'us' | 'metric' => { try { return localStorage.getItem('units') === 'metric' ? 'metric' : 'us'; } catch { return 'us'; } })(),
@@ -49,7 +54,7 @@ export function setUnits(u: 'us' | 'metric') {
  * see ops.ts). The Mac's built-in Admin isn't a person, so its favorites stay in this browser. */
 export const favorites = $state({ paths: [] as string[] });
 /** a list from before favorites were kept on the Mac, and the built-in Admin's */
-const favKey = () => `favorites:${app.session.user?.id ?? ''}`;
+const favKey = () => bookKey(`favorites:${app.session.user?.id ?? ''}`);
 const isPerson = () => !!app.session.user && app.session.user.id !== 'admin';
 function localFavorites(): string[] {
   try { const v = JSON.parse(localStorage.getItem(favKey()) || '[]'); return Array.isArray(v) ? v.filter((p) => typeof p === 'string') : []; } catch { return []; }
@@ -141,7 +146,7 @@ let navIndex = 0;
 let busy = false;
 
 function saveTabs() {
-  try { localStorage.setItem('tabs', JSON.stringify({ active: app.tab, tabs: app.tabs.map(({ id, stack, pos }) => ({ id, stack, pos })) })); } catch {}
+  try { localStorage.setItem(bookKey('tabs'), JSON.stringify({ active: app.tab, tabs: app.tabs.map(({ id, stack, pos }) => ({ id, stack, pos })) })); } catch {}
 }
 
 /** Browser entries from `n` on were just replaced by a new one: steps that pointed at them don't any more. */
@@ -308,7 +313,7 @@ export function retarget(from: string, to: string | null) {
   const fresh = typeof history.state?.nav !== 'number';
   navIndex = fresh ? 0 : history.state.nav;
   let saved: { active?: number; tabs?: { id: number; stack: { hash: string; nav: number }[]; pos: number }[] } = {};
-  try { saved = JSON.parse(localStorage.getItem('tabs') || '{}') ?? {}; } catch {}
+  try { saved = JSON.parse(localStorage.getItem(bookKey('tabs')) || '{}') ?? {}; } catch {}
   const tabs = (Array.isArray(saved.tabs) ? saved.tabs : [])
     .filter((t) => typeof t?.id === 'number' && Array.isArray(t.stack) && t.stack.length && t.stack.every((s) => typeof s?.hash === 'string'))
     .map((t) => {
@@ -336,7 +341,11 @@ export function retarget(from: string, to: string | null) {
 // ---------- data ----------
 
 export async function loadSession() {
-  try { app.session = await api<Session>('GET', '/api/session'); } catch { /* offline */ }
+  try {
+    app.session = await api<Session>('GET', '/api/session');
+    // the cookbook this tab is in; one removed (or made Mac only) since this device chose it: the first
+    if (!settleBook((app.session.books ?? []).map((b) => b.id))) openBook(BOOK);
+  } catch { /* offline: the cookbook chosen before */ }
   await loadPeople();
   await carryOverFavorites();
 }
@@ -361,7 +370,9 @@ export function loadVault(): Promise<void> {
       app.offline = false;
       buildIndex(shown);
     } catch (e) {
-      app.offline = true;
+      // the cookbook went away while this page was open: the session moves this tab to another
+      if (e instanceof ApiError && e.status === 404) void loadSession();
+      else app.offline = true;
     } finally {
       app.loaded = true;
       loading = null;
@@ -377,7 +388,7 @@ export async function loadMade() {
 export function listenForChanges() {
   let es: EventSource | null = null;
   const connect = () => {
-    es = new EventSource('/api/events');
+    es = new EventSource(inBook('/api/events'));
     es.addEventListener('vault', () => loadVault());
     es.addEventListener('messages', () => loadMessages());
     es.addEventListener('made', () => loadMade());

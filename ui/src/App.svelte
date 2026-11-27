@@ -98,11 +98,16 @@
 <Switcher />
 {#if app.session.setup}<Setup />{/if}
 <!-- every device but the desktop app (always "Admin") signs in; not offline before any session was saved -->
-{#if app.session.version && !app.session.user}<SignIn />{/if}
+{#if app.session.version && !app.session.user}<SignIn />{:else if app.session.books?.length === 0}
+  <!-- every cookbook is Mac only (Settings → Cookbooks) -->
+  <div class="nobook" role="status"><p>There's no cookbook to show here. On the Mac, open Settings → Cookbooks and turn off “Only on this Mac” for one.</p></div>
+{/if}
 <Overlays />
 <Feedback />
 
 <style>
+  .nobook { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; padding: 16px; background: var(--bg); text-align: center; }
+  .nobook p { max-width: 36ch; margin: 0; }
   .app { display: grid; grid-template-columns: var(--sidebar) 1fr; grid-template-rows: minmax(0, 1fr); height: 100vh; height: 100dvh; overflow: hidden; }
   /* landscape iPhone: keep clear of the Dynamic Island (0 everywhere else) */
   .app { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }

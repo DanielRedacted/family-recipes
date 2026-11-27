@@ -3,14 +3,15 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import { app, loadSession, toast } from '../lib/state.svelte';
-  import { shell } from '../lib/ops';
+  import { shell, chooseCookbookFolder } from '../lib/ops';
   import Network from './Network.svelte';
   import GitHub from './GitHub.svelte';
 
   let s = $state<any>(null);
   let pin = $state('');
-  let folder = $state(''); // a different folder was chosen: it takes effect after a restart
   let busy = $state(false);
+  /** the one cookbook a first start has (the folder it was given, or ~/Recipes) */
+  const book = $derived(s?.cookbooks?.[0]);
 
   onMount(async () => {
     try { s = await api('GET', '/api/settings'); } catch (e: any) { toast(e.message, 'error'); }
@@ -21,8 +22,7 @@
   }
 
   async function chooseFolder() {
-    const r = await shell('choose-vault');
-    if (r?.path) { await put({ vault: r.path }); folder = r.path; }
+    if (book && (await chooseCookbookFolder(book.id))) s = await api('GET', '/api/settings');
   }
 
   async function done() {
@@ -30,8 +30,7 @@
     try {
       if (pin.trim()) await api('PUT', '/api/settings/pin', { pin: pin.trim() });
       await api('PUT', '/api/settings', { setup_done: true });
-      if (folder) await shell('restart');
-      else await loadSession();
+      await loadSession();
     } catch (e: any) {
       toast(e.message, 'error');
     } finally {
@@ -49,17 +48,13 @@
     {:else}
       <section class="card">
         <h2>Recipes folder</h2>
-        <p class="mono">{folder || s.vault}</p>
+        <p class="mono">{book?.path}</p>
         <p class="muted small">Every recipe is a plain text (Markdown) file in this folder, one subfolder per category. Choose the folder that holds your recipes, or keep this one and add recipes later.</p>
         {#if app.session.shell}<div class="row"><button class="btn" onclick={chooseFolder}>Use a different folder…</button></div>{/if}
       </section>
       <section class="card">
         <h2>Recipes from GitHub</h2>
-        {#if folder}
-          <p class="muted small">After the restart, connect the new folder in Settings → Recipes folder.</p>
-        {:else}
-          <GitHub status={s.git} onchange={(g) => (s.git = g)} />
-        {/if}
+        {#if book}<GitHub book={book.id} status={book.git} onchange={(g) => (book.git = g)} />{/if}
       </section>
       {#if app.session.shell}
         <section class="card">
@@ -78,7 +73,7 @@
         <input class="field" type="password" placeholder="Choose a PIN (optional)" bind:value={pin} autocomplete="new-password" aria-label="Family PIN" />
       </section>
       <div class="row finish">
-        <button class="btn primary" onclick={done} disabled={busy}>{folder ? 'Done — restart Recipes' : 'Done'}</button>
+        <button class="btn primary" onclick={done} disabled={busy}>Done</button>
       </div>
     {/if}
   </div>

@@ -6,7 +6,7 @@
     const admin = app.session.role === 'admin';
     return [
       { id: 'general', label: 'General', icon: 'settings', on: true },
-      { id: 'folder', label: 'Recipes folder', icon: 'folder', on: admin },
+      { id: 'folder', label: 'Cookbooks', icon: 'folder', on: admin },
       { id: 'app', label: 'Desktop app', icon: 'home', on: admin && app.session.shell },
       { id: 'devices', label: 'Phones & tablets', icon: 'lock', on: admin },
       { id: 'people', label: 'People', icon: 'users', on: admin },

@@ -5,7 +5,7 @@ audience: everyone
 order: 62
 ---
 
-Found something that isn't working, or have an idea to make the app better? You can send it from any page, and it goes straight to whoever looks after the app.
+Found something that isn't working, or have an idea to make the app better? You can send it from any page, and it goes straight to whoever looks after the app (kept with the [cookbook](#/settings/help/cookbooks) you're in).
 
 ## Send feedback
 

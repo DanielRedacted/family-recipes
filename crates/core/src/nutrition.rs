@@ -289,11 +289,11 @@ fn pick<'a>(name: &str, hits: &'a [Hit]) -> Option<&'a Hit> {
         .min_by_key(|h| (h.kind != "SR Legacy", h.name.split(|c: char| !c.is_alphanumeric()).filter(|x| !x.is_empty()).count()))
 }
 
-/// Ingredient keys in the recipes that no layer of the table has, most used first.
+/// Ingredient keys in every cookbook's recipes that no layer of the table has, most used first.
 fn missing(s: &AppState) -> Vec<String> {
-    let idx = s.index.read().unwrap().clone();
+    let idxs: Vec<_> = s.books.read().unwrap().iter().map(|b| b.index.read().unwrap().clone()).collect();
     let mut uses: BTreeMap<String, usize> = BTreeMap::new();
-    for r in idx.files.values().filter_map(|e| e.recipe.as_ref()) {
+    for r in idxs.iter().flat_map(|i| i.files.values()).filter_map(|e| e.recipe.as_ref()) {
         for a in r.ingredients.iter().flat_map(|g| &g.items).flat_map(|it| &it.amounts).flatten() {
             if let (Some(k), None) = (&a.key, &a.skip) {
                 *uses.entry(k.clone()).or_default() += 1;

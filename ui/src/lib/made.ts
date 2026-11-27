@@ -3,8 +3,15 @@
 // A recipe kept on screen ASSUME_AFTER_MIN minutes without "Made today" is logged as `assumed`: shown
 // as a guess on the Calendar page, where it can be confirmed or removed. Guesses never block a protein
 // and never grey out the "Made today" button.
+// One history for every cookbook: `book` says which one a recipe is in (the server's `FIRST_BOOK`, "1",
+// for meals from before cookbooks).
 
-export interface Made { at: number; path: string; title: string; tags: string[]; by?: string; assumed?: boolean }
+import { BOOK } from './api';
+
+export interface Made { at: number; book?: string; path: string; title: string; tags: string[]; by?: string; assumed?: boolean }
+
+/** Is the meal's recipe in cookbook `book` (this tab's unless given)? */
+export const inCookbook = (m: Made, book = BOOK) => !book || (m.book ?? '1') === book;
 
 export const PROTEINS = ['Chicken', 'Beef', 'Pork', 'Turkey', 'Seafood', 'Eggs', 'Beans'];
 export const DAYS = 3;
@@ -25,6 +32,7 @@ export function blockedProteins(made: Made[], now = Date.now()): string[] {
   return PROTEINS.filter((p) => recent.some((m) => has(m.tags, p)));
 }
 
-/** Was `path` logged today? Guesses count only with `guesses` (so a guess isn't made twice). */
-export const madeToday = (made: Made[], path: string, now = Date.now(), guesses = false) =>
-  made.some((m) => m.path === path && (guesses || !m.assumed) && day(m.at * 1000) === day(now));
+/** Was `path` (in this tab's cookbook) logged today? Guesses count only with `guesses` (so a guess
+ * isn't made twice). */
+export const madeToday = (made: Made[], path: string, now = Date.now(), guesses = false, book = BOOK) =>
+  made.some((m) => m.path === path && inCookbook(m, book) && (guesses || !m.assumed) && day(m.at * 1000) === day(now));

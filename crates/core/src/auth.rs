@@ -188,13 +188,13 @@ pub async fn guard(State(state): State<Arc<AppState>>, mut req: Request, next: N
         }
     }
     let (role, actor) = identify(&state, listener, req.headers());
-    let write = mutating.then(|| (req.method().to_string(), req.uri().path().to_string()));
+    let write = mutating.then(|| (req.method().to_string(), req.uri().path().to_string(), crate::server::book_param(req.uri()).map(str::to_string)));
     req.extensions_mut().insert(Caller(role));
     req.extensions_mut().insert(Who(actor.clone()));
     let mut res = next.run(req).await;
-    if let (Some((method, path)), Some(a)) = (write, &actor) {
+    if let (Some((method, path, book)), Some(a)) = (write, &actor) {
         if res.status().is_success() {
-            crate::users::log_write(&state, a, &method, &path);
+            crate::users::log_write(&state, a, &method, &path, book.as_deref());
         }
     }
     let h = res.headers_mut();

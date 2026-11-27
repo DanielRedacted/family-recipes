@@ -1,7 +1,8 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import Tree, { buildTree, FAV, MINE, reveal, type TreeNode } from './Tree.svelte';
-  import { app, go, favorites } from '../lib/state.svelte';
+  import { app, go, favorites, manyBooks } from '../lib/state.svelte';
+  import { BOOK, openBook } from '../lib/api';
   import type { Entry } from '../lib/types';
   import { upload, moveTo } from '../lib/ops';
   import { openSearch } from './Switcher.svelte';
@@ -18,6 +19,14 @@
     if (mine.length) t.children.unshift({ name: 'Favorites', path: MINE, folder: true, children: mine });
     return t;
   });
+  const MANAGE = '\u0000manage';
+  /** the switcher: another cookbook reloads this device into it; the Mac's last entry opens Settings */
+  function pickBook(e: Event & { currentTarget: HTMLSelectElement }) {
+    const id = e.currentTarget.value;
+    e.currentTarget.value = BOOK; // stays on this cookbook until the reload (or if the reload is refused)
+    if (id === MANAGE) { app.sidebar = false; go('#/settings/folder'); }
+    else if (id !== BOOK) openBook(id);
+  }
   let dropRoot = $state(false);
   let treeEl: HTMLDivElement;
 
@@ -39,7 +48,15 @@
 
 <div class="side">
   <div class="brand row">
-    <a href="#/" class="logo" onclick={() => (app.sidebar = false)}><img src="/icon.svg" alt="" width="24" height="24" /> Recipes</a>
+    {#if manyBooks()}
+      <a href="#/" class="logo" aria-label="Home" onclick={() => (app.sidebar = false)}><img src="/icon.svg" alt="" width="24" height="24" /></a>
+      <select class="plain-select cookbook" aria-label="Cookbook" value={BOOK} onchange={pickBook}>
+        {#each app.session.books ?? [] as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
+        {#if app.session.shell}<option disabled>──────────</option><option value={MANAGE}>Manage cookbooks…</option>{/if}
+      </select>
+    {:else}
+      <a href="#/" class="logo" onclick={() => (app.sidebar = false)}><img src="/icon.svg" alt="" width="24" height="24" /> Recipes</a>
+    {/if}
     <span class="spacer"></span>
     <button class="btn ghost icon" aria-label="Search" title="Search (⌘K)" onclick={openSearch}><Icon name="search" /></button>
   </div>
@@ -74,6 +91,8 @@
   .side { display: flex; flex-direction: column; height: 100%; gap: 8px; padding: 12px 8px calc(8px + env(safe-area-inset-bottom)); }
   .brand { padding: 2px 4px; flex-wrap: nowrap; min-height: 36px; }
   .logo { display: flex; align-items: center; gap: 8px; font-family: var(--serif); font-weight: 600; font-size: 19px; text-decoration: none; color: var(--text); }
+  /* the cookbook switcher reads as the brand: the open cookbook's name where "Recipes" stands with one */
+  .cookbook { font-family: var(--serif); font-weight: 600; font-size: 19px; color: var(--text); max-width: 100%; margin-left: 8px; }
   .tree { flex: 1; overflow-y: auto; border-radius: 8px; }
   .tree.drop { outline: 2px dashed var(--accent); }
   .pad { padding: 8px; }

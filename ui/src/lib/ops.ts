@@ -1,6 +1,6 @@
 // File-manager actions shared by the tree, folder view and note toolbar.
 import { isMap, parseDocument } from 'yaml';
-import { api, saveFile } from './api';
+import { api, fileUrl, inBook, saveFile } from './api';
 import { setProp } from './frontmatter';
 import { stamp, today } from './credit';
 import { ask, choose, confirmIt } from './dialog.svelte';
@@ -32,7 +32,8 @@ export async function assumeMade(path: string) {
 /** "Yes, cooked" (keeps the guess's time) or "Not cooked" (removes it). */
 export async function settleGuess(m: Made, cooked: boolean) {
   try {
-    app.made = await api<Made[]>(cooked ? 'PUT' : 'DELETE', `/api/made/${m.at}?path=${encodeURIComponent(m.path)}`);
+    // the guess's own cookbook, which may not be this tab's (the calendar shows every cookbook's meals)
+    app.made = await api<Made[]>(cooked ? 'PUT' : 'DELETE', inBook(`/api/made/${m.at}?path=${encodeURIComponent(m.path)}`, m.book));
     toast(cooked ? `Logged ${m.title}` : `Removed the guess for ${m.title}`, 'ok');
   } catch (err: any) { toast(err.message, 'error'); }
 }
@@ -131,7 +132,7 @@ export async function remove(path: string, isFolder = false) {
   const ok = await confirmIt(`Move “${nameOf(path)}” to the trash?`, isFolder ? 'Everything inside the folder goes with it. You can restore it from Trash.' : 'You can restore it from Trash.', 'Move to trash', true);
   if (!ok) return;
   try {
-    await api('DELETE', '/api/files/' + path.split('/').map(encodeURIComponent).join('/'));
+    await api('DELETE', fileUrl(path));
     await loadVault();
     retarget(path, null);
     toast('Moved to trash', 'ok');
@@ -170,6 +171,21 @@ export function openExternal(url: string) {
 
 export async function shell(action: string, body: any = {}) {
   try { return await api('POST', `/api/shell/${action}`, body); } catch (e: any) { toast(e.message, 'error'); }
+}
+
+/** Pick a folder on the Mac (its picker can make a new one) and open it as a new cookbook, or, with
+ * `id`, serve that cookbook from it instead (moved, or set up for the first time). Returns whether
+ * anything changed. Errors (a folder inside another cookbook, a name already used) are shown. */
+export async function chooseCookbookFolder(id?: string): Promise<boolean> {
+  const r = await shell('choose-vault');
+  if (!r?.path) return false;
+  try {
+    if (id) await api('PUT', `/api/cookbooks/${id}`, { path: r.path });
+    else await api('POST', '/api/cookbooks', { path: r.path });
+  } catch (e: any) { toast(e.message, 'error'); return false; }
+  await loadSession();
+  await loadVault();
+  return true;
 }
 
 // ---------- menus ----------

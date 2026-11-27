@@ -8,7 +8,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { untrack, getContext } from 'svelte';
-  import { app, noteHash, folderHash, canWrite, nameOf, toast, favorites as myFavorites, type Tab } from '../lib/state.svelte';
+  import { app, noteHash, folderHash, canWrite, nameOf, cookbookName, toast, favorites as myFavorites, type Tab } from '../lib/state.svelte';
   import Board from './Board.svelte';
   import Today from './Today.svelte';
   import { board } from '../lib/board.svelte';
@@ -107,7 +107,7 @@
 <div class="page">
   <header class="toolbar row crumb-bar">
     <Crumbs dir={path} />
-    <span class="bar-name">{path ? nameOf(path) : 'Recipes'}{#if path && files.length}<span class="n" aria-label="{files.length} items">{files.length}</span>{/if}</span>
+    <span class="bar-name">{path ? nameOf(path) : cookbookName()}{#if path && files.length}<span class="n" aria-label="{files.length} items">{files.length}</span>{/if}</span>
     <span class="spacer"></span>
     {#if !path && app.session.user}
       <button class="btn" aria-label="Write on the whiteboard" title="Write on the whiteboard" onclick={() => (board.compose = true)}><Icon name="message" /></button>

@@ -1,11 +1,12 @@
 <script lang="ts">
-  // Connect the recipes folder to a GitHub repository once; after that every save is uploaded and
-  // other Macs' changes are downloaded (crates/core/src/git.rs). Used by Setup and Settings.
-  import { api } from '../lib/api';
+  // Connect a cookbook's folder to a GitHub repository once; after that every save is uploaded and
+  // other Macs' changes are downloaded (crates/core/src/git.rs). Used by Setup and Settings → Cookbooks.
+  import { api, inBook } from '../lib/api';
   import { toast } from '../lib/state.svelte';
   import { confirmIt } from '../lib/dialog.svelte';
 
-  let { status, onchange }: { status: any; onchange: (st: any) => void } = $props();
+  /** `book`: the cookbook's id (each may be a different repository) */
+  let { book, status, onchange }: { book: string; status: any; onchange: (st: any) => void } = $props();
   let repo = $state('');
   let token = $state('');
   let busy = $state(false);
@@ -16,22 +17,22 @@
   }
 
   const connect = () => call(async () => {
-    const st = await api('POST', '/api/git/connect', { url: repo, token });
+    const st = await api('POST', inBook('/api/git/connect', book), { url: repo, token });
     token = '';
     toast(`Connected to ${st.remote}`, 'ok');
     return st;
   });
 
   const syncNow = () => call(async () => {
-    const st = await api('POST', '/api/git/sync');
+    const st = await api('POST', inBook('/api/git/sync', book));
     if (st.error) toast(st.error, 'error');
     else toast(st.pulled ? `Got ${st.pulled} ${st.pulled === 1 ? 'change' : 'changes'} from GitHub` : 'Up to date', 'ok');
     return st;
   });
 
   async function disconnect() {
-    if (!(await confirmIt('Stop syncing with GitHub?', 'The recipes stay in this folder, but changes are no longer uploaded or downloaded.', 'Stop syncing', true))) return;
-    call(() => api('DELETE', '/api/git'));
+    if (!(await confirmIt('Stop syncing with GitHub?', 'The recipes stay in the folder, but changes are no longer uploaded or downloaded.', 'Stop syncing', true))) return;
+    call(() => api('DELETE', inBook('/api/git', book)));
   }
 
   const ago = (t: number) => {
@@ -50,7 +51,7 @@
     <button class="btn danger" onclick={disconnect} disabled={busy}>Stop syncing</button>
   </div>
 {:else}
-  <p class="muted small">Optional. Keep the recipes in a private GitHub repository, shared between Macs. Connect once and every save is uploaded automatically. The recipes folder must be empty or already a copy of that repository.</p>
+  <p class="muted small">Optional. Keep the recipes in a private GitHub repository, shared between Macs. Connect once and every save is uploaded automatically. The cookbook's folder must be empty or already a copy of that repository.</p>
   <form class="grid" onsubmit={(e) => { e.preventDefault(); connect(); }}>
     <label>Repository
       <input class="field" bind:value={repo} placeholder="owner/name" autocomplete="off" autocapitalize="off" spellcheck="false" />

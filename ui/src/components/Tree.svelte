@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  import { bookKey } from '../lib/api';
   export interface TreeNode { name: string; path: string; folder: boolean; children: TreeNode[]; kind?: string }
 
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
@@ -33,13 +34,13 @@
   export const MINE = '\u0000mine';
   const isVirtual = (p?: string) => !!p?.startsWith('\u0000');
 
-  const saved = (() => { try { return JSON.parse(localStorage.getItem('expanded') || '[]'); } catch { return []; } })();
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(bookKey('expanded')) || '[]'); } catch { return []; } })();
   export const expanded = $state<Record<string, boolean>>(Object.fromEntries(saved.map((p: string) => [p, true])));
   expanded[FAV] = (() => { try { return localStorage.getItem('favOpen') !== '0'; } catch { return true; } })();
   expanded[MINE] = (() => { try { return localStorage.getItem('mineOpen') !== '0'; } catch { return true; } })();
   export function persistExpanded() {
     try {
-      localStorage.setItem('expanded', JSON.stringify(Object.keys(expanded).filter((k) => expanded[k] && !isVirtual(k))));
+      localStorage.setItem(bookKey('expanded'), JSON.stringify(Object.keys(expanded).filter((k) => expanded[k] && !isVirtual(k))));
       localStorage.setItem('favOpen', expanded[FAV] ? '1' : '0');
       localStorage.setItem('mineOpen', expanded[MINE] ? '1' : '0');
     } catch {}

@@ -5,7 +5,7 @@
 //! `ASSUME_AFTER_MIN` in made.ts); an assumption can be confirmed or removed, a real entry can't.
 
 use crate::auth::{self, Who};
-use crate::server::{AppState, err, write_private};
+use crate::server::{AppState, Bk, Book, FIRST_BOOK, Listener, err, write_private};
 use crate::vault::VaultPath;
 use axum::extract::{Path as AxPath, Query, State};
 use axum::http::StatusCode;
@@ -23,6 +23,9 @@ pub const EVENT: &str = "made";
 pub struct Made {
     /// Unix seconds
     pub at: u64,
+    /// the cookbook the recipe is in; entries from before cookbooks are the first one's
+    #[serde(default = "first_book")]
+    pub book: String,
     pub path: String,
     /// the recipe's title and tags when it was made, so a later rename or edit doesn't change the log
     pub title: String,
@@ -33,6 +36,10 @@ pub struct Made {
     /// logged because the recipe stayed open, not because someone said so
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub assumed: bool,
+}
+
+fn first_book() -> String {
+    FIRST_BOOK.into()
 }
 
 /// An assumption is not made when the recipe was logged this recently, and a real entry replaces
@@ -77,16 +84,16 @@ fn change(s: &AppState, f: impl FnOnce(&mut Vec<Made>) -> Result<bool, Response>
     Ok(all)
 }
 
-/// Log `path` as made now by `by`; returns the whole log.
-pub fn log(s: &AppState, path: &str, by: Option<String>, assumed: bool) -> Result<Vec<Made>, Response> {
+/// Log `path` in cookbook `b` as made now by `by`; returns the whole log.
+pub fn log(s: &AppState, b: &Book, path: &str, by: Option<String>, assumed: bool) -> Result<Vec<Made>, Response> {
     let p = VaultPath::parse(path).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let m = {
-        let idx = s.index.read().unwrap();
-        let e = idx.files.get(&p).filter(|e| e.recipe.is_some()).ok_or_else(|| err(StatusCode::NOT_FOUND, "that recipe is not in the recipes folder"))?;
-        Made { at: auth::now(), path: p.as_str().to_string(), title: e.title.clone(), tags: tags_of(e.frontmatter.as_ref()), by, assumed }
+        let idx = b.index.read().unwrap();
+        let e = idx.files.get(&p).filter(|e| e.recipe.is_some()).ok_or_else(|| err(StatusCode::NOT_FOUND, "that recipe is not in this cookbook"))?;
+        Made { at: auth::now(), book: b.id.clone(), path: p.as_str().to_string(), title: e.title.clone(), tags: tags_of(e.frontmatter.as_ref()), by, assumed }
     };
     change(s, |l| {
-        let recent = |x: &Made| x.path == m.path && x.at + SAME_MEAL > m.at;
+        let recent = |x: &Made| x.book == m.book && x.path == m.path && x.at + SAME_MEAL > m.at;
         if assumed && l.iter().any(recent) {
             return Ok(false);
         }
@@ -98,8 +105,10 @@ pub fn log(s: &AppState, path: &str, by: Option<String>, assumed: bool) -> Resul
     })
 }
 
-async fn list(State(s): State<Arc<AppState>>) -> Res {
-    Ok(Json(with(&s, |l| l.clone())).into_response())
+/// One history for every cookbook; phones and tablets don't see meals from a Mac-only one.
+async fn list(State(s): State<Arc<AppState>>, Extension(l): Extension<Listener>) -> Res {
+    let hidden: Vec<String> = if l == Listener::Loopback { vec![] } else { s.settings.read().unwrap().cookbooks.iter().filter(|c| c.mac_only).map(|c| c.id.clone()).collect() };
+    Ok(Json(with(&s, |m| m.iter().filter(|x| !hidden.contains(&x.book)).cloned().collect::<Vec<_>>())).into_response())
 }
 
 #[derive(Deserialize)]
@@ -109,20 +118,20 @@ struct PostBody {
     assumed: bool,
 }
 
-async fn post(State(s): State<Arc<AppState>>, Extension(Who(who)): Extension<Who>, Json(b): Json<PostBody>) -> Res {
-    Ok(Json(log(&s, &b.path, who.map(|a| a.name), b.assumed)?).into_response())
+async fn post(State(s): State<Arc<AppState>>, Bk(book): Bk, Extension(Who(who)): Extension<Who>, Json(b): Json<PostBody>) -> Res {
+    Ok(Json(log(&s, &book, &b.path, who.map(|a| a.name), b.assumed)?).into_response())
 }
 
-/// An entry is named by its time and recipe.
+/// An entry is named by its time and recipe (and its cookbook, `?book=`).
 #[derive(Deserialize)]
 struct Which {
     path: String,
 }
 
-/// Find the assumed entry `at`/`path` and apply `f` to the log at its index.
-fn assumption(s: &AppState, at: u64, path: &str, f: impl FnOnce(&mut Vec<Made>, usize)) -> Result<Vec<Made>, Response> {
+/// Find the assumed entry `at`/`path` in cookbook `book` and apply `f` to the log at its index.
+fn assumption(s: &AppState, book: &str, at: u64, path: &str, f: impl FnOnce(&mut Vec<Made>, usize)) -> Result<Vec<Made>, Response> {
     change(s, |l| {
-        let i = l.iter().position(|m| m.at == at && m.path == path).ok_or_else(|| err(StatusCode::NOT_FOUND, "that meal is no longer in the log"))?;
+        let i = l.iter().position(|m| m.at == at && m.book == book && m.path == path).ok_or_else(|| err(StatusCode::NOT_FOUND, "that meal is no longer in the log"))?;
         if !l[i].assumed {
             return Err(err(StatusCode::BAD_REQUEST, "only a guessed meal can be changed"));
         }
@@ -132,8 +141,8 @@ fn assumption(s: &AppState, at: u64, path: &str, f: impl FnOnce(&mut Vec<Made>, 
 }
 
 /// "Yes, cooked": the assumption becomes a real entry, at the time it was guessed.
-async fn confirm(State(s): State<Arc<AppState>>, Extension(Who(who)): Extension<Who>, AxPath(at): AxPath<u64>, Query(q): Query<Which>) -> Res {
-    let all = assumption(&s, at, &q.path, |l, i| {
+async fn confirm(State(s): State<Arc<AppState>>, Bk(b): Bk, Extension(Who(who)): Extension<Who>, AxPath(at): AxPath<u64>, Query(q): Query<Which>) -> Res {
+    let all = assumption(&s, &b.id, at, &q.path, |l, i| {
         l[i].assumed = false;
         if let Some(a) = who {
             l[i].by = Some(a.name);
@@ -143,8 +152,8 @@ async fn confirm(State(s): State<Arc<AppState>>, Extension(Who(who)): Extension<
 }
 
 /// "Not cooked": the assumption is removed.
-async fn remove(State(s): State<Arc<AppState>>, AxPath(at): AxPath<u64>, Query(q): Query<Which>) -> Res {
-    let all = assumption(&s, at, &q.path, |l, i| {
+async fn remove(State(s): State<Arc<AppState>>, Bk(b): Bk, AxPath(at): AxPath<u64>, Query(q): Query<Which>) -> Res {
+    let all = assumption(&s, &b.id, at, &q.path, |l, i| {
         l.remove(i);
     })?;
     Ok(Json(all).into_response())
@@ -161,16 +170,30 @@ mod tests {
         std::fs::write(tmp.join("v/Meat/Chops.md"), "---\ntags:\n  - Dinner\n  - Pork\n---\n# Chops\n\n## Ingredients\n\n- 2 pork chops\n\n## Directions\n\n1. Fry.\n").unwrap();
         let cfg = crate::server::Config { vault: tmp.join("v"), data_dir: tmp.join("d"), shell: None, pdf_text: None };
         let s = crate::server::init(cfg).unwrap();
+        let b = s.books.read().unwrap()[0].clone();
         let mut rx = s.events.subscribe();
 
-        let l = log(&s, "Meat/Chops.md", Some("Ann".into()), false).unwrap();
+        let l = log(&s, &b, "Meat/Chops.md", Some("Ann".into()), false).unwrap();
         assert_eq!((l.len(), l[0].title.as_str(), l[0].tags.clone()), (1, "Chops", vec!["Dinner".to_string(), "Pork".to_string()]));
         assert_eq!(l[0].by.as_deref(), Some("Ann"));
         assert_eq!(rx.try_recv().unwrap(), EVENT);
-        assert!(log(&s, "Meat/Missing.md", None, false).is_err());
+        assert!(log(&s, &b, "Meat/Missing.md", None, false).is_err());
 
         *s.ext.made.0.lock().unwrap() = None; // read back from disk
-        assert_eq!(with(&s, |l| l.len()), 1);
+        assert_eq!(with(&s, |l| (l.len(), l[0].book.clone())), (1, FIRST_BOOK.to_string()));
+
+        // one history for every cookbook: the same path in another is another meal, not "already made"
+        std::fs::create_dir_all(tmp.join("w/Meat")).unwrap();
+        std::fs::copy(tmp.join("v/Meat/Chops.md"), tmp.join("w/Meat/Chops.md")).unwrap();
+        let c = crate::server::Cookbook { id: "b2".into(), path: tmp.join("w"), git_sync: false, mac_only: true };
+        s.settings.write().unwrap().cookbooks.push(c.clone());
+        let b2 = s.open(&c).unwrap();
+        let l = log(&s, &b2, "Meat/Chops.md", None, true).unwrap();
+        assert_eq!(l.iter().map(|m| m.book.as_str()).collect::<Vec<_>>(), [FIRST_BOOK, "b2"]);
+        assert!(log(&s, &b2, "Meat/Missing.md", None, false).is_err(), "checked against its own cookbook");
+        // a meal saved before cookbooks belongs to the first
+        let old: Made = serde_json::from_str(r#"{"at":1,"path":"Meat/Chops.md","title":"Chops","tags":[]}"#).unwrap();
+        assert_eq!(old.book, FIRST_BOOK);
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
@@ -181,24 +204,25 @@ mod tests {
         std::fs::write(tmp.join("v/Chops.md"), "# Chops\n\n## Ingredients\n\n- 2 pork chops\n\n## Directions\n\n1. Fry.\n").unwrap();
         let cfg = crate::server::Config { vault: tmp.join("v"), data_dir: tmp.join("d"), shell: None, pdf_text: None };
         let s = crate::server::init(cfg).unwrap();
+        let b = s.books.read().unwrap()[0].clone();
 
         // a guess, then no second guess the same day
-        let l = log(&s, "Chops.md", Some("Ann".into()), true).unwrap();
+        let l = log(&s, &b, "Chops.md", Some("Ann".into()), true).unwrap();
         assert!(l[0].assumed);
-        assert_eq!(log(&s, "Chops.md", Some("Ann".into()), true).unwrap().len(), 1);
+        assert_eq!(log(&s, &b, "Chops.md", Some("Ann".into()), true).unwrap().len(), 1);
         // pressing "Made today" replaces the guess
-        let l = log(&s, "Chops.md", Some("Bob".into()), false).unwrap();
+        let l = log(&s, &b, "Chops.md", Some("Bob".into()), false).unwrap();
         assert_eq!((l.len(), l[0].assumed, l[0].by.as_deref()), (1, false, Some("Bob")));
         // and a real entry can't be removed or "confirmed"
-        assert!(assumption(&s, l[0].at, "Chops.md", |_, _| {}).is_err());
+        assert!(assumption(&s, &b.id, l[0].at, "Chops.md", |_, _| {}).is_err());
 
         // a guess the same day as a real entry is not made either
         with(&s, |l| l.clear());
-        let l = log(&s, "Chops.md", None, true).unwrap();
+        let l = log(&s, &b, "Chops.md", None, true).unwrap();
         let at = l[0].at;
-        assert_eq!(assumption(&s, at, "Chops.md", |l, i| l[i].assumed = false).unwrap()[0].assumed, false);
+        assert_eq!(assumption(&s, &b.id, at, "Chops.md", |l, i| l[i].assumed = false).unwrap()[0].assumed, false);
         with(&s, |l| l[0].assumed = true);
-        assert!(assumption(&s, at, "Chops.md", |l, i| { l.remove(i); }).unwrap().is_empty());
+        assert!(assumption(&s, &b.id, at, "Chops.md", |l, i| { l.remove(i); }).unwrap().is_empty());
         let _ = std::fs::remove_dir_all(&tmp);
     }
 }

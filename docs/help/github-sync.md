@@ -5,11 +5,11 @@ audience: admin
 order: 76
 ---
 
-Optional. Once connected, the recipes folder is a git clone of a private GitHub repository, and the app commits, pulls and pushes by itself. Git is built in (libgit2, bundled through the `git2` crate), so nothing needs installing. The code is `crates/core/src/git.rs`; the UI is `ui/src/components/GitHub.svelte`.
+Optional. Once connected, the recipes folder is a git clone of a private GitHub repository, and the app commits, pulls and pushes by itself. With several [cookbooks](#/settings/help/cookbooks), each is connected on its own, to its own repository or none: each has its own sync loop, status and token (Keychain account `github-token` for the cookbook from before cookbooks, id `1`, and `github-token:<id>` for the others), and `git_sync` is a property of each entry in `settings.json`'s `cookbooks`. Moving a cookbook to another folder (**Choose its folder…**) turns its sync off; removing one deletes its token. Git is built in (libgit2, bundled through the `git2` crate), so nothing needs installing. The code is `crates/core/src/git.rs`; the UI is `ui/src/components/GitHub.svelte`.
 
 ## Connecting
 
-In the first-start setup (**Recipes from GitHub**) or Settings → Recipes folder → GitHub:
+In the first-start setup (**Recipes from GitHub**) or Settings → Cookbooks → GitHub:
 
 1. **Repository**: `owner/name`. A `https://github.com/…` address, `github.com/owner/name` or `git@github.com:owner/name` also work; all become the https clone URL.
 2. **Access token**: a fine-grained token made by the repository's owner, with *Only select repositories* → the recipes repository and *Permissions* → *Contents: Read and write*. The same token works on every family Mac.
@@ -20,7 +20,7 @@ Connect (`POST /api/git/connect`, desktop only) then:
 - Sets an empty folder up to receive it (dot files such as `.DS_Store` don't count as content). A folder with other files is refused: choose an empty folder first with **Use a different folder…**.
 - Refuses a folder that is already a clone of a different repository.
 - Runs a first full sync, so a wrong repository name or a bad token fails here, before the token or the setting is saved.
-- Then saves the token in the macOS Keychain (service `family.recipes.desktop`, account `github-token`) and sets `git_sync: true` in `settings.json`. Leaving the token field empty reuses a token already in the Keychain.
+- Then saves the token in the macOS Keychain (service `family.recipes.desktop`, account `github-token` or `github-token:<id>`, see above) and sets the cookbook's `git_sync: true` in `settings.json`. Leaving the token field empty reuses a token already in the Keychain.
 
 The token is sent to GitHub as the password for user `x-access-token`. It is never written to the repository's config or to the settings file.
 
@@ -53,7 +53,7 @@ The app sees pulled changes at once, through the file watcher.
 
 ## Status
 
-Settings → Recipes folder → GitHub shows (from `git::status`, also part of `GET /api/settings`):
+Settings → Cookbooks → GitHub shows (from `git::status`, also part of `GET /api/settings`):
 
 - the repository and the time of the last successful sync;
 - the last error, if the round failed;
@@ -80,7 +80,7 @@ Nothing is lost when two Macs change the same file before syncing:
 
 ## Disconnecting
 
-Settings → Recipes folder → GitHub → **Stop syncing** (`DELETE /api/git`) sets `git_sync: false` and deletes the token from the Keychain. The recipes and their git history (`.git/`) stay in the folder. Connecting again needs the token again.
+Settings → Cookbooks → GitHub → **Stop syncing** (`DELETE /api/git`) sets that cookbook's `git_sync` to false and deletes its token from the Keychain. The recipes and their git history (`.git/`) stay in the folder. Connecting again needs the token again.
 
 ## By hand
 

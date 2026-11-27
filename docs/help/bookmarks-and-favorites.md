@@ -26,7 +26,7 @@ A favorite is personal: it marks a recipe you like, without changing it for anyo
 - Your favorites are listed under **Favorites** at the top of the home page, and show a star on their cards.
 - They also show on your page in **People**, so the family can see what you like (see [People in the book](#/settings/help/people-pages)).
 
-Favorites are kept with your name, so they're the same on your phone, your tablet and any other device you sign in on. If someone else signs in on the same device, they see their own favorites, not yours. When a recipe is renamed or moved, it stays in your favorites.
+Favorites are kept with your name, so they're the same on your phone, your tablet and any other device you sign in on. If someone else signs in on the same device, they see their own favorites, not yours. When a recipe is renamed or moved, it stays in your favorites. With more than one [cookbook](#/settings/help/cookbooks), each has its own favorites.
 
 Favorites you had before they were kept with your name are added to your list the next time you open the app on that device.
 

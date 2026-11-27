@@ -1,10 +1,9 @@
 //! Feedback: bug reports, ideas and notes sent from anywhere in the app (search "feedback", or ⌘⇧F).
-//! Appended as Markdown to `FEEDBACK.md` at the top of the recipes folder, which the folder list
+//! Appended as Markdown to `FEEDBACK.md` at the top of the cookbook's folder, which the folder list
 //! hides (`vault::hidden`) and GitHub sync carries to the owner like any other change.
 
 use crate::auth::Who;
-use crate::server::{AppState, err};
-use axum::extract::State;
+use crate::server::{AppState, Bk, Book, err};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::post;
@@ -33,7 +32,7 @@ struct Body {
 }
 
 /// Append one entry; the header is written when the file is new or was emptied.
-pub fn append(s: &AppState, who: &str, kind: &str, text: &str, context: &str) -> Result<(), Response> {
+pub fn append(s: &Book, who: &str, kind: &str, text: &str, context: &str) -> Result<(), Response> {
     let bad = |m: &str| err(StatusCode::BAD_REQUEST, m);
     if !KINDS.contains(&kind) {
         return Err(bad("unknown kind of feedback"));
@@ -62,7 +61,7 @@ pub fn append(s: &AppState, who: &str, kind: &str, text: &str, context: &str) ->
 }
 
 /// Anyone signed in may send feedback, readers too.
-async fn post_feedback(State(s): State<Arc<AppState>>, Extension(Who(who)): Extension<Who>, Json(b): Json<Body>) -> Result<Response, Response> {
+async fn post_feedback(Bk(s): Bk, Extension(Who(who)): Extension<Who>, Json(b): Json<Body>) -> Result<Response, Response> {
     let who = who.ok_or_else(|| err(StatusCode::UNAUTHORIZED, "sign in first"))?;
     append(&s, &who.name, &b.kind, &b.text, &b.context)?;
     Ok(StatusCode::NO_CONTENT.into_response())
@@ -77,7 +76,7 @@ mod tests {
         let tmp = std::env::temp_dir().join(format!("recipes-feedback-{}", std::process::id()));
         std::fs::create_dir_all(tmp.join("v")).unwrap();
         let cfg = crate::server::Config { vault: tmp.join("v"), data_dir: tmp.join("d"), shell: None, pdf_text: None };
-        let s = crate::server::init(cfg).unwrap();
+        let s = crate::server::init(cfg).unwrap().books.read().unwrap()[0].clone();
 
         append(&s, "Ana", "Bug", " Scale doubles eggs twice ", "- Page: Brownies").unwrap();
         append(&s, "Ben", "Idea", "Dark mode for cook mode", "").unwrap();

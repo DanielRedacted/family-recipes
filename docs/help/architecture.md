@@ -14,7 +14,7 @@ One Rust server library does everything; the desktop app and the headless dev se
         │                                          │
         ▼                                          ▼
   src-tauri (Recipes.app)                 recipes-server (headless)
-  window on 127.0.0.1:<random>            127.0.0.1:8640 by default
+  window on 127.0.0.1:47321               127.0.0.1:8640 by default
   + home network on :80 / :443            + home network only with --lan
 ```
 
@@ -25,7 +25,7 @@ The whole server, as the library `recipes-core`. Modules (`crates/core/src/`):
 | Module | What it does |
 |---|---|
 | `lib.rs` | Glue: subsystem state (`Extensions`), the extra routes, `start_network` (router, sharing, IP watcher, GitHub sync) and reacting to settings changes. |
-| `server.rs` | The axum router and handlers for files, folders, trash, settings and shell actions; app state, settings, the file watcher, and serving the embedded UI. |
+| `server.rs` | The axum router and handlers for files, folders, trash, settings, cookbooks and shell actions; app state, settings, the open cookbooks (`Book`: a folder's index, file watcher, GitHub sync and ingredient cache) and the `Bk` extractor that picks a request's cookbook from `?book=`, and serving the embedded UI. |
 | `auth.rs` | Roles (Reader, Writer, Admin), session cookies, PIN hashing (Argon2) and rate limiting, and the `guard` middleware (host check, CSRF check, activity log). |
 | `users.rs` | People and their devices (`users.json`), sign-in, and the activity log (`activity.log`). |
 | `vault.rs` | The recipes folder as a database: safe relative paths, scanning and the index, atomic writes, the trash and earlier versions. |
@@ -50,7 +50,7 @@ The routes are listed on [Server API](#/settings/help/server-api).
 
 The desktop shell only (`src-tauri/src/main.rs`), Tauri 2:
 
-- Starts the core in-process and binds the loopback listener on a random port; the window opens `/auth?k=<launch token>` there, which makes it the admin.
+- Starts the core in-process and binds the loopback listener on port 47321 (`WINDOW_PORT`; a random one when it's taken, and always under the release check's `RECIPES_SMOKE`), so the window is the same web origin each launch and keeps its tabs, theme, units and cookbook; the window opens `/auth?k=<launch token>` there, which makes it the admin.
 - Implements the core's `Shell` trait (`TauriShell`): reveal in Finder, the folder picker, print, opening web pages in the default browser, open at login, restart, and checking for and installing updates.
 - Keeps running in the menu bar when the window is closed, so phones and tablets stay served. Started at login with `--hidden`, it has no window and no Dock icon.
 - Links to other sites open in the default browser, not in the window. Downloads go to the Downloads folder, numbered when a name is taken.
@@ -72,7 +72,7 @@ Svelte 5 with runes, built by Vite (`ui/`). Notable parts:
 
 The recipes and the app's own data are kept apart, so GitHub sync never sees people, logs or keys.
 
-**The recipes folder** (default `~/Recipes`, changeable in Settings → Recipes folder; the choice is stored in `settings.json` and takes effect when Recipes restarts):
+**The recipes folder**, one per [cookbook](#/settings/help/cookbooks) (default `~/Recipes`; Settings → Cookbooks keeps the list in `settings.json`'s `cookbooks`, `{id, path, git_sync, mac_only}`, and opens, moves or closes one at once, without a restart). A settings file from before cookbooks (`vault`, `git_sync`) is read as one cookbook with id `1`, and meals and favorites saved then belong to it. Each:
 
 | Path | What it is |
 |---|---|
@@ -88,12 +88,12 @@ The app hides every dot file and dot folder, and `AGENTS.md`, `CLAUDE.md`, `FEED
 
 | File | What it is |
 |---|---|
-| `settings.json` | settings: recipes folder, PIN hash, AI provider and model, sharing, keep awake, GitHub sync on/off, Editing as |
+| `settings.json` | settings: the cookbooks (folder, GitHub sync on/off, Mac only), PIN hash, AI provider and model, sharing, keep awake, Editing as |
 | `cookie.key` | the key that signs session cookies |
-| `users.json` | people and their devices |
+| `users.json` | people, their devices and their favorites (`favorites` for cookbook `1`, `favorites_in` by id for the others) |
 | `activity.log` | every change a person made, one JSON line each; past 1 MB it becomes `activity.log.1` (replacing the older one), and a person's list reads both |
 | `messages.json` | the whiteboard |
-| `made.json` | meals made, with who logged them and which are guesses |
+| `made.json` | meals made, from every cookbook (`book`), with who logged them and which are guesses |
 | `tls/` | the local CA and the server certificate |
 | `dns-sd.pid` | the Bonjour registration's process |
 

@@ -7,7 +7,7 @@
 //! `added_by`, `changes`; see ui/src/lib/people.ts), so it outlives the account.
 
 use crate::auth::{self, Actor, Caller, Role, Who};
-use crate::server::{AppState, err, write_private};
+use crate::server::{AppState, Bk, FIRST_BOOK, Listener, book_param, err, write_private};
 use axum::extract::{Path as AxPath, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -15,6 +15,7 @@ use axum::routing::{get, post, put};
 use axum::{Extension, Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use std::collections::BTreeMap;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
 
@@ -49,15 +50,28 @@ pub struct User {
     pub created: u64,
     #[serde(default)]
     pub devices: Vec<Device>,
-    /// recipe paths this person marked as a favorite
+    /// recipe paths this person marked as a favorite in the first cookbook (`FIRST_BOOK`, as
+    /// before cookbooks); `favorites_in` has the other cookbooks', by id
     #[serde(default)]
     pub favorites: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub favorites_in: BTreeMap<String, Vec<String>>,
     /// an emoji, or a small `data:image/…;base64,…` picture
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub picture: Option<String>,
     /// names this person was credited under before a rename, so older recipes still count as theirs
     #[serde(default)]
     pub former: Vec<String>,
+}
+
+impl User {
+    /// This person's favorites in cookbook `book`.
+    pub fn favs(&self, book: &str) -> &[String] {
+        if book == FIRST_BOOK { &self.favorites } else { self.favorites_in.get(book).map_or(&[], Vec::as_slice) }
+    }
+    fn favs_mut(&mut self, book: &str) -> &mut Vec<String> {
+        if book == FIRST_BOOK { &mut self.favorites } else { self.favorites_in.entry(book.to_string()).or_default() }
+    }
 }
 
 /// Loaded from disk on first use.
@@ -116,7 +130,7 @@ fn same(a: &str, b: &str) -> bool {
 }
 
 fn new_user(name: String, full_name: String) -> User {
-    User { id: format!("{:016x}", rand::random::<u64>()), name, full_name, created: auth::now(), devices: vec![], favorites: vec![], picture: None, former: vec![] }
+    User { id: format!("{:016x}", rand::random::<u64>()), name, full_name, created: auth::now(), devices: vec![], favorites: vec![], favorites_in: BTreeMap::new(), picture: None, former: vec![] }
 }
 
 /// Sign in as the person with this name (any letter case), adding them if they're new (a full name
@@ -164,13 +178,13 @@ pub fn remove(s: &AppState, id: &str) -> Result<(), Response> {
     })
 }
 
-/// A file or folder in the recipes moved from `from` to `to`: favorites follow it.
-pub fn moved(s: &AppState, from: &str, to: &str) {
+/// A file or folder in cookbook `book` moved from `from` to `to`: favorites follow it.
+pub fn moved(s: &AppState, book: &str, from: &str, to: &str) {
     let follow = |p: &str| (p == from).then(|| to.to_string()).or_else(|| p.strip_prefix(from).filter(|r| r.starts_with('/')).map(|r| format!("{to}{r}")));
     with(s, |l| {
         let mut changed = false;
         for u in l.iter_mut() {
-            for p in u.favorites.iter_mut() {
+            for p in u.favs_mut(book).iter_mut() {
                 if let Some(n) = follow(p) {
                     *p = n;
                     changed = true;
@@ -228,14 +242,19 @@ fn worth_logging(path: &str) -> bool {
     !skip && !import_step
 }
 
-/// Append one change to the activity log (called by the guard after a successful write).
+/// Append one change to the activity log (called by the guard after a successful write). `book`:
+/// the request's `?book=`, kept when it names a cookbook other than the first.
 // Moves and import saves record the endpoint, not the recipe's name (that is in the request body).
-pub fn log_write(s: &AppState, a: &Actor, method: &str, path: &str) {
+pub fn log_write(s: &AppState, a: &Actor, method: &str, path: &str, book: Option<&str>) {
     use std::os::unix::fs::OpenOptionsExt;
     if !worth_logging(path) {
         return;
     }
-    let line = json!({ "t": auth::now(), "user": a.id, "name": a.name, "method": method, "path": path }).to_string() + "\n";
+    let mut v = json!({ "t": auth::now(), "user": a.id, "name": a.name, "method": method, "path": path });
+    if let Some(b) = book.filter(|b| *b != FIRST_BOOK && b.len() <= 16 && b.bytes().all(|c| c.is_ascii_hexdigit())) {
+        v["book"] = json!(b);
+    }
+    let line = v.to_string() + "\n";
     let log = s.data_dir.join(LOG);
     if std::fs::metadata(&log).is_ok_and(|m| m.len() > LOG_LIMIT) {
         if let Err(e) = std::fs::rename(&log, s.data_dir.join(OLD_LOG)) {
@@ -268,15 +287,22 @@ pub fn routes() -> Router<Arc<AppState>> {
 }
 
 /// Names for the sign-in page (anyone). Signed-in people also see each other's pages: when they
-/// joined, their favorites, picture and former names. Only the desktop app gets their devices.
-async fn list(State(s): State<Arc<AppState>>, Caller(role): Caller, Extension(Who(who)): Extension<Who>) -> Response {
+/// joined, their favorites (in the request's cookbook), picture and former names. Only the desktop
+/// app gets their devices.
+async fn list(State(s): State<Arc<AppState>>, Caller(role): Caller, Extension(Who(who)): Extension<Who>, Extension(lis): Extension<Listener>, uri: axum::http::Uri) -> Response {
+    // the sign-in page works whatever the address says; an unknown cookbook just has no favorites
+    let book = s.requested(book_param(&uri), lis).map(|b| b.id.clone()).unwrap_or_default();
     let mut l = with(&s, |l| l.clone());
     l.sort_by_key(|u| u.name.to_lowercase());
     let out: Vec<Value> = l
         .into_iter()
         .map(|u| match (role, &who) {
-            (Role::Admin, _) => serde_json::to_value(u).unwrap(),
-            (_, Some(_)) => json!({ "id": u.id, "name": u.name, "full_name": u.full_name, "created": u.created, "favorites": u.favorites, "picture": u.picture, "former": u.former }),
+            (Role::Admin, _) => {
+                let mut v = json!({ "id": u.id, "name": u.name, "full_name": u.full_name, "created": u.created, "devices": u.devices, "picture": u.picture, "former": u.former });
+                v["favorites"] = json!(u.favs(&book));
+                v
+            }
+            (_, Some(_)) => json!({ "id": u.id, "name": u.name, "full_name": u.full_name, "created": u.created, "favorites": u.favs(&book), "picture": u.picture, "former": u.former }),
             (_, None) => json!({ "id": u.id, "name": u.name, "full_name": u.full_name }),
         })
         .collect();
@@ -292,12 +318,13 @@ struct FavoritesBody {
 }
 
 /// Add or remove the signed-in person's favorites (not a whole list, so two devices can't undo each other).
-async fn favorites(State(s): State<Arc<AppState>>, Extension(Who(who)): Extension<Who>, Json(b): Json<FavoritesBody>) -> Res {
+async fn favorites(State(s): State<Arc<AppState>>, Bk(book): Bk, Extension(Who(who)): Extension<Who>, Json(b): Json<FavoritesBody>) -> Res {
     let id = who.map(|a| a.id).ok_or_else(|| err(StatusCode::UNAUTHORIZED, "sign in first"))?;
     with(&s, |l| {
         let u = l.iter_mut().find(|u| u.id == id).ok_or_else(|| err(StatusCode::NOT_FOUND, "the Mac keeps its own favorites; choose someone in Editing as"))?;
-        edit_favorites(&mut u.favorites, &b.add, &b.remove)?;
-        let out = u.favorites.clone();
+        let favs = u.favs_mut(&book.id);
+        edit_favorites(favs, &b.add, &b.remove)?;
+        let out = favs.clone();
         save(&s, l)?;
         Ok(Json(out).into_response())
     })
@@ -395,6 +422,10 @@ async fn activity(State(s): State<Arc<AppState>>, caller: Caller, AxPath(id): Ax
 mod tests {
     use super::*;
 
+    fn favs_after() -> Vec<String> {
+        vec!["Desserts/Pies/Pumpkin Pie.md".into(), "Desserts/Pies/Apple Tart.md".into()]
+    }
+
     #[tokio::test]
     async fn people_devices_and_their_changes() {
         let tmp = std::env::temp_dir().join(format!("recipes-users-{}", std::process::id()));
@@ -417,18 +448,19 @@ mod tests {
         assert_eq!(name_of(&s, &ann.id).as_deref(), Some("Ann"));
 
         let a = actor_of(&s, &ann.id).unwrap();
-        log_write(&s, &a, "PUT", "/api/files/Pies/Pumpkin%20Pie.md");
-        log_write(&s, &a, "POST", "/api/session");
-        log_write(&s, &a, "POST", "/api/import/url");
-        log_write(&s, &a, "POST", "/api/import/abc/save");
-        log_write(&s, &Actor { id: "admin".into(), name: "Admin".into(), full_name: String::new() }, "DELETE", "/api/trash");
+        log_write(&s, &a, "PUT", "/api/files/Pies/Pumpkin%20Pie.md", None);
+        log_write(&s, &a, "POST", "/api/session", None);
+        log_write(&s, &a, "POST", "/api/import/url", None);
+        log_write(&s, &a, "POST", "/api/import/abc/save", Some("ab12cd34"));
+        log_write(&s, &Actor { id: "admin".into(), name: "Admin".into(), full_name: String::new() }, "DELETE", "/api/trash", None);
         let log = activity_of(&s, &ann.id, 10);
         assert_eq!(log.iter().map(|v| v["path"].as_str().unwrap()).collect::<Vec<_>>(), ["/api/import/abc/save", "/api/files/Pies/Pumpkin%20Pie.md"]);
+        assert_eq!((log[0]["book"].as_str(), log[1].get("book")), (Some("ab12cd34"), None), "the cookbook is kept unless it's the first");
 
         // a full log moves to activity.log.1 and the person's list still reads both
         let filler = format!("{}\n", json!({ "user": "someone-else", "path": "x".repeat(200) })).repeat(5000);
         std::fs::OpenOptions::new().append(true).open(s.data_dir.join(LOG)).unwrap().write_all(filler.as_bytes()).unwrap();
-        log_write(&s, &a, "PUT", "/api/files/Pies/Apple%20Pie.md");
+        log_write(&s, &a, "PUT", "/api/files/Pies/Apple%20Pie.md", Some(FIRST_BOOK));
         assert!(s.data_dir.join(OLD_LOG).is_file());
         assert!(std::fs::metadata(s.data_dir.join(LOG)).unwrap().len() < 1000);
         let log = activity_of(&s, &ann.id, 10);
@@ -441,10 +473,21 @@ mod tests {
         assert_eq!(favs, ["Pies/Pumpkin Pie.md", "Pies/Apple Pie.md"]);
         assert!(edit_favorites(&mut favs, &["".into()], &[]).is_err());
         with(&s, |l| l[0].favorites = favs.clone());
-        moved(&s, "Pies", "Desserts/Pies");
-        moved(&s, "Desserts/Pies/Apple Pie.md", "Desserts/Pies/Apple Tart.md");
-        moved(&s, "Pi", "Nothing"); // a prefix that isn't a folder moves nothing
+        moved(&s, FIRST_BOOK, "Pies", "Desserts/Pies");
+        moved(&s, FIRST_BOOK, "Desserts/Pies/Apple Pie.md", "Desserts/Pies/Apple Tart.md");
+        moved(&s, FIRST_BOOK, "Pi", "Nothing"); // a prefix that isn't a folder moves nothing
         assert_eq!(with(&s, |l| l[0].favorites.clone()), ["Desserts/Pies/Pumpkin Pie.md", "Desserts/Pies/Apple Tart.md"]);
+
+        // each cookbook has its own: the same path in another cookbook is another favorite, and a
+        // move there leaves the first cookbook's alone
+        with(&s, |l| l[0].favs_mut("b2").push("Desserts/Pies/Pumpkin Pie.md".into()));
+        moved(&s, "b2", "Desserts", "Sweets");
+        assert_eq!(with(&s, |l| (l[0].favs(FIRST_BOOK).to_vec(), l[0].favs("b2").to_vec())), (favs_after(), vec!["Sweets/Pies/Pumpkin Pie.md".to_string()]));
+        *s.ext.users.0.lock().unwrap() = None; // and both are read back from disk
+        assert_eq!(with(&s, |l| l[0].favs("b2").len()), 1);
+        // a users.json from before cookbooks still reads, as the first cookbook's
+        let old: User = serde_json::from_str(r#"{"id":"x","name":"Bo","created":1,"favorites":["Pie.md"]}"#).unwrap();
+        assert_eq!((old.favs(FIRST_BOOK), old.favs("b2").len()), (&["Pie.md".to_string()][..], 0));
 
         // pictures: one emoji or a small raster data URL, never markup
         assert_eq!(clean_picture(" 🥧 ").unwrap(), "🥧");

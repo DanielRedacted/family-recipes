@@ -27,6 +27,8 @@ Recipes added or changed before the app kept a history, or changed outside the a
 
 A guess never stops the home page from suggesting a dinner. Only a real **Made today** does that.
 
+With more than one [cookbook](#/settings/help/cookbooks), the Calendar shows the meals made from all of them. A meal from another cookbook shows that cookbook's name, and opens only from there. **Added** and **Changed** show the cookbook you're in.
+
 ## Today's events on the home page
 
 When the Mac's calendar is turned on and there's something on today, the home page shows a **Today** list under the whiteboard. On a day with no events, the list isn't there.

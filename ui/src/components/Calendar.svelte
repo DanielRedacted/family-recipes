@@ -6,7 +6,7 @@
   import Back from './Back.svelte';
   import { app, noteHash, type Tab } from '../lib/state.svelte';
   import { settleGuess } from '../lib/ops';
-  import { ASSUME_AFTER_MIN } from '../lib/made';
+  import { ASSUME_AFTER_MIN, inCookbook, type Made } from '../lib/made';
   import { daysOf, keyOf, addDays, startOfDay, fetchEvents, eventsOn, history, timeOf, refreshAtNaturalTimes, type CalEvent, type Item } from '../lib/calendar';
 
   const tab = getContext<Tab>('tab');
@@ -55,6 +55,8 @@
 
   const clock = (s: number) => new Date(s * 1000).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   const exists = (p: string) => !!app.byPath[p];
+  /** the cookbook a meal is from, when it isn't this tab's (the history is every cookbook's) */
+  const otherBook = (m: Made) => (inCookbook(m) ? undefined : app.session.books?.find((b) => b.id === (m.book ?? '1'))?.name ?? 'another cookbook');
   const label = (it: Item) =>
     it.kind === 'event' ? it.ev.title
     : it.kind === 'cooked' ? (it.made.assumed ? `${it.made.title} (assumed)` : it.made.title)
@@ -65,8 +67,8 @@
   const weekdays = $derived(days.slice(0, 7).map((d) => fmt(d, { weekday: 'short' })));
 </script>
 
-{#snippet link(path: string, title: string)}
-  {#if exists(path)}<a href={noteHash(path)}>{title}</a>{:else}<span>{title}</span>{/if}
+{#snippet link(path: string, title: string, made?: Made)}
+  {#if exists(path) && (!made || inCookbook(made))}<a href={noteHash(path)}>{title}</a>{:else}<span>{title}</span>{/if}
 {/snippet}
 
 {#snippet entry(it: Item, d: Date)}
@@ -81,15 +83,15 @@
       <Icon name="utensils" size={16} />
       <span class="txt">
         {#if it.made.assumed}
-          Probably cooked {@render link(it.made.path, it.made.title)} <span class="assumed small">Assumed</span>
-          <span class="muted small sub">{[it.made.by, clock(it.made.at), `open ${ASSUME_AFTER_MIN}+ min`].filter(Boolean).join(' · ')}</span>
+          Probably cooked {@render link(it.made.path, it.made.title, it.made)} <span class="assumed small">Assumed</span>
+          <span class="muted small sub">{[it.made.by, clock(it.made.at), `open ${ASSUME_AFTER_MIN}+ min`, otherBook(it.made)].filter(Boolean).join(' · ')}</span>
           <span class="row acts">
             <button class="btn small" onclick={() => settleGuess(it.made, true)}>Yes, cooked</button>
             <button class="btn ghost small" onclick={() => settleGuess(it.made, false)}>Not cooked</button>
           </span>
         {:else}
-          Cooked {@render link(it.made.path, it.made.title)}
-          <span class="muted small sub">{[it.made.by, clock(it.made.at)].filter(Boolean).join(' · ')}</span>
+          Cooked {@render link(it.made.path, it.made.title, it.made)}
+          <span class="muted small sub">{[it.made.by, clock(it.made.at), otherBook(it.made)].filter(Boolean).join(' · ')}</span>
         {/if}
       </span>
     </li>

@@ -63,6 +63,7 @@ rsync -a --exclude .git --exclude .trash ~/Recipes/ /tmp/e2e-vault/
 target/debug/recipes-server --vault /tmp/e2e-vault --data /tmp/e2e-data --port 0   # prints the admin URL
 cd ui && node e2e/flows.mjs "<admin-url>" /tmp/e2e-vault /tmp/e2e-out
 node e2e/editor.mjs … && node e2e/ingredients.mjs … && node e2e/accounts.mjs …  # fresh vault copy each
+DATA=/tmp/e2e-data node e2e/cookbooks.mjs "<admin-url>" /tmp/e2e-vault /tmp/e2e-out /tmp/e2e-mine  # a second cookbook (a folder of another name, outside the first)
 ```
 
 Once the server runs and before the scripts, skip the first-start setup page (it covers the window): with the cookie from opening the admin URL, send `PUT /api/settings {"setup_done": true}` with the header `X-Recipes: 1`.

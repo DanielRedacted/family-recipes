@@ -32,8 +32,6 @@ pub struct Extensions {
     pub lan: lan::Lan,
     pub app: OnceLock<Router>,
     pub jobs: import::Jobs,
-    pub ingredients: ingredient::Cache,
-    pub git: git::Sync,
     pub users: users::Store,
     pub board: board::Store,
     pub made: made::Store,
@@ -42,7 +40,7 @@ pub struct Extensions {
 
 impl Default for Extensions {
     fn default() -> Self {
-        Self { lan: Default::default(), app: OnceLock::new(), jobs: import::Jobs::new(), ingredients: Default::default(), git: Default::default(), users: Default::default(), board: Default::default(), made: Default::default(), nutrition: Default::default() }
+        Self { lan: Default::default(), app: OnceLock::new(), jobs: import::Jobs::new(), users: Default::default(), board: Default::default(), made: Default::default(), nutrition: Default::default() }
     }
 }
 
@@ -104,7 +102,8 @@ pub fn settings_changed(s: &Arc<AppState>) {
     }
 }
 
-/// Build the router once and start network sharing (if enabled), the IP watcher and GitHub sync.
+/// Build the router once and start network sharing (if enabled) and the IP watcher. Each cookbook's
+/// GitHub sync starts when it opens (`AppState::open`).
 pub async fn start_network(state: Arc<AppState>) -> Router {
     let app = server::router(state.clone());
     let _ = state.ext.app.set(app.clone());
@@ -115,7 +114,6 @@ pub async fn start_network(state: Arc<AppState>) -> Router {
     if state.shell.is_some() {
         spawn_update_checks(state.clone());
     }
-    git::spawn(state);
     app
 }
 

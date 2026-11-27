@@ -4,7 +4,7 @@
 use crate::auth::{Caller, Role};
 use crate::extract::{self, Candidate};
 use crate::fetch;
-use crate::server::{AppState, err};
+use crate::server::{Bk, Book, AppState, err};
 use crate::vault::{self, VaultPath};
 use anyhow::{Result, anyhow};
 use axum::Json;
@@ -46,13 +46,15 @@ pub struct Job {
     original: Option<(String, Vec<u8>)>,
     /// original already in the vault (PDF converted from the viewer)
     original_path: Option<String>,
+    /// the cookbook it was started in, the only one it may be saved to
+    book: String,
     status: Status,
     log: Vec<LogStep>,
 }
 
 impl Job {
-    fn new(source_url: Option<String>, original_path: Option<String>) -> Self {
-        Job { created: Instant::now(), source_url, images: vec![], bytes: HashMap::new(), original: None, original_path, status: Status::Running, log: vec![] }
+    fn new(book: &Book, source_url: Option<String>, original_path: Option<String>) -> Self {
+        Job { created: Instant::now(), source_url, images: vec![], bytes: HashMap::new(), original: None, original_path, book: book.id.clone(), status: Status::Running, log: vec![] }
     }
 }
 
@@ -82,6 +84,7 @@ impl Jobs {
 #[derive(Clone)]
 struct Log {
     s: Arc<AppState>,
+    b: Arc<Book>,
     id: String,
     t0: Instant,
 }
@@ -109,12 +112,12 @@ impl From<extract::Draft> for Prepared {
 }
 
 /// Start an import in the background; the client polls `GET /api/import/{job}`.
-fn spawn<F>(s: &Arc<AppState>, job: Job, work: impl FnOnce(Log) -> F) -> String
+fn spawn<F>(s: &Arc<AppState>, b: &Arc<Book>, job: Job, work: impl FnOnce(Log) -> F) -> String
 where
     F: std::future::Future<Output = Result<Prepared, String>> + Send + 'static,
 {
     let id = s.ext.jobs.insert(job);
-    let log = Log { s: s.clone(), id: id.clone(), t0: Instant::now() };
+    let log = Log { s: s.clone(), b: b.clone(), id: id.clone(), t0: Instant::now() };
     let fut = work(log.clone());
     tokio::spawn(async move {
         let result = fut.await;
@@ -125,7 +128,7 @@ where
                     log.step(step, detail.clone(), *ok);
                 }
                 let source = s.ext.jobs.map.lock().unwrap().get(&log.id).and_then(|j| j.source_url.clone());
-                let body = response_json(s, &log.id, &p.draft, source.as_deref(), p.original_name.as_deref());
+                let body = response_json(&log.b, &log.id, &p.draft, source.as_deref(), p.original_name.as_deref());
                 let n = body["issues"].as_array().map_or(0, Vec::len);
                 log.step("check", format!("{n} thing(s) to check"), n == 0);
                 if let Some(j) = s.ext.jobs.map.lock().unwrap().get_mut(&log.id) {
@@ -278,7 +281,7 @@ pub fn normalize_url(raw: &str) -> String {
     format!("{host}{}{}", u.path().trim_end_matches('/'), u.query().map(|q| format!("?{q}")).unwrap_or_default())
 }
 
-fn duplicate_of(state: &AppState, source: &str, title: &str) -> Option<String> {
+fn duplicate_of(state: &Book, source: &str, title: &str) -> Option<String> {
     let n = normalize_url(source);
     let idx = state.index.read().unwrap().clone();
     idx.files
@@ -295,7 +298,7 @@ struct UrlBody {
     url: String,
 }
 
-fn response_json(state: &AppState, id: &str, d: &extract::Draft, source: Option<&str>, original_name: Option<&str>) -> serde_json::Value {
+fn response_json(state: &Book, id: &str, d: &extract::Draft, source: Option<&str>, original_name: Option<&str>) -> serde_json::Value {
     let dup = source.and_then(|u| duplicate_of(state, u, &d.title)).or_else(|| duplicate_of(state, "", &d.title));
     let images: Vec<_> = d.images.iter().enumerate().map(|(i, c)| json!({ "i": i, "alt": c.alt, "kind": c.kind, "step": c.step, "url": c.url })).collect();
     json!({
@@ -315,10 +318,10 @@ fn started(id: String) -> Res {
     Ok((StatusCode::ACCEPTED, Json(json!({ "job": id }))).into_response())
 }
 
-async fn import_url(State(s): St, caller: Caller, Json(b): Json<UrlBody>) -> Res {
+async fn import_url(State(s): St, Bk(bk): Bk, caller: Caller, Json(b): Json<UrlBody>) -> Res {
     caller.need(Role::Writer)?;
     let u = fetch::check_url(&b.url).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    let id = spawn(&s, Job::new(Some(u.to_string()), None), move |log| async move {
+    let id = spawn(&s, &bk, Job::new(&bk, Some(u.to_string()), None), move |log| async move {
         let page = fetch::get(&u, None, 5 * 1024 * 1024, "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8").await.map_err(|e| format!("{e:#}"))?;
         let redirected = if page.url != u { format!(" → {}", page.url) } else { String::new() };
         log.step("fetch", format!("{} KB, {}{redirected}", page.bytes.len() / 1024, if page.content_type.is_empty() { "no content type" } else { &page.content_type }), true);
@@ -448,7 +451,7 @@ fn clean_name(s: &str) -> String {
     if n.is_empty() { "Untitled".into() } else { n.chars().take(120).collect() }
 }
 
-fn note_path(state: &AppState, folder: &str, name: &str) -> Result<VaultPath> {
+fn note_path(state: &Book, folder: &str, name: &str) -> Result<VaultPath> {
     let name = clean_name(name);
     let rel = if folder.trim_matches('/').is_empty() { format!("{name}.md") } else { format!("{}/{name}.md", folder.trim_matches('/')) };
     let p = VaultPath::parse(&rel)?;
@@ -461,7 +464,7 @@ fn note_path(state: &AppState, folder: &str, name: &str) -> Result<VaultPath> {
 }
 
 /// A file converted from inside the vault moves under attachments/originals, so it stops being its own entry.
-fn move_to_originals(state: &AppState, p: &str) -> Result<VaultPath> {
+fn move_to_originals(state: &Book, p: &str) -> Result<VaultPath> {
     let src = VaultPath::parse(p)?;
     if p.starts_with(&format!("{}/", vault::ORIGINALS)) {
         return Ok(src);
@@ -472,7 +475,7 @@ fn move_to_originals(state: &AppState, p: &str) -> Result<VaultPath> {
     Ok(dst)
 }
 
-fn save_attachment(state: &AppState, name: &str, bytes: &[u8]) -> Result<VaultPath> {
+fn save_attachment(state: &Book, name: &str, bytes: &[u8]) -> Result<VaultPath> {
     std::fs::create_dir_all(state.root.join(vault::ORIGINALS))?;
     let p = vault::unique(&state.root, &VaultPath::parse(&format!("{}/{}", vault::ATTACHMENTS, name))?);
     let abs = vault::resolve(&state.root, &p, false)?;
@@ -480,10 +483,14 @@ fn save_attachment(state: &AppState, name: &str, bytes: &[u8]) -> Result<VaultPa
     Ok(p)
 }
 
-async fn save(State(s): St, caller: Caller, AxPath(job): AxPath<String>, Json(b): Json<SaveBody>) -> Res {
+async fn save(State(s): St, Bk(bk): Bk, caller: Caller, AxPath(job): AxPath<String>, Json(b): Json<SaveBody>) -> Res {
     caller.need(Role::Writer)?;
     let bad = |e: anyhow::Error| err(StatusCode::BAD_REQUEST, format!("{e:#}"));
-    let path = note_path(&s, &b.folder, &b.name).map_err(bad)?;
+    let started_in = s.ext.jobs.map.lock().unwrap().get(&job).map(|j| j.book.clone());
+    if started_in.is_some_and(|id| id != bk.id) {
+        return Err(err(StatusCode::CONFLICT, "this import was started in another cookbook"));
+    }
+    let path = note_path(&bk, &b.folder, &b.name).map_err(bad)?;
     let mut md = b.markdown.replace("\r\n", "\n");
     let title = crate::recipe::parse(&md).title.unwrap_or_else(|| b.name.clone());
     let slug = slug(&title);
@@ -513,7 +520,7 @@ async fn save(State(s): St, caller: Caller, AxPath(job): AxPath<String>, Json(b)
         };
         let n = saved.len() + 1;
         let name = if n == 1 { format!("{slug}.{ext}") } else { format!("{slug}-{n}.{ext}") };
-        let p = save_attachment(&s, &name, &bytes).map_err(bad)?;
+        let p = save_attachment(&bk, &name, &bytes).map_err(bad)?;
         saved.push((i, p));
     }
     if let Some((_, cover)) = saved.iter().find(|(i, _)| Some(*i) == b.cover) {
@@ -539,18 +546,17 @@ async fn save(State(s): St, caller: Caller, AxPath(job): AxPath<String>, Json(b)
         m.get_mut(&job).map(|j| (j.original.take(), j.original_path.clone())).unwrap_or((None, None))
     };
     if let Some((name, bytes)) = original {
-        let p = save_attachment(&s, &format!("originals/{}", clean_name(&name)), &bytes).map_err(bad)?;
+        let p = save_attachment(&bk, &format!("originals/{}", clean_name(&name)), &bytes).map_err(bad)?;
         md = set_frontmatter(&md, "original", &format!("/{}", p.as_str()));
     } else if let Some(p) = original_path {
-        let p = move_to_originals(&s, &p).map_err(bad)?;
+        let p = move_to_originals(&bk, &p).map_err(bad)?;
         md = set_frontmatter(&md, "original", &format!("/{}", p.as_str()));
     }
 
-    let abs = vault::resolve(&s.root, &path, false).map_err(bad)?;
+    let abs = vault::resolve(&bk.root, &path, false).map_err(bad)?;
     vault::atomic_write(&abs, md.as_bytes()).map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
     s.ext.jobs.map.lock().unwrap().remove(&job);
-    let s2 = s.clone();
-    let _ = tokio::task::spawn_blocking(move || s2.rescan()).await;
+    let _ = tokio::task::spawn_blocking(move || bk.rescan()).await;
     Ok(Json(json!({ "path": path })).into_response())
 }
 
@@ -628,7 +634,7 @@ fn ext_of(name: &str) -> String {
     name.rsplit_once('.').map(|(_, e)| e.to_lowercase()).unwrap_or_default()
 }
 
-async fn import_file(State(s): St, caller: Caller, mp: Multipart) -> Res {
+async fn import_file(State(s): St, Bk(bk): Bk, caller: Caller, mp: Multipart) -> Res {
     caller.need(Role::Writer)?;
     let bad = |e: anyhow::Error| err(StatusCode::BAD_REQUEST, format!("{e:#}"));
     let u = read_upload(mp).await.map_err(bad)?;
@@ -642,8 +648,8 @@ async fn import_file(State(s): St, caller: Caller, mp: Multipart) -> Res {
             return Err(err(StatusCode::BAD_REQUEST, "only PDFs and photos can be kept as view-only recipes"));
         }
         let title = if u.title.trim().is_empty() { stem.clone() } else { u.title.trim().to_string() };
-        let path = note_path(&s, &u.folder, &title).map_err(bad)?;
-        let orig = save_attachment(&s, &format!("originals/{}", clean_name(&u.name)), &u.bytes).map_err(bad)?;
+        let path = note_path(&bk, &u.folder, &title).map_err(bad)?;
+        let orig = save_attachment(&bk, &format!("originals/{}", clean_name(&u.name)), &u.bytes).map_err(bad)?;
         let tags: Vec<String> = u.tags.split(',').map(|t| t.trim().to_string()).filter(|t| !t.is_empty()).collect();
         let mut md = String::from("---\n");
         if !tags.is_empty() {
@@ -655,10 +661,9 @@ async fn import_file(State(s): St, caller: Caller, mp: Multipart) -> Res {
         } else {
             md.push_str(&format!("[{}]({})\n", orig.name(), md_path(orig.as_str())));
         }
-        let abs = vault::resolve(&s.root, &path, false).map_err(bad)?;
+        let abs = vault::resolve(&bk.root, &path, false).map_err(bad)?;
         vault::atomic_write(&abs, md.as_bytes()).map_err(bad)?;
-        let s2 = s.clone();
-        let _ = tokio::task::spawn_blocking(move || s2.rescan()).await;
+        let _ = tokio::task::spawn_blocking(move || bk.rescan()).await;
         return Ok(Json(json!({ "path": path })).into_response());
     }
 
@@ -672,10 +677,10 @@ async fn import_file(State(s): St, caller: Caller, mp: Multipart) -> Res {
         None
     } else {
         let p = VaultPath::parse(&u.vault_path).map_err(bad)?;
-        vault::resolve(&s.root, &p, true).map_err(|e| err(StatusCode::NOT_FOUND, e))?;
+        vault::resolve(&bk.root, &p, true).map_err(|e| err(StatusCode::NOT_FOUND, e))?;
         Some(p.as_str().to_string())
     };
-    let id = spawn(&s, Job::new(None, in_vault.clone()), move |log| async move {
+    let id = spawn(&s, &bk, Job::new(&bk, None, in_vault.clone()), move |log| async move {
         log.step("file", format!("{} ({} KB)", u.name, u.bytes.len() / 1024), true);
         let mut embedded: Vec<(String, Vec<u8>)> = vec![];
         let draft = match ext.as_str() {
@@ -741,16 +746,16 @@ struct FromVault {
 }
 
 /// "Convert to editable recipe" for a PDF already in the vault: on save it moves under attachments/originals.
-async fn import_from_vault(State(s): St, caller: Caller, Json(b): Json<FromVault>) -> Res {
+async fn import_from_vault(State(s): St, Bk(bk): Bk, caller: Caller, Json(b): Json<FromVault>) -> Res {
     caller.need(Role::Writer)?;
     let p = VaultPath::parse(&b.path).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    let abs = vault::resolve(&s.root, &p, true).map_err(|e| err(StatusCode::NOT_FOUND, e))?;
+    let abs = vault::resolve(&bk.root, &p, true).map_err(|e| err(StatusCode::NOT_FOUND, e))?;
     if p.ext() != "pdf" {
         return Err(err(StatusCode::BAD_REQUEST, "only PDFs can be converted"));
     }
     let bytes = tokio::fs::read(&abs).await.map_err(|e| err(StatusCode::NOT_FOUND, e))?;
     let name = p.name().to_string();
-    let id = spawn(&s, Job::new(None, Some(p.as_str().to_string())), move |log| async move {
+    let id = spawn(&s, &bk, Job::new(&bk, None, Some(p.as_str().to_string())), move |log| async move {
         let text = pdf_text_async(bytes).await.ok_or("No text could be read from this PDF (it may be a scan).")?;
         log.step("pdf-text", format!("{} characters", text.chars().count()), true);
         Ok(Prepared { original_name: Some(name), ..draft(extract::tidy_text(&text), text).into() })

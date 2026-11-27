@@ -7,6 +7,10 @@ order: 85
 
 The desktop window, phones and tablets all use the same HTTP API, served by one axum router (`server::router` in `crates/core/src/server.rs`, plus `extra_routes` in `crates/core/src/lib.rs`). The UI calls it through `api()` in `ui/src/lib/api.ts`.
 
+## Which cookbook
+
+The app can serve several [cookbooks](#/settings/help/cookbooks). Every route that reads or writes a cookbook takes it from the query, `?book=<id>` (the `Bk` extractor in `server.rs`); `api()`, `fileUrl()` and the change stream add it for the tab's cookbook (`inBook` in `api.ts`). Without one, a request goes to the first cookbook the device may see. An id that isn't open, or a Mac-only cookbook asked for on a network listener, is `404`, never another cookbook, so a page left open on a removed cookbook can't save into a different one. Ids are hex; the cookbook from before cookbooks is `1`.
+
 ## Roles
 
 Every request gets a role from `auth::identify`. Roles are ordered, so a higher one may do everything a lower one may.
@@ -53,17 +57,17 @@ Request bodies are limited to 30 MB, responses are compressed (gzip, brotli), an
 | Method | Path | Purpose | Who |
 |---|---|---|---|
 | GET | `/api/ping` | Answers `ok` (used to probe for HTTPS) | anyone |
-| GET | `/api/session` | Role, person, whether a PIN is set, AI on, the Mac's calendar on (switched on with at least one calendar ticked), shell available, version, whether the first-start setup is pending | anyone |
+| GET | `/api/session` | Role, person, whether a PIN is set, AI on, the Mac's calendar on (switched on with at least one calendar ticked), shell available, version, whether the first-start setup is pending, and `books` `[{id, name}]`: the cookbooks this device may open, in order (on a network listener, without the Mac-only ones) | anyone |
 | POST | `/api/session` | Sign in `{name, full_name, pin}`: adds the person if the name is new (then `full_name` is required), checks the PIN when one is set, records the device, sets the session cookie | anyone |
 | DELETE | `/api/session` | Sign out (clears the cookie) | anyone |
 | GET | `/auth?k=<token>` | Exchanges the launch token for the admin cookie and redirects to `/` | loopback only |
 
-### Recipes folder
+### A cookbook (`?book=`)
 
 | Method | Path | Purpose | Who |
 |---|---|---|---|
 | GET | `/api/vault` | The whole index (files, folders, folder icons and colours) as JSON, with an ETag (`304` when unchanged). A `.md` under `attachments/originals/` is kind `other`, not a note | Reader |
-| GET | `/api/events` | Server-sent events: `vault` (new index ETag), `messages` (whiteboard changed), `made` (a meal was logged), `users` (someone's name, favorites or picture changed), `update` (the background check has a new version ready, desktop app) | Reader |
+| GET | `/api/events` | Server-sent events: `vault` (new index ETag of this cookbook only), `messages` (whiteboard changed), `made` (a meal was logged), `users` (someone's name, favorites or picture changed), `update` (the background check has a new version ready, desktop app) | Reader |
 | GET | `/api/files/{path}` | One file, with an ETag. Files that aren't notes, images or PDFs, and SVGs, are sent as downloads with `Content-Security-Policy: sandbox` | Reader |
 | PUT | `/api/files/{path}` | Write a file. Needs `If-Match: "<etag>"` (overwrite) or `If-None-Match: *` (create only), else `428`; a mismatch is `409` with the current ETag. `?unique=true` picks a free name. Notes are limited to 2 MB. The old version is kept in `.trash/versions/` first | Writer |
 | DELETE | `/api/files/{path}` | Move a file or folder to the trash; returns its `trash_id` | Writer |
@@ -79,7 +83,7 @@ Request bodies are limited to 30 MB, responses are compressed (gzip, brotli), an
 | PUT | `/api/foods/{key}` | Count an ingredient as USDA food `{fdc}`, or leave it out with `{fdc: null}` | Admin |
 | DELETE | `/api/foods/{key}` | Undo a lookup or choice (back to the shipped table; looked up again) | Admin |
 
-Paths are relative to the recipes folder, `/`-separated, without `..` or dot components (`VaultPath`).
+Paths are relative to the cookbook's folder, `/`-separated, without `..` or dot components (`VaultPath`).
 
 ### Import
 
@@ -100,8 +104,11 @@ Import runs as a job: start it, poll its status, then save. Nothing is written u
 
 | Method | Path | Purpose | Who |
 |---|---|---|---|
-| GET | `/api/settings` | Recipes folder, PIN set, AI settings and whether a key is saved, sharing and its status, keep awake, open at login, GitHub status, Editing as, `calendar` `{enabled, calendars}` | Admin |
-| PUT | `/api/settings` | Change any of `ai`, `calendar`, `lan`, `keep_awake`, `vault`, `setup_done`, `editing_as` (`""` for nobody), `updates` (`notify`, `download` or `install`); starts or stops sharing as needed; returns the settings | Admin |
+| GET | `/api/settings` | `cookbooks` `[{id, name, path, missing, mac_only, git}]` (`git`: that cookbook's sync status), PIN set, AI settings and whether a key is saved, sharing and its status, keep awake, open at login, GitHub status, Editing as, `calendar` `{enabled, calendars}` | Admin |
+| PUT | `/api/settings` | Change any of `ai`, `calendar`, `lan`, `keep_awake`, `setup_done`, `editing_as` (`""` for nobody), `updates` (`notify`, `download` or `install`); starts or stops sharing as needed; returns the settings | Admin |
+| POST | `/api/cookbooks` | Open folder `{path}` as a new cookbook, at once; returns `{id}`. `400` when the folder is missing, is or is inside or holds another cookbook or the data folder, or has a name another cookbook has | Admin |
+| PUT | `/api/cookbooks/{id}` | `{mac_only?}`; `{path?}` serves the cookbook from that folder instead (moved, or set up for the first time) and turns its GitHub sync off | Admin |
+| DELETE | `/api/cookbooks/{id}` | Stop serving it (its folder is left as it is) and delete its GitHub token; the last one can't be removed | Admin |
 | PUT | `/api/settings/pin` | Set `{pin}` (any length), or remove it with `""`; signs every device out | Admin |
 | PUT | `/api/settings/ai-key` | Save `{key}` in the Keychain, or delete it with `""` | Admin |
 | PUT | `/api/settings/usda-key` | Save the USDA FoodData Central key `{key}` in the Keychain (starts lookups), or delete it with `""`. `GET /api/settings` reports `usda_key_set` and `nutrition_status` (the last lookup run's result or error) | Admin |
@@ -111,13 +118,13 @@ Import runs as a job: start it, poll its status, then save. Nothing is written u
 
 | Method | Path | Purpose | Who |
 |---|---|---|---|
-| GET | `/api/users` | Everyone's names, for the sign-in page. Signed-in callers also get `created`, `favorites`, `picture` and `former` (earlier credited names); the desktop app also gets each person's devices | anyone |
+| GET | `/api/users` | Everyone's names, for the sign-in page. Signed-in callers also get `created`, `favorites` (in the `?book=` cookbook), `picture` and `former` (earlier credited names); the desktop app also gets each person's devices | anyone |
 | POST | `/api/users` | Add a person `{name, full_name}` | Admin |
 | PUT | `/api/users/{id}` | Rename `{name, full_name}` | Admin |
 | DELETE | `/api/users/{id}` | Remove a person (signs out their devices) | Admin |
 | GET | `/api/users/{id}/activity` | Their latest 200 changes, newest first | Admin |
 | PUT | `/api/users/{id}/picture` | Set `{picture}`: one emoji, or a JPEG/PNG/WebP `data:` URL up to about 100 KB; `null` removes it | that person, or Admin |
-| POST | `/api/favorites` | Change the signed-in person's favorites `{add?: [path], remove?: [path]}` (at most 2000); returns the new list. Favorites follow `POST /api/fs/move` | signed in |
+| POST | `/api/favorites` | Change the signed-in person's favorites in the `?book=` cookbook `{add?: [path], remove?: [path]}` (at most 2000); returns the new list. Favorites follow `POST /api/fs/move` | signed in |
 
 See [People](#/settings/help/people).
 
@@ -128,10 +135,10 @@ See [People](#/settings/help/people).
 | GET | `/api/messages` | The whiteboard notes still showing, newest first | anyone |
 | POST | `/api/messages` | Add a note `{text, expires}` (up to 500 characters; `expires` in Unix seconds, or none for until removed) | signed in |
 | DELETE | `/api/messages/{id}` | Remove any note | signed in |
-| GET | `/api/made` | The log of meals made: `{at, path, title, tags, by?, assumed?}`, oldest first | anyone |
-| POST | `/api/made` | Log the recipe `{path, assumed}` as made now by the caller; returns the whole log. A guess (`assumed: true`, sent by the reader after `ASSUME_AFTER_MIN` minutes on screen) is skipped when the recipe was logged in the last 12 hours; a real entry replaces a guess from the last 12 hours | anyone |
-| PUT | `/api/made/{at}?path=` | Confirm a guess: it stops being `assumed` and is credited to the caller, keeping its time | anyone |
-| DELETE | `/api/made/{at}?path=` | Remove a guess. Real entries can't be removed (`400`) | anyone |
+| GET | `/api/made` | The log of meals made, every cookbook's: `{at, book, path, title, tags, by?, assumed?}`, oldest first (`book` is `1` for meals from before cookbooks). A network listener doesn't get meals from Mac-only cookbooks | anyone |
+| POST | `/api/made` | Log the recipe `{path, assumed}` of the `?book=` cookbook as made now by the caller; returns the whole log. A guess (`assumed: true`, sent by the reader after `ASSUME_AFTER_MIN` minutes on screen) is skipped when the recipe was logged in the last 12 hours; a real entry replaces a guess from the last 12 hours | anyone |
+| PUT | `/api/made/{at}?path=&book=` | Confirm a guess: it stops being `assumed` and is credited to the caller, keeping its time | anyone |
+| DELETE | `/api/made/{at}?path=&book=` | Remove a guess. Real entries can't be removed (`400`) | anyone |
 
 ### The Mac's calendar
 
@@ -143,7 +150,7 @@ Read-only, through EventKit (`calendar.rs`). Off until `settings.calendar.enable
 | GET | `/api/calendar/calendars` | `{access: "ok" \| "denied", calendars: [{id, title}]}`. The first call shows macOS's permission prompt and waits for the answer | Admin |
 
 The desktop app needs `NSCalendarsUsageDescription` / `NSCalendarsFullAccessUsageDescription` (`src-tauri/Info.plist`) and the `com.apple.security.personal-information.calendars` entitlement (`src-tauri/Entitlements.plist`), because it's signed with the hardened runtime. A process that isn't an app bundle (the headless `recipes-server`, or `target/debug/recipes-app` during development) is credited to the app that started it, such as Terminal or VS Code. Those have no calendar usage text, so macOS refuses without a prompt and lists that app under Privacy & Security → Calendars. Test the permission in a built `Recipes.app`; `tccutil reset Calendar <bundle id>` clears an entry.
-| POST | `/api/feedback` | Append `{kind, text, context}` to `FEEDBACK.md` in the recipes folder (`kind`: Bug, Idea or Other; text up to 5000 characters, context up to 2000) | signed in |
+| POST | `/api/feedback` | Append `{kind, text, context}` to `FEEDBACK.md` in the cookbook's folder (`kind`: Bug, Idea or Other; text up to 5000 characters, context up to 2000) | signed in |
 
 ### AI
 
@@ -161,9 +168,9 @@ See [GitHub sync](#/settings/help/github-sync).
 
 | Method | Path | Purpose | Who |
 |---|---|---|---|
-| POST | `/api/git/connect` | Connect `{url, token}`, run a first sync; returns the sync status | Admin |
-| POST | `/api/git/sync` | Sync now; returns the status | Admin |
-| DELETE | `/api/git` | Stop syncing and delete the token | Admin |
+| POST | `/api/git/connect` | Connect the `?book=` cookbook `{url, token}`, run a first sync; returns the sync status | Admin |
+| POST | `/api/git/sync` | Sync that cookbook now; returns the status | Admin |
+| DELETE | `/api/git` | Stop syncing that cookbook and delete its token | Admin |
 
 ### Desktop shell
 
@@ -171,11 +178,11 @@ See [GitHub sync](#/settings/help/github-sync).
 
 | Action | Body | Does |
 |---|---|---|
-| `reveal` | `{path}` (`""` = the recipes folder) | Show in Finder |
-| `choose-vault` | none | Folder picker; returns `{path}` |
+| `reveal` | `{path}` in the `?book=` cookbook (`""` = its folder) | Show in Finder |
+| `choose-vault` | none | Folder picker (with **New Folder**, so it can make an empty cookbook); returns `{path}`, then `POST` or `PUT /api/cookbooks` |
 | `print` | none | Print the window |
-| `save-html` | `{html}` | Write the recipe book to `~/Downloads/Recipes.html` (numbered when taken), show it in Finder; returns `{name}` |
-| `save-pdf` | none | Print the window to `~/Downloads/Recipes.pdf` with no dialog (`src-tauri/src/pdf.rs`), show it in Finder; returns `{name}` once written |
+| `save-html` | `{html, name?}` | Write the recipe book to `~/Downloads/<name>.html` (the cookbook's name; `Recipes` without one; numbered when taken), show it in Finder; returns `{name}` |
+| `save-pdf` | `{name?}` | Print the window to `~/Downloads/<name>.pdf` with no dialog (`src-tauri/src/pdf.rs`), show it in Finder; returns `{name}` once written |
 | `open-url` | `{url}` (`http://` or `https://` only) | Open in the default browser |
 | `restart` | none | Restart the app |
 | `autostart` | `{enabled}` (optional) | Set or read Open at login; returns `{enabled}` |
@@ -198,6 +205,8 @@ See [GitHub sync](#/settings/help/github-sync).
 {"t": 1767225600, "user": "<person id>", "name": "Ann", "method": "PUT", "path": "/api/files/Pies/Pumpkin%20Pie.md"}
 ```
 
+A change in a cookbook other than `1` also records `"book": "<id>"`.
+
 - Not logged: `/api/session`, `/api/shell/…`, `/api/ai/…`, and import steps other than `/api/import/{job}/save`, since they change nothing.
 - Moves and import saves record the endpoint, not the recipe's name (that is in the request body).
-- The file is created readable by the owner only and is never rotated. Settings → People shows each person's latest changes through `GET /api/users/{id}/activity`.
+- The file is created readable by the owner only; past 1 MB it becomes `activity.log.1` (replacing the older one), and a person's list reads both. Settings → People shows each person's latest changes through `GET /api/users/{id}/activity`.

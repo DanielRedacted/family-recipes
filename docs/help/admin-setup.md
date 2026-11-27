@@ -1,6 +1,6 @@
 ---
 title: Setting up the Mac app
-summary: Install Recipes on the Mac, finish the first-start setup, choose the recipes folder, and keep the app running and up to date.
+summary: Install Recipes on the Mac, finish the first-start setup, choose the recipes folder (or several cookbooks), and keep the app running and up to date.
 audience: admin
 order: 70
 ---
@@ -17,17 +17,19 @@ The app isn't notarized by Apple, so the first launch needs one extra step: righ
 
 The first start opens **Set up Recipes**, one page with the basics. Everything on it can be changed later in Settings.
 
-- **Recipes folder**: where the recipes live, `~/Recipes` by default. **Use a different folder…** picks another; the button then reads **Done — restart Recipes**, because a new folder takes effect after a restart.
-- **Recipes from GitHub**: connect a private repository to sync the folder. If you picked a different folder, connect it after the restart in **Settings → Recipes folder**. See [GitHub sync](#/settings/help/github-sync).
+- **Recipes folder**: where the recipes live, `~/Recipes` by default. **Use a different folder…** picks another, which the app reads at once.
+- **Recipes from GitHub**: connect a private repository to sync the folder. See [GitHub sync](#/settings/help/github-sync).
 - **This Mac**: **Open Recipes at login**.
 - **Phones, tablets and other computers**: sharing on the Wi-Fi (on by default), the QR code, and **Keep this Mac awake while sharing**. See [Home network](#/settings/help/home-network).
 - **Family PIN**: optional, any length. Without one, other devices can only read and use the whiteboard. See [People and PINs](#/settings/help/people).
 
 Tap **Done** to finish.
 
-## The recipes folder
+## Cookbooks
 
-**Settings → Recipes folder** shows the folder in use, with **Show in Finder** and **Use a different folder…**. After switching, restart Recipes to finish. Every recipe is a plain Markdown file, one subfolder per category ([Recipe file format](#/settings/help/file-format)), so you can also edit them in any text editor or Obsidian, and changes show up in the app at once.
+**Settings → Cookbooks** lists the recipe folders the app serves, each with **Show in Finder** and its own GitHub sync. Most families have one. Every recipe is a plain Markdown file, one subfolder per category ([Recipe file format](#/settings/help/file-format)), so you can also edit them in any text editor or Obsidian, and changes show up in the app at once.
+
+**Open or create a cookbook…** adds another folder (the picker's **New Folder** makes an empty one). It opens at once, without a restart, and every device gets a switcher at the top of its folder column; each keeps its own choice. People, the PIN, the whiteboard and the meal history are shared; recipes, favorites, feedback, the trash and GitHub sync are each cookbook's own. A cookbook can't be inside another or hold one, can't hold the app's data folder, and needs a folder name of its own (its name is the folder's name). **Only on this Mac** hides a cookbook from every other device; **Remove** stops serving it and leaves the folder as it is. A cookbook whose folder is missing at start (moved, or on a drive that isn't connected) is listed as missing and never made again; **Choose its folder…** points it at the folder's new place and turns its GitHub sync off, so a different folder is never pushed by surprise. See [Cookbooks](#/settings/help/cookbooks).
 
 The app's own data is kept apart from the recipes, in `~/Library/Application Support/family.recipes.desktop/`: `settings.json`, `users.json`, `activity.log`, `messages.json` (the whiteboard), `made.json` and the `tls/` certificates. GitHub sync never sees these. The AI key and the GitHub token are kept in the macOS Keychain.
 

@@ -54,4 +54,6 @@ export interface Session {
   version: string;
   /** first start: show the setup page */
   setup?: boolean;
+  /** the cookbooks this device may open (Settings → Cookbooks), in order; named after their folders */
+  books?: { id: string; name: string }[];
 }

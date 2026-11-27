@@ -146,6 +146,15 @@ covers, and follow it together with this file; where they disagree, this file an
   using the full name from `signer()` in `ops.ts`. The desktop window credits the person chosen as
   "Editing as" (`settings.editing_as`). Frontmatter helpers live in `ui/src/lib/frontmatter.ts`.
   `../home-recipes-tools/.tools/verify.py` treats these keys as app-owned (`APP_PROPS`).
+- **Cookbooks.** The server serves every folder in `settings.cookbooks` at once (`AppState.books`, each a
+  `Book` with its own index, watcher, GitHub sync and ingredient cache), and each device picks one.
+  A handler that touches recipes takes the `Bk` extractor (`?book=<id>`; an unknown id is `404`, never
+  another cookbook), not `State` alone. In the UI every address goes through `api()`/`fileUrl()`/`inBook()`
+  in `ui/src/lib/api.ts`, never a hand-built `/api/files/…` (`api.test.ts` checks), and browser storage
+  that holds recipe paths uses `bookKey()`. Shared across cookbooks: people, the PIN, the whiteboard,
+  the meal log (`Made.book`); favorites are per cookbook (`User.favs`). Id `1` is the cookbook from
+  before cookbooks, so old `users.json`, `made.json` and browser keys keep working without a migration.
+  With one cookbook the app must look as it did: the switcher shows only with two or more.
 - **Bookmarks vs favorites.** Bookmarks are everyone's: `favorite: true` in the recipe (the key kept
   from before; `isBookmarked` in `ops.ts`). Favorites are one person's, in `users.json`
   (`POST /api/favorites`, `changeFavorites` in `state.svelte.ts`; `users::moved` keeps them on a move) and
@@ -197,6 +206,7 @@ target/debug/recipes-server --vault /tmp/e2e-vault --data /tmp/e2e-data --port 0
 # PUT /api/settings {"setup_done": true} with header X-Recipes: 1
 cd ui && node e2e/flows.mjs "<admin-url>" /tmp/e2e-vault /tmp/e2e-out
 node e2e/editor.mjs … && node e2e/ingredients.mjs … && node e2e/accounts.mjs … && node e2e/calendar.mjs … && node e2e/originals.mjs …  # fresh vault and data copy each
+DATA=/tmp/e2e-data node e2e/cookbooks.mjs "<admin-url>" /tmp/e2e-vault /tmp/e2e-out /tmp/e2e-mine  # two cookbooks; the second folder needs another name
 ```
 
 `e2e/import.mjs` needs the internet and two source files from the recipes repository

@@ -7,6 +7,8 @@ order: 15
 
 ## The folder column
 
+With more than one [cookbook](#/settings/help/cookbooks), its top shows the one you're in; tap the name to choose another.
+
 Each folder is a kind of recipe, such as Pies or Soups. On the Mac and on wide screens, the folders sit in a column on the left. Click a folder to open it and show its recipes, and click it again to close it. **Bookmarks** sits at the top of the column. When you open a recipe, the column opens its folder and scrolls to it.
 
 At the bottom of the column you'll find the carrot button for [Ingredients](#/settings/help/ingredients), the calendar button for [the calendar](#/settings/help/calendar), the people button for [People](#/settings/help/people-pages) and the gear button for Settings.

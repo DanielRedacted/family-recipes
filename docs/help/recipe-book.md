@@ -5,13 +5,13 @@ audience: everyone
 order: 38
 ---
 
-The recipe book puts every recipe into one file. It starts with a title page and a contents page, then has a chapter for each folder, with the recipes in alphabetical order. Each recipe shows its title, who wrote it, details such as servings and times, then its ingredients and directions, just as you see them in the app.
+The recipe book puts every recipe of the cookbook you're in into one file. It starts with a title page and a contents page, then has a chapter for each folder, with the recipes in alphabetical order. Each recipe shows its title, who wrote it, details such as servings and times, then its ingredients and directions, just as you see them in the app.
 
 To make one, open Settings, choose **General**, and find **Recipe book**. Amounts are written in the units chosen just above it (US or Metric).
 
 ## Save as web page
 
-**Save as web page** makes a single file, `Recipes.html`, that opens in any web browser, even without Recipes or the internet. Pictures are inside the file, and the names on the contents page take you to each recipe. You can email it, keep it on a USB stick, or print it from the browser.
+**Save as web page** makes a single file, `Recipes.html` (named after the cookbook when there are [several](#/settings/help/cookbooks)), that opens in any web browser, even without Recipes or the internet. Pictures are inside the file, and the names on the contents page take you to each recipe. You can email it, keep it on a USB stick, or print it from the browser.
 
 On the Mac, the file goes into your Downloads folder and Finder shows it. On a phone or tablet, it downloads like any other file.
 

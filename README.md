@@ -17,6 +17,9 @@ from, edit, import and manage them.
   reading when the Mac is asleep.
 - **The files:** `~/Recipes` (changeable in Settings). Markdown, one file per recipe, folder = category.
   See [docs/FORMAT.md](docs/FORMAT.md).
+- **Cookbooks:** one by default. Settings → Cookbooks can open or create more, each a folder of its
+  own (with its own GitHub repository, or Mac only); every device picks one at the top of its folder
+  column. People, the PIN, the whiteboard and the meal history are shared.
 - **Sync:** optional, with a private GitHub repository: every save is uploaded, other Macs' changes
   are downloaded (see below). The app keeps `README.md` in the recipes folder as a contents list, so
   the repository reads well on GitHub.
@@ -60,7 +63,7 @@ pages for admins; the pages are `docs/help/*.md`).
 The app ships empty and works on whatever folder of recipes you give it. The family recipes live in
 a private repository of their own (`home-recipes`), and on the Mac `~/Recipes` is a clone of it.
 
-**GitHub sync (in the app):** in the first-start setup or Settings → Recipes folder → GitHub, enter
+**GitHub sync (in the app):** in the first-start setup or Settings → Cookbooks → GitHub (one per cookbook), enter
 the repository (`owner/name`) and a fine-grained token (only that repository, *Contents: Read and
 write*; kept in the Keychain). An empty recipes folder is filled from GitHub; a folder that is already
 a clone of it is reused. After that every save is committed and pushed (kept and retried while

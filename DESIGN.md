@@ -555,7 +555,9 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   name hashes to (`cardColor`, the same pastels as cards). Names in a recipe's byline, Added by chip,
   History and on whiteboard notes link to these pages without looking like buttons.
 - **Plain menus (`plain-select`).** A native `select` without the boxed field: no border or fill,
-  the value in purple ink with the system's arrow. Used for the Random filters.
+  the value in purple ink with the system's arrow. Used for the Random filters. The cookbook switcher
+  (only with two or more cookbooks) is one at the top of the folder column, set in the brand's serif
+  (600, 19px, `text` ink) in place of the word "Recipes", so it reads as the column's title.
 - **Cook mode.** A full-screen view with large checkable ingredient and step lists that keeps the
   screen awake.
 

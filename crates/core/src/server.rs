@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
@@ -63,9 +63,30 @@ pub struct CalendarSettings {
     pub calendars: Vec<String>,
 }
 
+/// One cookbook: a recipes folder the app serves (Settings → Cookbooks).
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Cookbook {
+    pub id: String,
+    pub path: PathBuf,
+    /// Sync this folder with its GitHub repository (see git.rs).
+    #[serde(default)]
+    pub git_sync: bool,
+    /// Phones and tablets don't see it; only the desktop window does.
+    #[serde(default)]
+    pub mac_only: bool,
+}
+
+/// The id of the cookbook a settings file from before cookbooks describes (its `vault` and
+/// `git_sync`); meals and favorites saved then belong to it. Otherwise an id like any other.
+pub const FIRST_BOOK: &str = "1";
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Settings {
+    /// In the order they were added; a device that hasn't chosen opens the first it may see.
     #[serde(default)]
+    pub cookbooks: Vec<Cookbook>,
+    /// Before cookbooks: the one recipes folder. Read once into `cookbooks`, never written.
+    #[serde(default, skip_serializing)]
     pub vault: Option<PathBuf>,
     #[serde(default)]
     pub pin_hash: Option<String>,
@@ -80,8 +101,8 @@ pub struct Settings {
     /// The first-start setup was finished (a settings file from before it existed counts as finished).
     #[serde(default = "yes")]
     pub setup_done: bool,
-    /// Sync the recipes folder with its GitHub repository (see git.rs).
-    #[serde(default)]
+    /// Before cookbooks: sync for the one recipes folder. Read once into `cookbooks`, never written.
+    #[serde(default, skip_serializing)]
     pub git_sync: bool,
     /// The person the desktop window edits as (users.rs); None = the built-in "Admin".
     #[serde(default)]
@@ -124,7 +145,7 @@ pub trait Shell: Send + Sync {
     fn autostart(&self, _set: Option<bool>) -> bool {
         false
     }
-    /// Quit and start again (after the recipes folder was changed).
+    /// Quit and start again (into an installed update).
     fn restart(&self) {}
     /// Look for a newer release: Some((version, release notes, ready)), or None when up to date.
     /// With `Updates::Download` or `Install` it is also downloaded (and installed); `ready` says a
@@ -168,10 +189,11 @@ pub struct Payload {
 }
 
 pub struct AppState {
-    pub root: PathBuf,
     pub data_dir: PathBuf,
-    pub index: RwLock<Arc<Index>>,
-    pub payload: RwLock<Arc<Payload>>,
+    /// The open cookbooks, in the order of `settings.cookbooks` (one whose folder is missing isn't open).
+    pub books: RwLock<Vec<Arc<Book>>>,
+    /// Changes everyone hears about: the names of what changed (whiteboard, meals, people, update).
+    /// A cookbook's own changes go on its `Book::events`.
     pub events: broadcast::Sender<String>,
     pub settings: RwLock<Settings>,
     pub launch_token: String,
@@ -181,30 +203,32 @@ pub struct AppState {
     pub loopback_port: AtomicU16,
     pub shell: Option<Arc<dyn Shell>>,
     pub pdf_text: Option<PdfText>,
-    pub rescan_lock: Mutex<()>,
     pub ext: crate::Extensions,
 }
 
-impl AppState {
-    pub fn host_allowed(&self, host: &str, l: Listener) -> bool {
-        match l {
-            Listener::Loopback => {
-                let port = self.loopback_port.load(Ordering::Relaxed);
-                host == format!("127.0.0.1:{port}") || host == format!("localhost:{port}")
-            }
-            Listener::Lan | Listener::LanHttp => {
-                let h = host.rsplit_once(':').filter(|(_, p)| p.chars().all(|c| c.is_ascii_digit())).map_or(host, |(h, _)| h);
-                self.lan_hosts.read().unwrap().iter().any(|x| x == h)
-            }
-        }
-    }
+/// An open cookbook: its folder, the index of it, and what watches and syncs it.
+pub struct Book {
+    pub id: String,
+    /// the folder's name
+    pub name: String,
+    pub root: PathBuf,
+    pub mac_only: AtomicBool,
+    pub index: RwLock<Arc<Index>>,
+    pub payload: RwLock<Arc<Payload>>,
+    /// a new payload's etag after each change in the folder
+    pub events: broadcast::Sender<String>,
+    pub pdf_text: Option<PdfText>,
+    pub rescan_lock: Mutex<()>,
+    pub git: crate::git::Sync,
+    pub ingredients: crate::ingredient::Cache,
+    /// set when the cookbook is removed or moved: its sync loop stops
+    pub closed: AtomicBool,
+    /// the file watcher; dropping it ends the rescan loop
+    watcher: Mutex<Option<Box<dyn std::any::Any + Send>>>,
+}
 
-    pub fn save_settings(&self) -> Result<()> {
-        let s = self.settings.read().unwrap().clone();
-        write_private(&self.data_dir.join("settings.json"), serde_json::to_vec_pretty(&s)?.as_slice())
-    }
-
-    /// Rescan the vault (unchanged files are reused) and notify listeners.
+impl Book {
+    /// Rescan the folder (unchanged files are reused) and notify listeners.
     pub fn rescan(&self) {
         let _g = self.rescan_lock.lock().unwrap();
         let prev = self.index.read().unwrap().clone();
@@ -227,6 +251,142 @@ impl AppState {
 
     pub fn abs(&self, p: &VaultPath, must_exist: bool) -> Result<PathBuf, Response> {
         vault::resolve(&self.root, p, must_exist).map_err(|e| err(StatusCode::NOT_FOUND, e))
+    }
+}
+
+/// The cookbook a request is for: `?book=<id>` (the UI adds it to every request), or the first one
+/// the device may see when there is none. An unknown id is a 404, never another cookbook: a tab
+/// left open on a removed cookbook must not save into a different one.
+pub struct Bk(pub Arc<Book>);
+
+impl axum::extract::FromRequestParts<Arc<AppState>> for Bk {
+    type Rejection = Response;
+    async fn from_request_parts(parts: &mut axum::http::request::Parts, s: &Arc<AppState>) -> Result<Self, Response> {
+        let l = parts.extensions.get::<Listener>().copied().unwrap_or(Listener::Lan);
+        s.requested(book_param(&parts.uri), l).map(Bk)
+    }
+}
+
+/// The `book` query parameter (ids are hex, so nothing to decode).
+pub fn book_param(uri: &axum::http::Uri) -> Option<&str> {
+    uri.query()?.split('&').find_map(|kv| kv.strip_prefix("book="))
+}
+
+/// A cookbook's name: its folder's name.
+pub fn name_of(path: &Path) -> String {
+    path.file_name().map_or_else(|| path.to_string_lossy().into_owned(), |n| n.to_string_lossy().into_owned())
+}
+
+impl AppState {
+    /// The open cookbooks a device on listener `l` may see: all of them on the Mac, not the Mac-only
+    /// ones on the home network.
+    pub fn visible(&self, l: Listener) -> Vec<Arc<Book>> {
+        self.books.read().unwrap().iter().filter(|b| l == Listener::Loopback || !b.mac_only.load(Ordering::Relaxed)).cloned().collect()
+    }
+
+    pub fn book(&self, id: &str) -> Option<Arc<Book>> {
+        self.books.read().unwrap().iter().find(|b| b.id == id).cloned()
+    }
+
+    /// See `Bk`.
+    pub fn requested(&self, id: Option<&str>, l: Listener) -> Result<Arc<Book>, Response> {
+        let v = self.visible(l);
+        match id {
+            Some(id) => v.into_iter().find(|b| b.id == id),
+            None => v.into_iter().next(),
+        }
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "that cookbook isn't open in the app"))
+    }
+
+    /// Open a cookbook: scan its folder, then watch and sync it. It joins `books` at the position its
+    /// entry has in `settings.cookbooks`. Must run inside the async runtime.
+    pub fn open(self: &Arc<Self>, c: &Cookbook) -> Result<Arc<Book>> {
+        let root = c.path.canonicalize().with_context(|| format!("the folder {} isn't there", c.path.display()))?;
+        if !root.is_dir() {
+            anyhow::bail!("{} isn't a folder", root.display());
+        }
+        let book = Arc::new(Book {
+            id: c.id.clone(),
+            name: name_of(&root),
+            root,
+            mac_only: AtomicBool::new(c.mac_only),
+            index: RwLock::new(Arc::new(Index::default())),
+            payload: RwLock::new(Arc::new(Payload { etag: String::new(), json: Bytes::new() })),
+            events: broadcast::channel(16).0,
+            pdf_text: self.pdf_text,
+            rescan_lock: Mutex::new(()),
+            git: Default::default(),
+            ingredients: Default::default(),
+            closed: AtomicBool::new(false),
+            watcher: Mutex::new(None),
+        });
+        book.rescan();
+        spawn_watcher(self.clone(), book.clone())?;
+        crate::git::spawn(self.clone(), book.clone());
+        let order: Vec<String> = self.settings.read().unwrap().cookbooks.iter().map(|c| c.id.clone()).collect();
+        let mut books = self.books.write().unwrap();
+        books.retain(|b| b.id != c.id);
+        books.push(book.clone());
+        books.sort_by_key(|b| order.iter().position(|id| *id == b.id).unwrap_or(usize::MAX));
+        Ok(book)
+    }
+
+    /// Stop serving a cookbook (removed, or moved to another folder). Its folder is left as it is.
+    pub fn close(&self, id: &str) {
+        let Some(b) = self.book(id) else { return };
+        self.books.write().unwrap().retain(|x| x.id != id);
+        b.closed.store(true, Ordering::Relaxed);
+        b.watcher.lock().unwrap().take();
+        b.git.wake();
+    }
+
+    /// Why `path` can't be a cookbook, or its full path. `except`: the cookbook being moved there.
+    pub fn check_folder(&self, path: &Path, except: Option<&str>) -> Result<PathBuf, String> {
+        let p = path.canonicalize().map_err(|_| "that folder isn't there".to_string())?;
+        if !p.is_dir() {
+            return Err("choose a folder, not a file".into());
+        }
+        let nested = |a: &Path, b: &Path| a.starts_with(b) || b.starts_with(a);
+        if self.data_dir.canonicalize().is_ok_and(|d| nested(&p, &d)) {
+            return Err("that folder holds the app's own settings".into());
+        }
+        let name = name_of(&p).to_lowercase();
+        for c in self.settings.read().unwrap().cookbooks.iter().filter(|c| Some(c.id.as_str()) != except) {
+            let other = c.path.canonicalize().unwrap_or_else(|_| c.path.clone());
+            if other == p {
+                return Err("that folder is already a cookbook".into());
+            }
+            if nested(&p, &other) {
+                return Err(format!("that folder is inside the cookbook {} or holds it; choose one outside it", name_of(&other)));
+            }
+            if name_of(&other).to_lowercase() == name {
+                return Err(format!("there is already a cookbook called {}; rename the folder first", name_of(&other)));
+            }
+        }
+        Ok(p)
+    }
+
+    pub fn host_allowed(&self, host: &str, l: Listener) -> bool {
+        match l {
+            Listener::Loopback => {
+                let port = self.loopback_port.load(Ordering::Relaxed);
+                host == format!("127.0.0.1:{port}") || host == format!("localhost:{port}")
+            }
+            Listener::Lan | Listener::LanHttp => {
+                let h = host.rsplit_once(':').filter(|(_, p)| p.chars().all(|c| c.is_ascii_digit())).map_or(host, |(h, _)| h);
+                self.lan_hosts.read().unwrap().iter().any(|x| x == h)
+            }
+        }
+    }
+
+    pub fn save_settings(&self) -> Result<()> {
+        let s = self.settings.read().unwrap().clone();
+        write_private(&self.data_dir.join("settings.json"), serde_json::to_vec_pretty(&s)?.as_slice())
+    }
+
+    /// Change one cookbook's settings entry (None when there is no such cookbook).
+    pub fn cookbook_mut<R>(&self, id: &str, f: impl FnOnce(&mut Cookbook) -> R) -> Option<R> {
+        self.settings.write().unwrap().cookbooks.iter_mut().find(|c| c.id == id).map(f)
     }
 }
 
@@ -262,7 +422,7 @@ pub fn init(cfg: Config) -> Result<Arc<AppState>> {
     // rustls refuses to pick one and the sharing server panics, taking the app's own window down with it.
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
     std::fs::create_dir_all(&cfg.data_dir)?;
-    let settings: Settings = match std::fs::read(cfg.data_dir.join("settings.json")) {
+    let mut settings: Settings = match std::fs::read(cfg.data_dir.join("settings.json")) {
         Ok(b) => serde_json::from_slice(&b).unwrap_or_default(),
         Err(_) => Settings { setup_done: false, ..Default::default() }, // first start: show the setup
     };
@@ -275,15 +435,18 @@ pub fn init(cfg: Config) -> Result<Arc<AppState>> {
             k.to_vec()
         }
     };
-    let root = settings.vault.clone().unwrap_or(cfg.vault);
-    std::fs::create_dir_all(&root).with_context(|| format!("creating vault {}", root.display()))?;
-    let root = root.canonicalize()?;
+    // first start, or a settings file from before cookbooks: the one recipes folder, made if needed
+    if settings.cookbooks.is_empty() {
+        let path = settings.vault.take().unwrap_or(cfg.vault);
+        std::fs::create_dir_all(&path).with_context(|| format!("creating the recipes folder {}", path.display()))?;
+        let git_sync = std::mem::take(&mut settings.git_sync);
+        settings.cookbooks.push(Cookbook { id: FIRST_BOOK.into(), path: path.canonicalize()?, git_sync, mac_only: false });
+    }
+    let cookbooks = settings.cookbooks.clone();
     let (tx, _) = broadcast::channel(64);
     let state = Arc::new(AppState {
-        root,
         data_dir: cfg.data_dir,
-        index: RwLock::new(Arc::new(Index::default())),
-        payload: RwLock::new(Arc::new(Payload { etag: String::new(), json: Bytes::new() })),
+        books: RwLock::new(vec![]),
         events: tx,
         settings: RwLock::new(settings),
         launch_token: auth::random_token(),
@@ -293,19 +456,23 @@ pub fn init(cfg: Config) -> Result<Arc<AppState>> {
         loopback_port: AtomicU16::new(0),
         shell: cfg.shell,
         pdf_text: cfg.pdf_text,
-        rescan_lock: Mutex::new(()),
         ext: Default::default(),
     });
-    state.rescan();
-    spawn_watcher(state.clone())?;
+    for c in &cookbooks {
+        // a folder that's gone (an unplugged drive) is listed as missing and never made again
+        if let Err(e) = state.open(c) {
+            tracing::warn!("cookbook {}: {e:#}", c.path.display());
+        }
+    }
     Ok(state)
 }
 
-fn spawn_watcher(state: Arc<AppState>) -> Result<()> {
+/// Rescan a cookbook after changes in its folder, until it is closed (the watcher is dropped).
+fn spawn_watcher(state: Arc<AppState>, book: Arc<Book>) -> Result<()> {
     use notify::RecursiveMode;
     use notify_debouncer_full::{DebounceEventResult, new_debouncer};
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<()>();
-    let root = state.root.clone();
+    let root = book.root.clone();
     let mut deb = new_debouncer(std::time::Duration::from_millis(300), None, move |res: DebounceEventResult| {
         if let Ok(events) = res {
             let relevant = events.iter().flat_map(|e| e.paths.iter()).any(|p| {
@@ -316,14 +483,14 @@ fn spawn_watcher(state: Arc<AppState>) -> Result<()> {
             }
         }
     })?;
-    deb.watch(&state.root, RecursiveMode::Recursive)?;
+    deb.watch(&book.root, RecursiveMode::Recursive)?;
+    *book.watcher.lock().unwrap() = Some(Box::new(deb));
     tokio::spawn(async move {
-        let _keep = deb;
         while rx.recv().await.is_some() {
             while rx.try_recv().is_ok() {}
-            let s = state.clone();
-            let _ = tokio::task::spawn_blocking(move || s.rescan()).await;
-            crate::git::changed(&state);
+            let b = book.clone();
+            let _ = tokio::task::spawn_blocking(move || b.rescan()).await;
+            book.git.wake();
             crate::nutrition::changed(&state);
         }
     });
@@ -344,6 +511,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/trash/restore", post(trash_restore))
         .route("/api/settings", get(settings_get).put(settings_put))
         .route("/api/settings/pin", put(settings_pin))
+        .route("/api/cookbooks", post(cookbook_add))
+        .route("/api/cookbooks/{id}", put(cookbook_put).delete(cookbook_remove))
         .route("/api/shell/{action}", post(shell_action))
         .merge(crate::extra_routes())
         .route("/auth", get(admin_auth))
@@ -363,9 +532,11 @@ pub async fn serve(app: Router, listener: tokio::net::TcpListener, kind: Listene
 
 // ---------- session ----------
 
-async fn session(State(s): St, Caller(role): Caller, Extension(Who(who)): Extension<Who>) -> Response {
+async fn session(State(s): St, Caller(role): Caller, Extension(Who(who)): Extension<Who>, Extension(l): Extension<Listener>) -> Response {
+    let books: Vec<_> = s.visible(l).iter().map(|b| json!({ "id": b.id, "name": b.name })).collect();
     let st = s.settings.read().unwrap();
     Json(json!({
+        "books": books,
         "role": role,
         "user": who,
         "pin_set": st.pin_hash.is_some(),
@@ -454,8 +625,8 @@ async fn admin_auth(State(s): St, Extension(l): Extension<Listener>, Query(q): Q
 
 // ---------- vault ----------
 
-async fn vault_payload(State(s): St, headers: HeaderMap) -> Response {
-    let p = s.payload.read().unwrap().clone();
+async fn vault_payload(Bk(b): Bk, headers: HeaderMap) -> Response {
+    let p = b.payload.read().unwrap().clone();
     let tag = format!("\"{}\"", p.etag);
     if headers.get(header::IF_NONE_MATCH).and_then(|v| v.to_str().ok()) == Some(tag.as_str()) {
         return StatusCode::NOT_MODIFIED.into_response();
@@ -470,14 +641,13 @@ async fn vault_payload(State(s): St, headers: HeaderMap) -> Response {
 /// Sent when the background check (lib.rs `spawn_update_checks`) has an update ready.
 pub const UPDATE_EVENT: &str = "update";
 
-async fn events(State(s): St) -> Sse<impl futures_util::Stream<Item = Result<Event, std::convert::Infallible>>> {
-    let rx = BroadcastStream::new(s.events.subscribe());
-    // a new vault payload's etag, or the name of what else changed (the whiteboard, the meals made, people)
-    let named = [crate::board::EVENT, crate::made::EVENT, crate::users::EVENT, UPDATE_EVENT];
-    let stream = rx.filter_map(|m| m.ok()).map(move |m| {
-        Ok(if named.contains(&m.as_str()) { Event::default().event(&m).data("1") } else { Event::default().event("vault").data(m) })
-    });
-    Sse::new(stream).keep_alive(KeepAlive::default())
+/// The cookbook's new payload etags (event `vault`), and the names of what else changed for everyone
+/// (the whiteboard, the meals made, people, an update).
+async fn events(State(s): St, Bk(b): Bk) -> Sse<impl futures_util::Stream<Item = Result<Event, std::convert::Infallible>>> {
+    type Item = Result<Event, std::convert::Infallible>;
+    let shared = BroadcastStream::new(s.events.subscribe()).filter_map(|m| m.ok()).map(|m| -> Item { Ok(Event::default().event(&m).data("1")) });
+    let own = BroadcastStream::new(b.events.subscribe()).filter_map(|m| m.ok()).map(|m| -> Item { Ok(Event::default().event("vault").data(m)) });
+    Sse::new(shared.merge(own)).keep_alive(KeepAlive::default())
 }
 
 fn vp(raw: &str) -> Result<VaultPath, Response> {
@@ -509,9 +679,9 @@ pub fn urlencode(s: &str) -> String {
         .collect()
 }
 
-async fn get_file(State(s): St, AxPath(raw): AxPath<String>, headers: HeaderMap) -> Res {
+async fn get_file(Bk(b): Bk, AxPath(raw): AxPath<String>, headers: HeaderMap) -> Res {
     let p = vp(&raw)?;
-    let abs = s.abs(&p, true)?;
+    let abs = b.abs(&p, true)?;
     let bytes = tokio::fs::read(&abs).await.map_err(|e| err(StatusCode::NOT_FOUND, e))?;
     let tag = format!("\"{}\"", vault::etag_of(&bytes));
     if headers.get(header::IF_NONE_MATCH).and_then(|v| v.to_str().ok()) == Some(tag.as_str()) {
@@ -533,7 +703,7 @@ struct PutQ {
 }
 
 async fn put_file(
-    State(s): St,
+    Bk(b): Bk,
     caller: Caller,
     AxPath(raw): AxPath<String>,
     Query(q): Query<PutQ>,
@@ -547,17 +717,17 @@ async fn put_file(
     }
     if p.as_str().starts_with(&format!("{}/", vault::ATTACHMENTS)) {
         if let Some(parent) = p.parent() {
-            let dir = s.root.join(parent);
-            if !dir.starts_with(s.root.join(vault::ATTACHMENTS)) {
+            let dir = b.root.join(parent);
+            if !dir.starts_with(b.root.join(vault::ATTACHMENTS)) {
                 return Err(bad("bad attachment path"));
             }
             std::fs::create_dir_all(&dir).map_err(bad)?;
         }
     }
     if q.unique {
-        p = vault::unique(&s.root, &p);
+        p = vault::unique(&b.root, &p);
     }
-    let abs = s.abs(&p, false)?;
+    let abs = b.abs(&p, false)?;
     let if_match = headers.get(header::IF_MATCH).and_then(|v| v.to_str().ok()).map(|v| v.trim_matches('"').to_string());
     let create_only = headers.get(header::IF_NONE_MATCH).and_then(|v| v.to_str().ok()) == Some("*");
     let exists = abs.exists();
@@ -572,14 +742,14 @@ async fn put_file(
             (None, _) => return Err(err(StatusCode::PRECONDITION_REQUIRED, "If-Match or If-None-Match required")),
         }
     }
-    let s2 = s.clone();
+    let b2 = b.clone();
     let p2 = p.clone();
     let etag = tokio::task::spawn_blocking(move || -> Result<String> {
         if exists {
-            vault::backup_before_overwrite(&s2.root, &p2, &abs)?;
+            vault::backup_before_overwrite(&b2.root, &p2, &abs)?;
         }
         vault::atomic_write(&abs, &body)?;
-        s2.rescan();
+        b2.rescan();
         Ok(vault::etag_of(&body))
     })
     .await
@@ -592,17 +762,17 @@ fn conflict(current: Option<String>, msg: &str) -> Response {
     (StatusCode::CONFLICT, Json(json!({ "error": msg, "etag": current }))).into_response()
 }
 
-async fn delete_file(State(s): St, caller: Caller, AxPath(raw): AxPath<String>) -> Res {
+async fn delete_file(Bk(b): Bk, caller: Caller, AxPath(raw): AxPath<String>) -> Res {
     caller.need(Role::Writer)?;
     let p = vp(&raw)?;
-    let id = vault::trash(&s.root, &p).map_err(|e| err(StatusCode::NOT_FOUND, e))?;
-    blocking_rescan(&s).await;
+    let id = vault::trash(&b.root, &p).map_err(|e| err(StatusCode::NOT_FOUND, e))?;
+    blocking_rescan(&b).await;
     Ok(Json(json!({ "trash_id": id })).into_response())
 }
 
-async fn blocking_rescan(s: &Arc<AppState>) {
-    let s = s.clone();
-    let _ = tokio::task::spawn_blocking(move || s.rescan()).await;
+async fn blocking_rescan(b: &Arc<Book>) {
+    let b = b.clone();
+    let _ = tokio::task::spawn_blocking(move || b.rescan()).await;
 }
 
 #[derive(Deserialize)]
@@ -611,21 +781,21 @@ struct MoveBody {
     to: String,
 }
 
-async fn move_path(State(s): St, caller: Caller, Json(b): Json<MoveBody>) -> Res {
+async fn move_path(State(s): St, Bk(book): Bk, caller: Caller, Json(b): Json<MoveBody>) -> Res {
     caller.need(Role::Writer)?;
     let (from, to) = (vp(&b.from)?, vp(&b.to)?);
-    let src = s.abs(&from, true)?;
-    let dst = s.abs(&to, false)?;
+    let src = book.abs(&from, true)?;
+    let dst = book.abs(&to, false)?;
     if src.is_dir() && to.as_str().starts_with(&format!("{}/", from.as_str())) {
         return Err(bad("cannot move a folder into itself"));
     }
     let case_only = from.as_str().to_lowercase() == to.as_str().to_lowercase();
-    if !case_only && vault::unique(&s.root, &to) != to {
+    if !case_only && vault::unique(&book.root, &to) != to {
         return Err(conflict(None, "something with that name already exists"));
     }
     std::fs::rename(&src, &dst).map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
-    crate::users::moved(&s, from.as_str(), to.as_str());
-    blocking_rescan(&s).await;
+    crate::users::moved(&s, &book.id, from.as_str(), to.as_str());
+    blocking_rescan(&book).await;
     Ok(Json(json!({ "path": to })).into_response())
 }
 
@@ -634,34 +804,34 @@ struct PathBody {
     path: String,
 }
 
-async fn mkdir(State(s): St, caller: Caller, Json(b): Json<PathBody>) -> Res {
+async fn mkdir(Bk(book): Bk, caller: Caller, Json(b): Json<PathBody>) -> Res {
     caller.need(Role::Writer)?;
     let p = vp(&b.path)?;
-    if vault::unique(&s.root, &p) != p {
+    if vault::unique(&book.root, &p) != p {
         return Err(conflict(None, "something with that name already exists"));
     }
-    let abs = s.abs(&p, false)?;
+    let abs = book.abs(&p, false)?;
     std::fs::create_dir(&abs).map_err(bad)?;
-    blocking_rescan(&s).await;
+    blocking_rescan(&book).await;
     Ok(Json(json!({ "path": p })).into_response())
 }
 
 pub const FOLDER_META: &str = ".folders.yaml";
 
 /// Folder icons/colours: the client sends the whole file; it is stored as written.
-async fn folder_meta_put(State(s): St, caller: Caller, body: String) -> Res {
+async fn folder_meta_put(Bk(b): Bk, caller: Caller, body: String) -> Res {
     caller.need(Role::Writer)?;
     if body.len() > 256 * 1024 {
         return Err(err(StatusCode::PAYLOAD_TOO_LARGE, "too large"));
     }
-    vault::atomic_write(&s.root.join(FOLDER_META), body.as_bytes()).map_err(bad)?;
-    blocking_rescan(&s).await;
+    vault::atomic_write(&b.root.join(FOLDER_META), body.as_bytes()).map_err(bad)?;
+    blocking_rescan(&b).await;
     Ok(StatusCode::NO_CONTENT.into_response())
 }
 
-async fn trash_list(State(s): St, caller: Caller) -> Res {
+async fn trash_list(Bk(b): Bk, caller: Caller) -> Res {
     caller.need(Role::Writer)?;
-    Ok(Json(vault::list_trash(&s.root)).into_response())
+    Ok(Json(vault::list_trash(&b.root)).into_response())
 }
 
 #[derive(Deserialize)]
@@ -669,16 +839,16 @@ struct IdBody {
     id: String,
 }
 
-async fn trash_restore(State(s): St, caller: Caller, Json(b): Json<IdBody>) -> Res {
+async fn trash_restore(Bk(book): Bk, caller: Caller, Json(b): Json<IdBody>) -> Res {
     caller.need(Role::Writer)?;
-    let path = vault::restore(&s.root, &b.id).map_err(bad)?;
-    blocking_rescan(&s).await;
+    let path = vault::restore(&book.root, &b.id).map_err(bad)?;
+    blocking_rescan(&book).await;
     Ok(Json(json!({ "path": path })).into_response())
 }
 
-async fn trash_empty(State(s): St, caller: Caller) -> Res {
+async fn trash_empty(Bk(b): Bk, caller: Caller) -> Res {
     caller.need(Role::Admin)?;
-    let dir = s.root.join(vault::TRASH);
+    let dir = b.root.join(vault::TRASH);
     if dir.exists() {
         std::fs::remove_dir_all(&dir).map_err(bad)?;
     }
@@ -691,8 +861,13 @@ async fn settings_get(State(s): St, caller: Caller) -> Res {
     caller.need(Role::Admin)?;
     let st = s.settings.read().unwrap().clone();
     let lan = crate::lan_status(&s);
+    let cookbooks: Vec<_> = st
+        .cookbooks
+        .iter()
+        .map(|c| json!({ "id": c.id, "name": name_of(&c.path), "path": c.path, "missing": s.book(&c.id).is_none(), "mac_only": c.mac_only, "git": crate::git::status(&s, &c.id) }))
+        .collect();
     Ok(Json(json!({
-        "vault": s.root,
+        "cookbooks": cookbooks,
         "pin_set": st.pin_hash.is_some(),
         "ai": st.ai,
         "ai_key_set": crate::ai_key_set(&s),
@@ -702,7 +877,6 @@ async fn settings_get(State(s): St, caller: Caller) -> Res {
         "keep_awake": st.keep_awake,
         "network": lan,
         "autostart": s.shell.as_ref().map(|sh| sh.autostart(None)),
-        "git": crate::git::status(&s),
         "editing_as": st.editing_as,
         "calendar": st.calendar,
         "updates": st.updates,
@@ -716,7 +890,6 @@ struct SettingsPut {
     calendar: Option<CalendarSettings>,
     lan: Option<bool>,
     keep_awake: Option<bool>,
-    vault: Option<PathBuf>,
     setup_done: Option<bool>,
     /// a person's id, or "" for nobody
     editing_as: Option<String>,
@@ -748,12 +921,6 @@ async fn settings_put(State(s): St, caller: Caller, Json(b): Json<SettingsPut>) 
         if let Some(id) = b.editing_as {
             st.editing_as = (!id.is_empty()).then_some(id);
         }
-        if let Some(v) = b.vault {
-            if !v.is_dir() {
-                return Err(bad("that folder does not exist"));
-            }
-            st.vault = Some(v);
-        }
     }
     s.save_settings().map_err(bad)?;
     crate::settings_changed(&s);
@@ -777,13 +944,101 @@ async fn settings_pin(State(s): St, caller: Caller, Json(b): Json<PinBody>) -> R
     Ok(StatusCode::NO_CONTENT.into_response())
 }
 
-async fn shell_action(State(s): St, caller: Caller, AxPath(action): AxPath<String>, body: Bytes) -> Res {
+// ---------- cookbooks (desktop only) ----------
+
+#[derive(Deserialize)]
+struct CookbookBody {
+    path: PathBuf,
+}
+
+/// Open a folder as a new cookbook (an empty one, made in the folder picker, starts empty).
+async fn cookbook_add(State(s): St, caller: Caller, Json(b): Json<CookbookBody>) -> Res {
+    caller.need(Role::Admin)?;
+    let path = s.check_folder(&b.path, None).map_err(bad)?;
+    let c = Cookbook { id: format!("{:08x}", rand::random::<u32>()), path, git_sync: false, mac_only: false };
+    s.settings.write().unwrap().cookbooks.push(c.clone());
+    let (s2, c2) = (s.clone(), c.clone());
+    if let Err(e) = tokio::task::spawn_blocking(move || s2.open(&c2)).await.unwrap() {
+        s.settings.write().unwrap().cookbooks.retain(|x| x.id != c.id);
+        return Err(bad(format!("{e:#}")));
+    }
+    s.save_settings().map_err(bad)?;
+    Ok(Json(json!({ "id": c.id })).into_response())
+}
+
+#[derive(Deserialize)]
+struct CookbookPut {
+    mac_only: Option<bool>,
+    /// the folder moved, or was found again: serve this one instead (sync is turned off)
+    path: Option<PathBuf>,
+}
+
+async fn cookbook_put(State(s): St, caller: Caller, AxPath(id): AxPath<String>, Json(b): Json<CookbookPut>) -> Res {
+    caller.need(Role::Admin)?;
+    let old = s.cookbook_mut(&id, |c| c.clone()).ok_or_else(|| err(StatusCode::NOT_FOUND, "no such cookbook"))?;
+    if let Some(m) = b.mac_only {
+        s.cookbook_mut(&id, |c| c.mac_only = m);
+        if let Some(book) = s.book(&id) {
+            book.mac_only.store(m, Ordering::Relaxed);
+        }
+    }
+    if let Some(p) = b.path {
+        let path = s.check_folder(&p, Some(&id)).map_err(bad)?;
+        s.close(&id);
+        // a different folder may be a different repository: never push it without being asked
+        let c = s.cookbook_mut(&id, |c| {
+            c.path = path;
+            c.git_sync = false;
+            c.clone()
+        });
+        let s2 = s.clone();
+        let opened = tokio::task::spawn_blocking(move || c.map(|c| s2.open(&c))).await.unwrap();
+        if let Some(Err(e)) = opened {
+            s.cookbook_mut(&id, |c| *c = old.clone());
+            let s2 = s.clone();
+            let _ = tokio::task::spawn_blocking(move || s2.open(&old)).await;
+            return Err(bad(format!("{e:#}")));
+        }
+    }
+    s.save_settings().map_err(bad)?;
+    Ok(StatusCode::NO_CONTENT.into_response())
+}
+
+/// Stop serving a cookbook; its folder, and its git history, stay where they are.
+async fn cookbook_remove(State(s): St, caller: Caller, AxPath(id): AxPath<String>) -> Res {
+    caller.need(Role::Admin)?;
+    {
+        let st = s.settings.read().unwrap();
+        if !st.cookbooks.iter().any(|c| c.id == id) {
+            return Err(err(StatusCode::NOT_FOUND, "no such cookbook"));
+        }
+        if st.cookbooks.len() == 1 {
+            return Err(bad("the app needs at least one cookbook"));
+        }
+    }
+    s.close(&id);
+    s.settings.write().unwrap().cookbooks.retain(|c| c.id != id);
+    s.save_settings().map_err(bad)?;
+    let _ = tokio::task::spawn_blocking(move || crate::git::forget_token(&id)).await;
+    Ok(StatusCode::NO_CONTENT.into_response())
+}
+
+/// A file name for the recipe book: the cookbook's name, without anything a file name can't hold.
+fn file_name(raw: Option<&str>, ext: &str) -> String {
+    let n: String = raw.unwrap_or("").chars().filter(|c| !matches!(c, '/' | '\\' | ':') && !c.is_control()).take(100).collect();
+    let n = n.trim().trim_start_matches('.').trim();
+    format!("{}.{ext}", if n.is_empty() { "Recipes" } else { n })
+}
+
+async fn shell_action(State(s): St, caller: Caller, Extension(l): Extension<Listener>, uri: axum::http::Uri, AxPath(action): AxPath<String>, body: Bytes) -> Res {
     caller.need(Role::Admin)?;
     let Some(shell) = s.shell.clone() else { return Err(err(StatusCode::NOT_IMPLEMENTED, "not running in the desktop app")) };
+    let json = serde_json::from_slice::<serde_json::Value>(&body).unwrap_or_default();
     match action.as_str() {
         "reveal" => {
             let b: PathBody = serde_json::from_slice(&body).map_err(bad)?;
-            let abs = if b.path.is_empty() { s.root.clone() } else { s.abs(&vp(&b.path)?, true)? };
+            let book = s.requested(book_param(&uri), l)?;
+            let abs = if b.path.is_empty() { book.root.clone() } else { book.abs(&vp(&b.path)?, true)? };
             shell.reveal(&abs);
             Ok(StatusCode::NO_CONTENT.into_response())
         }
@@ -831,13 +1086,14 @@ async fn shell_action(State(s): St, caller: Caller, AxPath(action): AxPath<Strin
         "save-html" | "save-pdf" => {
             let dir = shell.downloads().ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "the Downloads folder wasn't found"))?;
             let fail = |e: String| err(StatusCode::INTERNAL_SERVER_ERROR, format!("the recipe book could not be saved: {e}"));
+            let name = json["name"].as_str();
             let to = if action == "save-html" {
-                let html = serde_json::from_slice::<serde_json::Value>(&body).ok().and_then(|v| v["html"].as_str().map(str::to_string)).ok_or_else(|| bad("no book to save"))?;
-                let to = unique_file(&dir, "Recipes.html");
+                let html = json["html"].as_str().ok_or_else(|| bad("no book to save"))?;
+                let to = unique_file(&dir, &file_name(name, "html"));
                 std::fs::write(&to, html).map_err(|e| fail(e.to_string()))?;
                 to
             } else {
-                let to = unique_file(&dir, "Recipes.pdf");
+                let to = unique_file(&dir, &file_name(name, "pdf"));
                 let (sh, t) = (shell.clone(), to.clone());
                 tokio::task::spawn_blocking(move || sh.save_pdf(&t)).await.unwrap().map_err(fail)?;
                 to
@@ -874,4 +1130,124 @@ async fn static_ui(uri: axum::http::Uri) -> Response {
         res.headers_mut().insert(header::CONTENT_SECURITY_POLICY, HeaderValue::from_static(CSP));
     }
     res
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tmp(name: &str) -> PathBuf {
+        let t = std::env::temp_dir().join(format!("recipes-books-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&t);
+        t
+    }
+
+    fn write(p: &Path, s: &str) {
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(p, s).unwrap();
+    }
+
+    /// A state with two cookbooks, `1` (folder `Family`) and `b2` (folder `Mine`), both holding
+    /// `Pies/Pie.md`; `b2` is Mac only.
+    async fn two(t: &Path) -> Arc<AppState> {
+        write(&t.join("Family/Pies/Pie.md"), "# Family pie\n");
+        write(&t.join("Mine/Pies/Pie.md"), "# My pie\n");
+        let s = init(Config { vault: t.join("Family"), data_dir: t.join("data"), shell: None, pdf_text: None }).unwrap();
+        let c = Cookbook { id: "b2".into(), path: t.join("Mine"), git_sync: false, mac_only: true };
+        s.settings.write().unwrap().cookbooks.push(c.clone());
+        s.open(&c).unwrap();
+        s
+    }
+
+    fn title(b: &Book) -> String {
+        b.index.read().unwrap().files.get(&VaultPath::parse("Pies/Pie.md").unwrap()).unwrap().title.clone()
+    }
+
+    #[tokio::test]
+    async fn each_request_reaches_its_own_cookbook() {
+        let t = tmp("reach");
+        let s = two(&t).await;
+        let uri = |q: &str| q.parse::<axum::http::Uri>().unwrap();
+        assert_eq!(book_param(&uri("/api/vault?book=b2&x=1")), Some("b2"));
+        assert_eq!(book_param(&uri("/api/files/Pie.md?unique=true")), None);
+
+        // the same path is a different recipe in each cookbook
+        assert_eq!(title(&s.requested(None, Listener::Loopback).unwrap()), "Family pie");
+        assert_eq!(title(&s.requested(Some("b2"), Listener::Loopback).unwrap()), "My pie");
+        // an unknown cookbook is refused, never answered from another one
+        assert_eq!(s.requested(Some("gone"), Listener::Loopback).err().map(|r| r.status()), Some(StatusCode::NOT_FOUND));
+        // a Mac-only cookbook is the desktop window's alone
+        for l in [Listener::Lan, Listener::LanHttp] {
+            assert!(s.requested(Some("b2"), l).is_err());
+            assert_eq!(s.visible(l).len(), 1);
+        }
+
+        // a change in one cookbook is heard only by those reading it
+        let (b1, b2) = (s.book(FIRST_BOOK).unwrap(), s.book("b2").unwrap());
+        let (mut rx1, mut rx2) = (b1.events.subscribe(), b2.events.subscribe());
+        write(&t.join("Mine/Soup.md"), "# Soup\n");
+        b2.rescan();
+        assert!(rx2.try_recv().is_ok());
+        assert!(rx1.try_recv().is_err());
+
+        // closed: gone from every device, its folder left alone
+        s.close("b2");
+        assert!(s.requested(Some("b2"), Listener::Loopback).is_err() && b2.closed.load(Ordering::Relaxed));
+        assert!(t.join("Mine/Soup.md").exists());
+        let _ = std::fs::remove_dir_all(&t);
+    }
+
+    #[tokio::test]
+    async fn folders_that_cant_be_cookbooks() {
+        let t = tmp("check");
+        let s = two(&t).await;
+        for (p, why) in [
+            (t.join("Family"), "already a cookbook"),
+            (t.join("Family/Pies"), "inside"),
+            (t.clone(), "settings"), // it holds both cookbooks too; the settings rule comes first
+            (t.join("data"), "settings"),
+            (t.join("nowhere"), "isn't there"),
+            (t.join("Family/Pies/Pie.md"), "not a file"),
+        ] {
+            assert!(s.check_folder(&p, None).unwrap_err().contains(why), "{}", p.display());
+        }
+        std::fs::create_dir_all(t.join("elsewhere/mine")).unwrap();
+        assert!(s.check_folder(&t.join("elsewhere/mine"), None).unwrap_err().contains("already a cookbook called Mine"), "names match in any letter case");
+        std::fs::create_dir_all(t.join("Baking")).unwrap();
+        assert!(s.check_folder(&t.join("Baking"), None).is_ok());
+        // a cookbook may move to a folder of the same name
+        std::fs::create_dir_all(t.join("moved/Mine")).unwrap();
+        assert!(s.check_folder(&t.join("moved/Mine"), Some("b2")).is_ok());
+        let _ = std::fs::remove_dir_all(&t);
+    }
+
+    #[tokio::test]
+    async fn moving_a_cookbook_turns_its_sync_off() {
+        let t = tmp("move");
+        let s = two(&t).await;
+        s.cookbook_mut("b2", |c| c.git_sync = true);
+        write(&t.join("moved/Mine/Pies/Pie.md"), "# My moved pie\n");
+        let body = CookbookPut { mac_only: Some(false), path: Some(t.join("moved/Mine")) };
+        cookbook_put(State(s.clone()), Caller(Role::Admin), AxPath("b2".into()), Json(body)).await.unwrap();
+        let c = s.cookbook_mut("b2", |c| c.clone()).unwrap();
+        assert!(!c.git_sync && !c.mac_only, "never pushes a folder it wasn't connected in");
+        assert_eq!(title(&s.requested(Some("b2"), Listener::Lan).unwrap()), "My moved pie");
+        assert_eq!(s.books.read().unwrap().iter().map(|b| b.id.as_str()).collect::<Vec<_>>(), [FIRST_BOOK, "b2"], "keeps its place");
+
+        // saved as cookbooks; the settings from before cookbooks are not written again
+        let saved = std::fs::read_to_string(t.join("data/settings.json")).unwrap();
+        assert!(saved.contains("\"cookbooks\"") && !saved.contains("\"vault\"") && !saved.contains("\"git_sync\": false,\n  \"editing_as\""));
+        // the last cookbook can't be removed
+        cookbook_remove(State(s.clone()), Caller(Role::Admin), AxPath("b2".into())).await.unwrap();
+        assert!(cookbook_remove(State(s.clone()), Caller(Role::Admin), AxPath(FIRST_BOOK.into())).await.is_err());
+        let _ = std::fs::remove_dir_all(&t);
+    }
+
+    #[test]
+    fn settings_from_before_cookbooks() {
+        let st: Settings = serde_json::from_str(r#"{"vault":"/Users/x/Recipes","git_sync":true}"#).unwrap();
+        assert_eq!((st.vault.as_deref(), st.git_sync, st.cookbooks.len()), (Some(Path::new("/Users/x/Recipes")), true, 0));
+        assert_eq!(file_name(Some("Mine/../.x"), "pdf"), "Mine...x.pdf");
+        assert_eq!(file_name(Some("  "), "html"), "Recipes.html");
+    }
 }

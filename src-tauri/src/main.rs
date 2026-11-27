@@ -47,7 +47,8 @@ impl Shell for TauriShell {
         let _ = self.0.opener().open_url(url, None::<&str>);
     }
     fn choose_folder(&self) -> Option<PathBuf> {
-        self.0.dialog().file().set_title("Choose your recipes folder").blocking_pick_folder()?.into_path().ok()
+        // "New Folder" makes a new, empty cookbook
+        self.0.dialog().file().set_title("Choose a cookbook folder, or make a new one").set_can_create_directories(true).blocking_pick_folder()?.into_path().ok()
     }
     fn print(&self) {
         if let Some(w) = self.0.get_webview_window("main") {
@@ -152,6 +153,9 @@ fn show(app: &AppHandle) {
 /// Started by "Open Recipes at login": serve phones and tablets from the menu bar, no window.
 const HIDDEN: &str = "--hidden";
 
+/// The desktop window's own server, on this Mac only (127.0.0.1).
+const WINDOW_PORT: u16 = 47321;
+
 /// The release check (`scripts/release.mjs`): `RECIPES_SMOKE=<dir>` runs the built app on `<dir>/vault`
 /// and `<dir>/data` with sharing off, no single-instance lock and no login item, so the installed app,
 /// its settings and its login item are left alone. It builds the sharing certificate, then exits 0 once
@@ -219,7 +223,14 @@ fn main() {
                 });
             }
 
-            let std_listener = std::net::TcpListener::bind(("127.0.0.1", 0))?;
+            // One port every launch, so the window is the same web origin and keeps what it stored
+            // (open tabs, theme, units, its cookbook); any free port when it's taken. The release check
+            // always takes any port, so it never shares (or changes) the installed app's storage.
+            let fixed = if smoke.is_some() { None } else { std::net::TcpListener::bind(("127.0.0.1", WINDOW_PORT)).ok() };
+            let std_listener = match fixed {
+                Some(l) => l,
+                None => std::net::TcpListener::bind(("127.0.0.1", 0))?,
+            };
             std_listener.set_nonblocking(true)?;
             let port = std_listener.local_addr()?.port();
             state.loopback_port.store(port, std::sync::atomic::Ordering::Relaxed);
