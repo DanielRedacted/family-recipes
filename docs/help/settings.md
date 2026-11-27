@@ -19,7 +19,7 @@ Not everyone sees every section. Some only appear in the Recipes app on the Mac.
 ## Only on the Mac
 
 - **Recipes folder**: where the recipes are kept on the Mac, with **Show in Finder** and **Use a different folder…**. Under **GitHub**, the recipes can be kept in sync with a private copy online. Once connected, it has **Sync now** and **Stop syncing**.
-- **Desktop app**: **Open Recipes at login**, and **Check for updates**. Closing the window keeps Recipes running in the menu bar, so phones and tablets can still reach it.
+- **Desktop app**: **Open Recipes at login**, what to do with a new version (tell me, download it, or install it automatically), and **Check for updates**. Closing the window keeps Recipes running in the menu bar, so phones and tablets can still reach it.
 - **Phones & tablets**: **Share recipes with devices on this Wi-Fi**, a QR code a phone can scan to open Recipes, and **Keep this Mac awake while sharing**. Here you also set, change or remove the **Family PIN** that lets other devices edit.
 - **People**: everyone who has signed in, with their devices and the changes they made. **Add a person…**, **Rename…**, **Full name…** and **Remove** look after the list. Here you also choose who the Mac is **Editing as**. **Changes made on this Mac** lists the Mac's own changes.
 - **Calendar**: **Show events from this Mac's calendar**, off unless it's turned on here, and which calendars to show (none until you tick one). Recipes only reads the calendar; events are changed in the Calendar app. See [The calendar](#/settings/help/calendar).

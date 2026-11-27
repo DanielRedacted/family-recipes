@@ -4,7 +4,7 @@
   import { api } from '../lib/api';
   import { shell } from '../lib/ops';
   import { confirmIt } from '../lib/dialog.svelte';
-  import { checkForUpdate } from '../lib/update.svelte';
+  import { update, checkForUpdate, type UpdateMode } from '../lib/update.svelte';
   import { saveBookHtml, printBook } from '../lib/book';
   import Network from './Network.svelte';
   import GitHub from './GitHub.svelte';
@@ -50,6 +50,16 @@
 
   async function put(body: any) {
     try { s = await api('PUT', '/api/settings', body); await loadSession(); } catch (e: any) { toast(e.message, 'error'); }
+  }
+
+  const updateModes: { value: UpdateMode; label: string }[] = [
+    { value: 'notify', label: 'Just tell me' },
+    { value: 'download', label: 'Download it, then ask me to restart' },
+    { value: 'install', label: 'Install it automatically' },
+  ];
+  async function setUpdates(mode: UpdateMode) {
+    await put({ updates: mode });
+    if (mode !== 'notify') checkForUpdate(true); // fetch one that is already out
   }
 
   async function savePin(clear = false) {
@@ -193,8 +203,15 @@
       </section>
       <section class="card">
         <h2>Updates</h2>
-        <p class="muted small">Recipes {app.session.version}. New versions are looked for each time the app opens.</p>
-        <div class="row"><button class="btn" onclick={() => checkForUpdate()}>Check for updates</button></div>
+        <p class="muted small">Recipes {app.session.version}. New versions are looked for each time the app opens{s.updates === 'notify' ? '' : ', and every 6 hours while it runs'}.</p>
+        <fieldset class="cals">
+          <legend class="small">When there is a new version</legend>
+          {#each updateModes as m (m.value)}
+            <label class="row"><input type="radio" name="updates" value={m.value} checked={s.updates === m.value} onchange={() => setUpdates(m.value)} /> {m.label}</label>
+          {/each}
+        </fieldset>
+        {#if s.updates === 'install'}<p class="muted small">Recipes restarts into the new version when its window is closed and nothing is unsaved, or when you choose Restart to update. Phones and tablets lose the connection for a few seconds.</p>{/if}
+        <div class="row"><button class="btn" onclick={() => checkForUpdate()} disabled={update.checking}>{update.checking ? 'Checking…' : 'Check for updates'}</button></div>
       </section>
   {:else if sec === 'devices'}
     <section class="card">
@@ -203,8 +220,8 @@
       <h3>Family PIN</h3>
       <p class="muted small">Asked once on each phone, tablet or other computer when someone signs in with their name. With it, everyone signed in can edit, import and delete. {s.pin_set ? 'A PIN is set.' : 'No PIN is set, so other devices can read recipes and use the whiteboard, but not edit.'}</p>
       <form class="row" onsubmit={(e) => { e.preventDefault(); savePin(); }}>
-        <input class="field w" type="password" placeholder={s.pin_set ? 'New PIN' : 'Choose a PIN (6+ characters)'} bind:value={pin} autocomplete="new-password" aria-label="PIN" />
-        <button class="btn primary" disabled={pin.trim().length < 6}>{s.pin_set ? 'Change PIN' : 'Set PIN'}</button>
+        <input class="field w" type="password" placeholder={s.pin_set ? 'New PIN' : 'Choose a PIN'} bind:value={pin} autocomplete="new-password" aria-label="PIN" />
+        <button class="btn primary" disabled={!pin.trim()}>{s.pin_set ? 'Change PIN' : 'Set PIN'}</button>
         {#if s.pin_set}<button type="button" class="btn danger" onclick={() => savePin(true)}>Remove PIN</button>{/if}
       </form>
     </section>
@@ -291,7 +308,7 @@
   .keyrow { display: flex; gap: 8px; align-items: end; }
   .cals { border: 0; margin: 0; padding: 0; display: grid; gap: 4px; }
   .cals legend { padding: 0; margin-bottom: 4px; font-weight: 500; }
-  .cals label { gap: 8px; min-height: 36px; }
+  .cals label { gap: 8px; min-height: 36px; flex-wrap: nowrap; }
   .keyrow label { flex: 1; }
   .recent { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
   .mnav { display: none; }

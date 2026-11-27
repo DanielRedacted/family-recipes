@@ -112,6 +112,31 @@ pub async fn start_network(state: Arc<AppState>) -> Router {
     tokio::spawn(lan::start(state.clone(), app.clone()));
     lan::spawn_ip_watch(state.clone());
     nutrition::spawn(state.clone());
+    if state.shell.is_some() {
+        spawn_update_checks(state.clone());
+    }
     git::spawn(state);
     app
+}
+
+/// The window checks for updates when it opens; this looks again every 6 hours for a Mac that stays
+/// in the menu bar, downloading (and installing) as Settings → App → Updates says.
+fn spawn_update_checks(s: Arc<AppState>) {
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(6 * 3600)).await;
+            let mode = s.settings.read().unwrap().updates;
+            let Some(shell) = s.shell.clone() else { return };
+            if mode == server::Updates::Notify {
+                continue;
+            }
+            match tokio::task::spawn_blocking(move || shell.update_check(mode)).await {
+                Ok(Ok(Some((_, _, true)))) => {
+                    let _ = s.events.send(server::UPDATE_EVENT.into());
+                }
+                Ok(Err(e)) => tracing::warn!("update check: {e}"),
+                _ => {}
+            }
+        }
+    });
 }

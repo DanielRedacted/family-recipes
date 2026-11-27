@@ -13,7 +13,7 @@
   import Feedback, { openFeedback } from './components/Feedback.svelte';
   import Setup from './components/Setup.svelte';
   import SignIn from './components/SignIn.svelte';
-  import { update, checkForUpdate, installUpdate } from './lib/update.svelte';
+  import { update, checkForUpdate, installUpdate, autoInstall } from './lib/update.svelte';
 
   // the desktop app's window: the page runs up to its title bar (app.css, html.shell)
   $effect(() => { document.documentElement.classList.toggle('shell', !!app.session.shell); });
@@ -22,7 +22,10 @@
     await loadSession();
     await loadVault();
     listenForChanges();
-    if (app.session.shell) setTimeout(() => checkForUpdate(true), 3000);
+    if (app.session.shell) {
+      setTimeout(() => checkForUpdate(true), 3000);
+      document.addEventListener('visibilitychange', autoInstall); // the window was closed to the menu bar
+    }
   });
 
   const dir = $derived(app.route.view === 'folder' ? app.route.path : app.route.path.includes('/') ? app.route.path.slice(0, app.route.path.lastIndexOf('/')) : '');
@@ -73,11 +76,11 @@
     {#if update.version && !update.hidden}
       <div class="update no-print" role="status">
         <div class="utext">
-          <strong>Recipes {update.version} is available</strong>
+          <strong>Recipes {update.version} is {update.ready ? 'ready' : 'available'}</strong>
           {#if update.notes}<details><summary>What's new</summary><p>{update.notes}</p></details>{/if}
         </div>
         <button class="btn" onclick={() => (update.hidden = true)} disabled={update.busy}>Later</button>
-        <button class="btn primary" onclick={installUpdate} disabled={update.busy}>{update.busy ? 'Updating…' : 'Update and restart'}</button>
+        <button class="btn primary" onclick={installUpdate} disabled={update.busy}>{update.busy ? 'Updating…' : update.ready ? 'Restart to update' : 'Update and restart'}</button>
       </div>
     {/if}
     <Tabs />

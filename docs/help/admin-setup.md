@@ -21,7 +21,7 @@ The first start opens **Set up Recipes**, one page with the basics. Everything o
 - **Recipes from GitHub**: connect a private repository to sync the folder. If you picked a different folder, connect it after the restart in **Settings → Recipes folder**. See [GitHub sync](#/settings/help/github-sync).
 - **This Mac**: **Open Recipes at login**.
 - **Phones, tablets and other computers**: sharing on the Wi-Fi (on by default), the QR code, and **Keep this Mac awake while sharing**. See [Home network](#/settings/help/home-network).
-- **Family PIN**: optional, at least 6 characters. Without one, other devices can only read and use the whiteboard. See [People and PINs](#/settings/help/people).
+- **Family PIN**: optional, any length. Without one, other devices can only read and use the whiteboard. See [People and PINs](#/settings/help/people).
 
 Tap **Done** to finish.
 
@@ -36,7 +36,7 @@ The app's own data is kept apart from the recipes, in `~/Library/Application Sup
 **Settings → Desktop app** has:
 
 - **Open Recipes at login**. Started this way, Recipes opens in the menu bar only, with no window and no Dock icon, ready for phones and tablets.
-- **Updates**, with **Check for updates**.
+- **Updates**: what to do with a new version, and **Check for updates**.
 
 ## The menu-bar item
 
@@ -45,5 +45,13 @@ Closing the window doesn't quit Recipes. It keeps running in the menu bar, so ph
 ## Updates
 
 A few seconds after the app opens, it looks for a new version on GitHub. When there is one, a banner says **Recipes X.Y.Z is available**, with **What's new**, **Later** and **Update and restart**. Updating asks about any unsaved edit, downloads the new version and restarts into it.
+
+**Settings → App → Updates** chooses what happens when there is a new version:
+
+- **Just tell me** (the default): as above.
+- **Download it, then ask me to restart**: it is downloaded first, so the banner says **Recipes X.Y.Z is ready** and **Restart to update** is quick.
+- **Install it automatically**: it is downloaded and installed in the background. Recipes restarts into it when its window is closed (it stays in the menu bar) and nothing is unsaved, or when you choose **Restart to update**. Quitting and opening Recipes again also starts the new version.
+
+With either of the last two, Recipes also looks every 6 hours while it runs, for a Mac that stays in the menu bar.
 
 Each update is a new ad-hoc signed build, so macOS may ask again for Keychain access (the AI key) and for incoming network connections. Choose **Always Allow** and **Allow**.

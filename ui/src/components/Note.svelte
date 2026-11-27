@@ -129,8 +129,9 @@
   }
 
   /** true when it is fine to leave the editor (saved, discarded, or nothing to save). */
-  async function confirmLeave(): Promise<boolean> {
+  async function confirmLeave(quiet = false): Promise<boolean> {
     if (!dirty) return true;
+    if (quiet) return false;
     const r = await confirm3('Save your changes?', `“${entry?.title ?? nameOf(path)}” has changes that are not saved yet.`, 'Save', 'Don’t save');
     if (r === 'ok') { await saveEdit(); return !dirty && !conflict; }
     if (r === 'alt') { draft = entry?.raw ?? ''; base = entry?.etag ?? null; dirty = false; conflict = null; return true; }

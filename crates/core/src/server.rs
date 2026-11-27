@@ -88,6 +88,21 @@ pub struct Settings {
     pub editing_as: Option<String>,
     #[serde(default)]
     pub calendar: CalendarSettings,
+    /// What the desktop app does when it finds a newer release.
+    #[serde(default)]
+    pub updates: Updates,
+}
+/// Settings → App → Updates.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Updates {
+    /// Say a new version is available; download it when asked.
+    #[default]
+    Notify,
+    /// Download it in the background, so "Update and restart" is quick.
+    Download,
+    /// Download and install it in the background, then restart while the window is closed.
+    Install,
 }
 fn yes() -> bool {
     true
@@ -111,12 +126,15 @@ pub trait Shell: Send + Sync {
     }
     /// Quit and start again (after the recipes folder was changed).
     fn restart(&self) {}
-    /// Look for a newer release: Some((version, release notes)), or None when up to date.
-    fn update_check(&self) -> Result<Option<(String, String)>, String> {
+    /// Look for a newer release: Some((version, release notes, ready)), or None when up to date.
+    /// With `Updates::Download` or `Install` it is also downloaded (and installed); `ready` says a
+    /// restart is all that's left.
+    fn update_check(&self, _mode: Updates) -> Result<Option<(String, String, bool)>, String> {
         Err("updates come with the desktop app".into())
     }
-    /// Download and install the newer release, then restart the app.
-    fn update_install(&self) -> Result<(), String> {
+    /// Install the newer release (unless it already is), then restart the app. `quiet`: only while
+    /// the window is closed; Ok(false) when it is open.
+    fn update_install(&self, _quiet: bool) -> Result<bool, String> {
         Err("updates come with the desktop app".into())
     }
     /// The Downloads folder, where the recipe book is saved.
@@ -449,10 +467,13 @@ async fn vault_payload(State(s): St, headers: HeaderMap) -> Response {
         .into_response()
 }
 
+/// Sent when the background check (lib.rs `spawn_update_checks`) has an update ready.
+pub const UPDATE_EVENT: &str = "update";
+
 async fn events(State(s): St) -> Sse<impl futures_util::Stream<Item = Result<Event, std::convert::Infallible>>> {
     let rx = BroadcastStream::new(s.events.subscribe());
     // a new vault payload's etag, or the name of what else changed (the whiteboard, the meals made, people)
-    let named = [crate::board::EVENT, crate::made::EVENT, crate::users::EVENT];
+    let named = [crate::board::EVENT, crate::made::EVENT, crate::users::EVENT, UPDATE_EVENT];
     let stream = rx.filter_map(|m| m.ok()).map(move |m| {
         Ok(if named.contains(&m.as_str()) { Event::default().event(&m).data("1") } else { Event::default().event("vault").data(m) })
     });
@@ -684,6 +705,7 @@ async fn settings_get(State(s): St, caller: Caller) -> Res {
         "git": crate::git::status(&s),
         "editing_as": st.editing_as,
         "calendar": st.calendar,
+        "updates": st.updates,
     }))
     .into_response())
 }
@@ -698,6 +720,7 @@ struct SettingsPut {
     setup_done: Option<bool>,
     /// a person's id, or "" for nobody
     editing_as: Option<String>,
+    updates: Option<Updates>,
 }
 
 async fn settings_put(State(s): St, caller: Caller, Json(b): Json<SettingsPut>) -> Res {
@@ -715,6 +738,9 @@ async fn settings_put(State(s): St, caller: Caller, Json(b): Json<SettingsPut>) 
         }
         if let Some(k) = b.keep_awake {
             st.keep_awake = k;
+        }
+        if let Some(u) = b.updates {
+            st.updates = u;
         }
         if let Some(d) = b.setup_done {
             st.setup_done = d;
@@ -742,9 +768,7 @@ async fn settings_pin(State(s): St, caller: Caller, Json(b): Json<PinBody>) -> R
         if pin.is_empty() {
             st.pin_hash = None;
         } else {
-            if pin.chars().count() < 6 {
-                return Err(bad("use at least 6 characters"));
-            }
+            // ponytail: any length; PinLimiter is what slows guessing
             st.pin_hash = Some(auth::hash_pin(&pin));
         }
         st.pin_gen += 1; // signs every device out
@@ -790,13 +814,18 @@ async fn shell_action(State(s): St, caller: Caller, AxPath(action): AxPath<Strin
             Ok(Json(json!({ "enabled": on })).into_response())
         }
         "update-check" => {
-            let found = tokio::task::spawn_blocking(move || shell.update_check()).await.unwrap().map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
-            let (version, notes) = found.unzip();
-            Ok(Json(json!({ "version": version, "notes": notes })).into_response())
+            let mode = s.settings.read().unwrap().updates;
+            let found = tokio::task::spawn_blocking(move || shell.update_check(mode)).await.unwrap().map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
+            let (version, notes, ready) = match found {
+                Some((v, n, r)) => (Some(v), Some(n), r),
+                None => (None, None, false),
+            };
+            Ok(Json(json!({ "version": version, "notes": notes, "ready": ready, "mode": mode })).into_response())
         }
         "update-install" => {
-            tokio::task::spawn_blocking(move || shell.update_install()).await.unwrap().map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
-            Ok(StatusCode::NO_CONTENT.into_response())
+            let quiet = serde_json::from_slice::<serde_json::Value>(&body).ok().and_then(|v| v["quiet"].as_bool()).unwrap_or(false);
+            let restarting = tokio::task::spawn_blocking(move || shell.update_install(quiet)).await.unwrap().map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
+            Ok(Json(json!({ "restarting": restarting })).into_response())
         }
         // Settings → Recipe book: the whole book saved to Downloads and shown in Finder
         "save-html" | "save-pdf" => {

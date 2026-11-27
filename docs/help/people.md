@@ -15,7 +15,7 @@ A device stays signed in for up to 400 days, and signing in again renews it. **S
 
 ## The family PIN
 
-Set it in **Settings → Phones & tablets → Family PIN** (or in the first-start setup). It needs at least 6 characters.
+Set it in **Settings → Phones & tablets → Family PIN** (or in the first-start setup). It can be any length.
 
 - **Set PIN** / **Change PIN**: every device has to sign in again, with the new PIN.
 - **Remove PIN**: every device signs in again and can then only read.

@@ -11,7 +11,6 @@
   let pin = $state('');
   let folder = $state(''); // a different folder was chosen: it takes effect after a restart
   let busy = $state(false);
-  const pinOk = $derived(!pin.trim() || pin.trim().length >= 6);
 
   onMount(async () => {
     try { s = await api('GET', '/api/settings'); } catch (e: any) { toast(e.message, 'error'); }
@@ -76,11 +75,10 @@
       <section class="card">
         <h2>Family PIN</h2>
         <p class="muted small">Asked once on each phone, tablet or other computer when someone signs in with their name. With it, everyone signed in can edit, import and delete. Leave it empty to keep other devices read-only.</p>
-        <input class="field" type="password" placeholder="Choose a PIN (6+ characters, optional)" bind:value={pin} autocomplete="new-password" aria-label="Family PIN" />
-        {#if !pinOk}<p class="muted small">Use at least 6 characters.</p>{/if}
+        <input class="field" type="password" placeholder="Choose a PIN (optional)" bind:value={pin} autocomplete="new-password" aria-label="Family PIN" />
       </section>
       <div class="row finish">
-        <button class="btn primary" onclick={done} disabled={busy || !pinOk}>{folder ? 'Done — restart Recipes' : 'Done'}</button>
+        <button class="btn primary" onclick={done} disabled={busy}>{folder ? 'Done — restart Recipes' : 'Done'}</button>
       </div>
     {/if}
   </div>

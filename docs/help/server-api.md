@@ -63,7 +63,7 @@ Request bodies are limited to 30 MB, responses are compressed (gzip, brotli), an
 | Method | Path | Purpose | Who |
 |---|---|---|---|
 | GET | `/api/vault` | The whole index (files, folders, folder icons and colours) as JSON, with an ETag (`304` when unchanged). A `.md` under `attachments/originals/` is kind `other`, not a note | Reader |
-| GET | `/api/events` | Server-sent events: `vault` (new index ETag), `messages` (whiteboard changed), `made` (a meal was logged), `users` (someone's name, favorites or picture changed) | Reader |
+| GET | `/api/events` | Server-sent events: `vault` (new index ETag), `messages` (whiteboard changed), `made` (a meal was logged), `users` (someone's name, favorites or picture changed), `update` (the background check has a new version ready, desktop app) | Reader |
 | GET | `/api/files/{path}` | One file, with an ETag. Files that aren't notes, images or PDFs, and SVGs, are sent as downloads with `Content-Security-Policy: sandbox` | Reader |
 | PUT | `/api/files/{path}` | Write a file. Needs `If-Match: "<etag>"` (overwrite) or `If-None-Match: *` (create only), else `428`; a mismatch is `409` with the current ETag. `?unique=true` picks a free name. Notes are limited to 2 MB. The old version is kept in `.trash/versions/` first | Writer |
 | DELETE | `/api/files/{path}` | Move a file or folder to the trash; returns its `trash_id` | Writer |
@@ -101,8 +101,8 @@ Import runs as a job: start it, poll its status, then save. Nothing is written u
 | Method | Path | Purpose | Who |
 |---|---|---|---|
 | GET | `/api/settings` | Recipes folder, PIN set, AI settings and whether a key is saved, sharing and its status, keep awake, open at login, GitHub status, Editing as, `calendar` `{enabled, calendars}` | Admin |
-| PUT | `/api/settings` | Change any of `ai`, `calendar`, `lan`, `keep_awake`, `vault`, `setup_done`, `editing_as` (`""` for nobody); starts or stops sharing as needed; returns the settings | Admin |
-| PUT | `/api/settings/pin` | Set `{pin}` (6 characters or more), or remove it with `""`; signs every device out | Admin |
+| PUT | `/api/settings` | Change any of `ai`, `calendar`, `lan`, `keep_awake`, `vault`, `setup_done`, `editing_as` (`""` for nobody), `updates` (`notify`, `download` or `install`); starts or stops sharing as needed; returns the settings | Admin |
+| PUT | `/api/settings/pin` | Set `{pin}` (any length), or remove it with `""`; signs every device out | Admin |
 | PUT | `/api/settings/ai-key` | Save `{key}` in the Keychain, or delete it with `""` | Admin |
 | PUT | `/api/settings/usda-key` | Save the USDA FoodData Central key `{key}` in the Keychain (starts lookups), or delete it with `""`. `GET /api/settings` reports `usda_key_set` and `nutrition_status` (the last lookup run's result or error) | Admin |
 | POST | `/api/setup/trust-local` | Trust the local CA in this Mac's login keychain (macOS asks for the password) | Admin |
@@ -179,8 +179,8 @@ See [GitHub sync](#/settings/help/github-sync).
 | `open-url` | `{url}` (`http://` or `https://` only) | Open in the default browser |
 | `restart` | none | Restart the app |
 | `autostart` | `{enabled}` (optional) | Set or read Open at login; returns `{enabled}` |
-| `update-check` | none | Returns `{version, notes}`, or nulls when up to date |
-| `update-install` | none | Download, install and restart |
+| `update-check` | none | Returns `{version, notes, ready, mode}` (nulls when up to date). With the `updates` setting at `download` or `install`, it is also downloaded or installed first; `ready` says only a restart is left |
+| `update-install` | `{quiet?}` | Install (unless it already is) and restart; returns `{restarting}`. `quiet` only restarts while the window is closed |
 
 ### Outside the API
 

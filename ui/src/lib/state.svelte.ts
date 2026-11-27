@@ -3,6 +3,7 @@ import type { Entry, Person, Session } from './types';
 import { buildIndex, aliasesOf } from './search';
 import { parse as parseYaml } from 'yaml';
 import { loadMessages } from './board.svelte';
+import { checkForUpdate } from './update.svelte';
 import type { Made } from './made';
 
 export interface FolderMeta { emoji?: string; color?: string }
@@ -123,13 +124,15 @@ export interface Tab { id: number; route: Route; stack: { hash: string; nav: num
 export const activeTab = () => app.tabs.find((t) => t.id === app.tab) ?? app.tabs[0];
 
 // A page with unsaved work can ask before its tab's page changes or the tab closes (resolve true to leave).
-type Guard = () => Promise<boolean>;
+/** `quiet`: answer without asking (false when there is unsaved work). */
+type Guard = (quiet?: boolean) => Promise<boolean>;
 const guards = new Map<number, Guard>();
 export const setLeaveGuard = (tab: number, g: Guard) => { guards.set(tab, g); };
 export const clearLeaveGuard = (tab: number, g: Guard) => { if (guards.get(tab) === g) guards.delete(tab); };
-/** Ask every open page about unsaved work, as closing them would (true = fine to go). */
-export async function mayLeave() {
-  for (const g of [...guards.values()]) if (!(await g())) return false;
+/** Ask every open page about unsaved work, as closing them would (true = fine to go). `quiet`: don't
+ *  ask, just say whether anything is unsaved. */
+export async function mayLeave(quiet = false) {
+  for (const g of [...guards.values()]) if (!(await g(quiet))) return false;
   return true;
 }
 
@@ -379,6 +382,7 @@ export function listenForChanges() {
     es.addEventListener('messages', () => loadMessages());
     es.addEventListener('made', () => loadMade());
     es.addEventListener('users', () => loadPeople());
+    es.addEventListener('update', () => { if (app.session.shell) checkForUpdate(true); });
     es.onerror = () => { es?.close(); setTimeout(connect, 5000); };
     es.onopen = () => { loadVault(); loadMessages(); loadMade(); loadPeople(); };
   };
