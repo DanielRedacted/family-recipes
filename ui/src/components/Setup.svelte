@@ -2,7 +2,7 @@
   // First start: the basic settings on one page. Everything here can be changed later in Settings.
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
-  import { app, loadSession, toast } from '../lib/state.svelte';
+  import { app, loadSession, toast, groupKindTitle } from '../lib/state.svelte';
   import { shell, chooseCookbookFolder } from '../lib/ops';
   import Network from './Network.svelte';
   import GitHub from './GitHub.svelte';
@@ -68,9 +68,9 @@
         <Network status={s.network} lan={s.lan} keepAwake={s.keep_awake} onchange={put} />
       </section>
       <section class="card">
-        <h2>Family PIN</h2>
+        <h2>{groupKindTitle()} PIN</h2>
         <p class="muted small">Asked once on each phone, tablet or other computer when someone signs in with their name. With it, everyone signed in can edit, import and delete. Leave it empty to keep other devices read-only.</p>
-        <input class="field" type="password" placeholder="Choose a PIN (optional)" bind:value={pin} autocomplete="new-password" aria-label="Family PIN" />
+        <input class="field" type="password" placeholder="Choose a PIN (optional)" bind:value={pin} autocomplete="new-password" aria-label="{groupKindTitle()} PIN" />
       </section>
       <div class="row finish">
         <button class="btn primary" onclick={done} disabled={busy}>Done</button>

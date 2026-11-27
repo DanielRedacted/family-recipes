@@ -7,7 +7,7 @@
   import Nutrition from './Nutrition.svelte';
   import { api, bookKey, saveFile } from '../lib/api';
   import { stamp, today } from '../lib/credit';
-  import { app, go, noteHash, toast, loadVault, canWrite } from '../lib/state.svelte';
+  import { app, go, noteHash, toast, loadVault, canWrite, groupWord } from '../lib/state.svelte';
   import { importer, enqueueUrls, enqueueFiles, enqueueText, convert, keep, retry, remove, type QueueItem, type LogStep } from '../lib/importer.svelte';
   import { renderMarkdown } from '../lib/markdown';
   import { splitRaw } from '../lib/frontmatter';
@@ -32,7 +32,7 @@
   let aiProposal = $state<string | null>(null);
   let openLog = $state<Record<number, boolean>>({});
 
-  const folders = $derived(['', ...app.folders.filter((f) => f !== 'attachments' && !f.startsWith('attachments/'))]);
+  const folders = $derived(['', ...app.folders]);
   const cur = $derived(importer.queue.find((q) => q.id === importer.selected && q.status === 'ready' && q.review && q.job));
   const others = $derived(importer.queue.filter((q) => q !== cur));
 
@@ -174,7 +174,7 @@
 <div class="page">
   {#if !canWrite()}
     <h1>Add recipes</h1>
-    <p class="muted">Importing needs editing rights: set a family PIN in the Recipes app on the Mac, then sign in again here.</p>
+    <p class="muted">Importing needs editing rights: set a {groupWord()} PIN in the Recipes app on the Mac, then sign in again here.</p>
   {:else if cur && cur.review && cur.job}
     {@const rv = cur.review}
     {@const job = cur.job}

@@ -1,6 +1,6 @@
 ---
 title: Reading a recipe
-summary: Scaling a recipe, US or metric units, portions, nutrition, links, PDFs and printing.
+summary: Scaling a recipe, US or metric units, portions, nutrition, notes, links, PDFs and printing.
 audience: everyone
 order: 20
 ---
@@ -30,6 +30,10 @@ Some recipes have a table with a column for each version, such as Single and Dou
 ## Nutrition
 
 Tap **Nutrition** beside **More** at the top of the recipe to see its Nutrition Facts label, worked out from its ingredients, with the ingredients listed under it by weight as on a package. It scales with **−** and **+**. In a recipe that holds two versions, the label is for the version you're looking at. See [Ingredients](#/settings/help/ingredients) for how it's worked out and what it leaves out.
+
+## Notes
+
+Select any words in a recipe to leave a note on them, and read everyone else's under the recipe. See [Notes on recipes](#/settings/help/notes).
 
 ## Links to other recipes
 

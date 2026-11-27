@@ -10,7 +10,7 @@
   import { historyKeymap, indentWithTab } from '@codemirror/commands';
   import { insertEmptyMarkdownTable, markdownTables, TableStyle, TableTheme } from 'codemirror-markdown-tables';
   import Icon from './Icon.svelte';
-  import { wikiLinks } from '../lib/complete';
+  import { wikiLinks, mentions } from '../lib/complete';
   import { ingredientSuggest, loadIngredients } from '../lib/ingredients.svelte';
   import { livePreview } from '../lib/livePreview';
   import { lineKind, setLines, toggleLines, toggleWrap, type LineKind } from '../lib/mdCommands';
@@ -137,7 +137,7 @@
           theme,
           look.of(lookExt(formatted)),
           EditorState.readOnly.of(readonly),
-          EditorState.languageData.of(() => [{ autocomplete: wikiLinks }, { autocomplete: ingredientSuggest }]),
+          EditorState.languageData.of(() => [{ autocomplete: wikiLinks }, { autocomplete: mentions }, { autocomplete: ingredientSuggest }]),
           keymap.of([
             indentWithTab,
             { key: 'Mod-s', preventDefault: true, run: () => { onsave?.(); return true; } },

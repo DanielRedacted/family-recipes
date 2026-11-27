@@ -9,9 +9,9 @@ order: 15
 
 With more than one [cookbook](#/settings/help/cookbooks), its top shows the one you're in; tap the name to choose another.
 
-Each folder is a kind of recipe, such as Pies or Soups. On the Mac and on wide screens, the folders sit in a column on the left. Click a folder to open it and show its recipes, and click it again to close it. **Bookmarks** sits at the top of the column. When you open a recipe, the column opens its folder and scrolls to it.
+Each folder is a kind of recipe, such as Pies or Soups. On the Mac and on wide screens, the folders sit in a column on the left. Click a folder to open it and show its recipes, and click it again to close it. **Bookmarks** sits at the top of the column. When you open a recipe, the column opens its folder and scrolls to it. Pictures and the original files recipes were typed up from aren't listed; open them from their recipe.
 
-At the bottom of the column you'll find the carrot button for [Ingredients](#/settings/help/ingredients), the calendar button for [the calendar](#/settings/help/calendar), the people button for [People](#/settings/help/people-pages) and the gear button for Settings.
+At the bottom of the column you'll find the carrot button for [Ingredients](#/settings/help/ingredients), the calendar button for [the calendar](#/settings/help/calendar), the people button for [People](#/settings/help/people-pages), the ruler button for [Kitchen charts](#/settings/help/kitchen-charts) and the gear button for Settings.
 
 **On phones and narrow windows**, the column is a drawer. Tap **Folders** in the bar along the bottom to open it, and tap outside it to close it. The bottom bar also has **Home** and **Search**.
 
@@ -36,7 +36,9 @@ Press ⌘K on the Mac, click the magnifying glass at the top of the folder colum
 
 In wide windows you can keep several pages open in tabs above the page. Each tab has its own Back button.
 
-- Click **+** to open a new tab, or ⌘-click a link or a folder to open it in one.
+Each kind of page keeps to its own tab: recipes and folders, **Ingredients**, **Calendar**, **People**, **Settings** (with Help and Trash) and **Import**. Opening a page of another kind, such as a name under a recipe or the gear for Settings, goes to the tab already showing that kind, or opens a new tab when there isn't one. Your recipe stays where it was in its own tab. **‹ Recipes** in Settings and the buttons at the bottom of the folder column bring their tab forward as you left it.
+
+- Click **+** to open a new tab, or ⌘-click a link or a folder to open it in one. Right-click any link for **Open in new tab**.
 - Click a tab's **×** to close it, or right-click the tab for **Close** and **New tab**.
 - Drag tabs to put them in a different order.
 

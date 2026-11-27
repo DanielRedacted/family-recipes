@@ -41,4 +41,6 @@ Recipes only reads the calendar. To add, move or delete an event, use the Calend
 
 Everyone signed in sees the events, on the Mac and on phones and tablets.
 
+An event's title can link to a recipe, a person or an ingredient, the same way as a whiteboard note: name a recipe in double square brackets (**[[Lasagne]]**), and put **@** before a person or **#** before an ingredient. Type it in the Calendar app; Recipes shows the links.
+
 If Settings says Recipes isn't allowed to see the calendar, open **System Settings → Privacy & Security → Calendars** on the Mac, turn Recipes on, and open the Calendar settings again.

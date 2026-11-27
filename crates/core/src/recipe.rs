@@ -1025,8 +1025,8 @@ mod tests {
                 let reference = rel.starts_with("Reference/");
                 match (&p.recipe, reference || techniques.contains(&rel)) {
                     (None, false) => missed.push(rel.clone()),
-                    // charts are not recipes; these two pages are collections of small ingredient sets
-                    (Some(_), true) if reference && !["Reference/Fermented Foods.md", "Reference/Balanced Meals.md"].contains(&rel.as_str()) => charts.push(rel.clone()),
+                    // charts are not recipes
+                    (Some(_), true) if reference => charts.push(rel.clone()),
                     _ => {}
                 }
                 if let Some(r) = &p.recipe {

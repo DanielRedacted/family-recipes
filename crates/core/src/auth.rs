@@ -154,7 +154,7 @@ impl Caller {
         if self.0 >= role {
             Ok(())
         } else {
-            let msg = if role == Role::Admin { "only the desktop app can do this" } else { "editing needs the family PIN: set one in the Recipes app on the Mac" };
+            let msg = if role == Role::Admin { "only the desktop app can do this" } else { "editing needs the PIN: set one in the Recipes app on the Mac" };
             Err((StatusCode::FORBIDDEN, msg).into_response())
         }
     }

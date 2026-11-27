@@ -3,6 +3,7 @@
 // one self-contained web page, or put into this page and printed (to a PDF in the desktop app).
 import { app, prefs, dirOf, cookbookName } from './state.svelte';
 import { api } from './api';
+import { accentCss } from './accent';
 import { noteHtml, escHtml } from './markdown';
 import { loadFoods } from './ingredients.svelte';
 import { LABELS, HIDDEN, fmtVal } from '../components/Properties.svelte';
@@ -137,6 +138,7 @@ export async function bookHtml(): Promise<string> {
 <title>${escHtml(cookbookName())}</title>
 <style>
 ${css}
+${accentCss(prefs.accent || app.session?.accent || null, true)}
 </style>
 </head>
 <body class="book-file">

@@ -34,11 +34,15 @@ can change), bookmarks for everyone and each person's own favorites (kept with t
 People page and a page for everyone the recipes credit (account or not: what they wrote, added and edited,
 their favorites and an optional photo or emoji), home page sections that fold away (remembered per device), a
 kitchen whiteboard on the home page (notes that last today, until a chosen date or until removed),
+`[[recipe]]`, `@person` and `#ingredient` links in recipes, whiteboard notes and calendar event titles,
+notes on recipes tied to highlighted words (everyone reads them; anyone who can edit writes, changes and deletes
+them, without opening the editor; kept in the recipe's `comments` property),
+an app colour for everyone (each device may pick its own) and a group kind and name (Family, Friends, Team or Other),
 a suggested dinner on the home page with Random beside it (filters: kind of recipe, default Dinner;
 protein; folder; bookmarked; Random shows every match as a shuffled grid), "Made today" under each
 recipe and in cook mode (any device can log a meal; after a dinner with a protein, dinners with that
 protein aren't suggested for 3 days unless it's chosen in the Protein filter; a recipe left open 20 minutes
-without it is logged as a guess), a Calendar page (week or month) of what was cooked, added and changed each
+without it is logged as a guess), a Kitchen charts page (an amount converter, spoons and cups, weights, oven °F/°C and USDA safe cooking temperatures, the same in every cookbook), a Calendar page (week or month) of what was cooked, added and changed each
 day, with the Mac's Calendar.app events when turned on in Settings (read-only; today's events also show on the
 home page when there are any), each recipe's author under
 its title and the website it came from, ⌘K search (recipes, folders, ingredients), a reader with serving scaler (every set of

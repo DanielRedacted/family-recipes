@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import Tree, { buildTree, FAV, MINE, reveal, type TreeNode } from './Tree.svelte';
-  import { app, go, favorites, manyBooks } from '../lib/state.svelte';
+  import { app, go, favorites, manyBooks, inAttachments } from '../lib/state.svelte';
   import { BOOK, openBook } from '../lib/api';
   import type { Entry } from '../lib/types';
   import { upload, moveTo } from '../lib/ops';
@@ -10,7 +10,7 @@
 
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
   const tree = $derived.by(() => {
-    const t = buildTree(app.folders, app.files);
+    const t = buildTree(app.folders, app.files.filter((f) => !inAttachments(f.path)));
     const rows = (fs: Entry[]): TreeNode[] => fs.sort((a, b) => collator.compare(a.title, b.title))
       .map((f) => ({ name: f.path.slice(f.path.lastIndexOf('/') + 1), path: f.path, folder: false, children: [], kind: f.kind }));
     const favs = rows(app.files.filter((f) => f.kind === 'note' && f.frontmatter?.favorite === true));
@@ -82,6 +82,7 @@
     <button class="btn ghost icon" class:on={app.route.view === 'ingredients'} title="Ingredients" aria-label="Ingredients" onclick={() => go('#/ingredients')}><Icon name="carrot" /></button>
     <button class="btn ghost icon" class:on={app.route.view === 'calendar'} title="Calendar" aria-label="Calendar" onclick={() => go('#/calendar')}><Icon name="calendar" /></button>
     <button class="btn ghost icon" class:on={app.route.view === 'people'} title="People" aria-label="People" onclick={() => go('#/people')}><Icon name="users" /></button>
+    <button class="btn ghost icon" class:on={app.route.view === 'charts'} title="Kitchen charts" aria-label="Kitchen charts" onclick={() => go('#/charts')}><Icon name="ruler" /></button>
     <span class="spacer"></span>
     <button class="btn ghost icon" title="Settings" aria-label="Settings" onclick={() => go('#/settings')}><Icon name="settings" /></button>
   </div>

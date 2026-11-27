@@ -23,6 +23,7 @@
   import Nutrition from './Nutrition.svelte';
   import { modal } from '../lib/modal';
   import MadeToday from './MadeToday.svelte';
+  import Comments from './Comments.svelte';
   import { enqueueStarted, enqueueFiles, importer } from '../lib/importer.svelte';
 
   let { path, mode: routeMode }: { path: string; mode?: string } = $props();
@@ -50,6 +51,7 @@
   // US or Metric, chosen in Settings → General for this device
   const units = $derived<Units>(prefs.units);
   let editor: Editor | undefined = $state();
+  let proseEl: HTMLElement | undefined = $state();
 
   // start state (the component is re-created for each note)
   $effect(() => {
@@ -428,7 +430,7 @@
           </div>
         {/if}
         {#if mode !== 'edit'}
-          <article class="reader">
+          <article class="reader" class:noted={mode === 'read'}>
             {#if mode === 'read' && !entry.recipe}<Properties {entry} editable={canWrite()} onchange={detailChanged} />{/if}
             {#if asking && mode === 'read'}
               <form class="ask card no-print" onsubmit={aiAsk}>
@@ -438,12 +440,13 @@
                 {#if answer}<div class="prose answer">{@html renderMarkdown(answer, path)}</div>{/if}
               </form>
             {/if}
-            <div class="prose">{@html html}</div>
+            <div class="prose" bind:this={proseEl}>{@html html}</div>
             {#if mode === 'read' && entry.recipe}<MadeToday {entry} />{/if}
             {#if mode === 'read' && origPdf && !entry.recipe}
               {#if canWrite()}<p class="no-print"><button class="btn" disabled={converting} onclick={() => convertPdf(origPdf!)}>Convert to an editable recipe…</button></p>{/if}
               <PdfView path={origPdf} />
             {/if}
+            {#if mode === 'read'}<Comments {entry} root={proseEl} {html} />{/if}
             {#if mentionedIn.length && mode === 'read'}
               <aside class="mentions no-print">
                 <h2>Mentioned in</h2>
@@ -533,6 +536,15 @@
   .full { max-width: 100%; border-radius: var(--radius); }
   /* desktop: the recipe text is 6.5in wide, centred under the 760px recipe bar and property row */
   @media screen and (min-width: 900px) { .page:not(.split) .reader > :global(.prose) { padding-inline: calc((760px - 6.5in) / 2); } }
+  /* room beside the 760px recipe for its notes (Comments.svelte), level with the text and staying in view.
+     ponytail: the window's width less the folder column, not a container query: a container's layout
+     containment would pin the floating Add note button to it instead of the window */
+  @media screen and (min-width: 1440px) {
+    .page:not(.split) .reader.noted { display: grid; grid-template-columns: minmax(0, 760px) minmax(240px, 300px); column-gap: 32px; align-items: start; }
+    .page:not(.split) .reader.noted > :global(*) { grid-column: 1; }
+    .page:not(.split) .reader.noted > :global(.comments) { grid-column: 2; grid-row: 1 / span 9; position: sticky; top: 64px; margin: 0; padding-top: 0; border-top: 0;
+      max-height: calc(100vh - 80px); overflow-y: auto; }
+  }
   @media (max-width: 899px) {
     .page { padding: 0 16px 96px; }
     .editpane { height: calc(100vh - 170px); top: 52px; }

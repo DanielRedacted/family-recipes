@@ -2,6 +2,7 @@
   import Icon from './components/Icon.svelte';
   import { onMount } from 'svelte';
   import { app, loadSession, loadVault, listenForChanges, go, newTab, selectTab, wide } from './lib/state.svelte';
+  import { openMenu } from './lib/menu.svelte';
   import { newNote, newFolder, openExternal } from './lib/ops';
   import { back } from './lib/state.svelte';
   import Sidebar from './components/Sidebar.svelte';
@@ -62,10 +63,18 @@
       openExternal(href);
     }
   }
+
+  // right-click on a link to a page of this app (wide windows, which have tabs); cards and folder rows have their own
+  function linkMenu(e: MouseEvent) {
+    const a = (e.target as Element | null)?.closest?.('a[href^="#/"]') as HTMLAnchorElement | null;
+    if (!a || a.closest('.cm-editor') || !wide()) return;
+    const href = a.getAttribute('href')!;
+    openMenu(e, [{ label: 'Open', run: () => go(href) }, { label: 'Open in new tab', run: () => newTab(href) }], a);
+  }
 </script>
 
 <svelte:window onkeydown={key} />
-<svelte:document onclick={linkClick} onauxclick={linkClick} />
+<svelte:document onclick={linkClick} onauxclick={linkClick} oncontextmenu={linkMenu} />
 
 <div class="app" class:open={app.sidebar}>
   <aside class="sidebar no-print" aria-label={app.route.view === 'settings' ? 'Settings' : 'Recipes folder'}>

@@ -107,13 +107,16 @@ const BOTH_RX = new RegExp(String.raw`\b(${TEMP}°\s?F)(?:\s*\(\s*(${TEMP}°\s?C
 /** 350°F, 350°, 350° degrees, 350 degrees (three digits: "rotate 90 degrees" is an angle), not 180°C */
 const F_RX = /\b(\d{2,3})(?:(\s*(?:[-–]|to)\s*)(\d{2,3}))?(?:\s?°(\s?F\b|\s+degrees?\b(?:\s?F\b)?)?|(\s*degrees?\b(?:\s?F\b)?))(?!\s?C\b)/gi;
 
+/** °F → °C as the app shows it: an oven setting (a multiple of 25 from 250°F) to 5°C, anything else to the degree. */
+export const fToC = (f: number) => { const v = ((f - 32) * 5) / 9; return f >= 250 && f % 25 === 0 ? Math.round(v / 5) * 5 : Math.round(v); };
+
 /** Fahrenheit to Celsius in Metric mode: "350°F" → "175°C", "350–375°F" → "175–190°C"; where the recipe
  * gives both ("350°F (175°C)") its own Celsius is kept. A bare degree ("350°", "warm water (about 115°)",
  * "350 degrees") is Fahrenheit too, as the family writes, except an oven set under 250 ("preheat oven to
  * 180°"), which is already Celsius. An oven setting (a multiple of 25 from 250°F) rounds to 5°C, any
  * other temperature (candy, meat, water) to the degree. */
 export function toCelsius(text: string): string {
-  const c = (f: number) => { const v = ((f - 32) * 5) / 9; return f >= 250 && f % 25 === 0 ? Math.round(v / 5) * 5 : Math.round(v); };
+  const c = fToC;
   // the recipe's own Celsius is set aside so the Fahrenheit pass can't touch it
   const own: string[] = [];
   const keep = (t: string) => `\u0000${own.push(t.replace(/\s(?=C)/, '')) - 1}\u0000`;

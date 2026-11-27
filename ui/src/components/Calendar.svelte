@@ -4,6 +4,7 @@
   import { getContext } from 'svelte';
   import Icon from './Icon.svelte';
   import Back from './Back.svelte';
+  import { renderInline } from '../lib/markdown';
   import { app, noteHash, type Tab } from '../lib/state.svelte';
   import { settleGuess } from '../lib/ops';
   import { ASSUME_AFTER_MIN, inCookbook, type Made } from '../lib/made';
@@ -75,7 +76,7 @@
   {#if it.kind === 'event'}
     <li class="ev">
       <span class="t small">{timeOf(it.ev, d)}</span>
-      <span class="name">{it.ev.title}</span>
+      <span class="name">{@html renderInline(it.ev.title)}</span>
       {#if it.ev.location}<span class="muted small">{it.ev.location}</span>{/if}
     </li>
   {:else if it.kind === 'cooked'}

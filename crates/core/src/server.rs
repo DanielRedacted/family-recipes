@@ -112,6 +112,43 @@ pub struct Settings {
     /// What the desktop app does when it finds a newer release.
     #[serde(default)]
     pub updates: Updates,
+    /// The app's colour for every device (`#rrggbb`); None = the built-in purple. A device may pick its own.
+    #[serde(default)]
+    pub accent: Option<String>,
+    /// Who uses the app, and what they call themselves.
+    #[serde(default)]
+    pub group: Group,
+}
+/// Settings → General → Group. The name is only ever what the owner typed: empty until then.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Group {
+    #[serde(default)]
+    pub kind: GroupKind,
+    #[serde(default)]
+    pub name: String,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GroupKind {
+    #[default]
+    Family,
+    Friends,
+    Team,
+    Other,
+}
+/// `#rrggbb` in lower case, "" for none; anything else is refused.
+fn clean_accent(s: &str) -> Result<Option<String>, &'static str> {
+    let s = s.trim();
+    if s.is_empty() {
+        return Ok(None);
+    }
+    let hex = s.strip_prefix('#').filter(|h| h.len() == 6 && h.bytes().all(|b| b.is_ascii_hexdigit()));
+    hex.map(|h| Some(format!("#{}", h.to_ascii_lowercase()))).ok_or("the colour must look like #7a52cc")
+}
+/// The group's name, trimmed, at most 60 characters.
+fn clean_group(mut g: Group) -> Group {
+    g.name = g.name.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(60).collect();
+    g
 }
 /// Settings → App → Updates.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -545,6 +582,8 @@ async fn session(State(s): St, Caller(role): Caller, Extension(Who(who)): Extens
         "shell": s.shell.is_some() && role == Role::Admin,
         "version": env!("CARGO_PKG_VERSION"),
         "setup": role == Role::Admin && !st.setup_done,
+        "accent": st.accent,
+        "group": st.group,
     }))
     .into_response()
 }
@@ -574,7 +613,7 @@ async fn login(State(s): St, Extension(l): Extension<Listener>, ConnectInfo(addr
     };
     if let Some(hash) = hash {
         if b.pin.is_empty() {
-            return Err(err(StatusCode::UNAUTHORIZED, "enter the family PIN"));
+            return Err(err(StatusCode::UNAUTHORIZED, "enter the PIN"));
         }
         if let Err(wait) = s.limiter.check(ip) {
             return Err(err(StatusCode::TOO_MANY_REQUESTS, format!("too many attempts, wait {wait} s")));
@@ -880,6 +919,8 @@ async fn settings_get(State(s): St, caller: Caller) -> Res {
         "editing_as": st.editing_as,
         "calendar": st.calendar,
         "updates": st.updates,
+        "accent": st.accent,
+        "group": st.group,
     }))
     .into_response())
 }
@@ -894,12 +935,22 @@ struct SettingsPut {
     /// a person's id, or "" for nobody
     editing_as: Option<String>,
     updates: Option<Updates>,
+    /// `#rrggbb`, or "" for the built-in colour
+    accent: Option<String>,
+    group: Option<Group>,
 }
 
 async fn settings_put(State(s): St, caller: Caller, Json(b): Json<SettingsPut>) -> Res {
     caller.need(Role::Admin)?;
+    let accent = b.accent.as_deref().map(clean_accent).transpose().map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     {
         let mut st = s.settings.write().unwrap();
+        if let Some(a) = accent {
+            st.accent = a;
+        }
+        if let Some(g) = b.group {
+            st.group = clean_group(g);
+        }
         if let Some(ai) = b.ai {
             st.ai = ai;
         }
@@ -1161,6 +1212,22 @@ mod tests {
 
     fn title(b: &Book) -> String {
         b.index.read().unwrap().files.get(&VaultPath::parse("Pies/Pie.md").unwrap()).unwrap().title.clone()
+    }
+
+    #[test]
+    fn accent_and_group_settings() {
+        assert_eq!(clean_accent(" #2E7D5B "), Ok(Some("#2e7d5b".into())));
+        assert_eq!(clean_accent(""), Ok(None));
+        for bad in ["2e7d5b", "#2e7d5", "#2e7d5bff", "#ggg000", "red", "#2e7d5b;}body{x"] {
+            assert!(clean_accent(bad).is_err(), "{bad}");
+        }
+        let g = clean_group(Group { kind: GroupKind::Team, name: "  Test   Group ".into() });
+        assert_eq!(g.name, "Test Group");
+        assert_eq!(clean_group(Group { kind: GroupKind::Other, name: "x".repeat(99) }).name.len(), 60);
+        // an older settings file: the built-in colour, a family with no name
+        let st: Settings = serde_json::from_str("{}").unwrap();
+        assert_eq!((st.accent, st.group), (None, Group::default()));
+        assert_eq!(serde_json::to_value(Group::default()).unwrap(), json!({ "kind": "family", "name": "" }));
     }
 
     #[tokio::test]

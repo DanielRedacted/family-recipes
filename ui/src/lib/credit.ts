@@ -19,10 +19,11 @@ export interface Stamp {
 
 const same = (a: unknown, b: string) => typeof a === 'string' && a.trim().toLowerCase() === b.trim().toLowerCase();
 
-/** The `author` property as a list of names. */
+/** The `author` property as a list of names. "A / B", "A & B" and "A and B" are two people; commas are not
+ *  ("Luigi's, Boston" is one restaurant). */
 export function authorsOf(v: unknown): string[] {
-  if (typeof v === 'string') return v.trim() ? [v] : [];
-  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim()) : [];
+  const list = typeof v === 'string' ? [v] : Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  return list.flatMap((s) => s.split(/\s+(?:\/|&|\+|and)\s+/i)).map((s) => s.trim()).filter(Boolean);
 }
 
 /** Should "Credit me as an author" start ticked? Yes unless someone else is the recipe's author. */

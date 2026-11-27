@@ -1,10 +1,23 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from 'yaml';
-import { stamp, creditedByDefault } from './credit';
+import { stamp, creditedByDefault, authorsOf } from './credit';
 import { splitRaw } from './frontmatter';
 
 const fm = (raw: string) => parse(splitRaw(raw)[0]);
 const body = '# Pie\n\n## Ingredients\n\n- 1 cup sugar\n';
+
+describe('authorsOf', () => {
+  it('splits several people written in one line, not a place with a comma', () => {
+    expect(authorsOf('Ann Lee / Bea Van De Berg-Hart')).toEqual(['Ann Lee', 'Bea Van De Berg-Hart']);
+    expect(authorsOf('Ann and Ben')).toEqual(['Ann', 'Ben']);
+    expect(authorsOf('Ann & Ben + Cy')).toEqual(['Ann', 'Ben', 'Cy']);
+    expect(authorsOf(['Ann AND Ben', 'Dee'])).toEqual(['Ann', 'Ben', 'Dee']);
+    expect(authorsOf("Luigi's, Boston")).toEqual(["Luigi's, Boston"]);
+    expect(authorsOf('Sandra Anderson')).toEqual(['Sandra Anderson']);
+    expect(authorsOf('  ')).toEqual([]);
+    expect(authorsOf(3)).toEqual([]);
+  });
+});
 
 describe('stamp', () => {
   it('adds an author and the first change to a note without properties', () => {

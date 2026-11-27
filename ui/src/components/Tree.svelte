@@ -21,8 +21,7 @@
       dir(d).children.push({ name: f.path.slice(f.path.lastIndexOf('/') + 1), path: f.path, folder: false, children: [], kind: f.kind });
     }
     const sort = (n: TreeNode) => {
-      n.children.sort((a, b) => (a.folder !== b.folder ? (a.folder ? -1 : 1)
-        : a.path === 'attachments' ? 1 : b.path === 'attachments' ? -1 : collator.compare(a.name, b.name)));
+      n.children.sort((a, b) => (a.folder !== b.folder ? (a.folder ? -1 : 1) : collator.compare(a.name, b.name)));
       n.children.forEach(sort);
     };
     sort(root);
@@ -129,7 +128,6 @@
     class:active
     class:folder={n.folder}
     class:drop={dropOver === n.path}
-    class:dim={n.path === 'attachments'}
     style="padding-left:{8 + depth * 16}px"
     draggable={canWrite() && !virtual}
     role="treeitem"
@@ -171,7 +169,6 @@
   .fav-gap { height: 12px; } /* Favorites and Bookmarks stand apart from the folders */
   .row-item.active { background: var(--accent-soft); }
   .row-item.drop { outline: 2px dashed var(--accent); }
-  .row-item.dim { opacity: 0.6; }
   .folder .name { font-weight: 500; }
   .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .chev { display: inline-flex; border: 0; background: none; width: 16px; padding: 0; cursor: pointer; color: var(--muted); transition: transform 0.1s; }

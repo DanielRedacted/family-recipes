@@ -63,6 +63,9 @@ select.plain-select:focus-visible { outline: 2px solid var(--accent); outline-of
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* a round colour swatch (the icon picker, Settings → Colour); .on is the chosen one */
+.sw { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; padding: 0; }
+.sw.on { border-color: var(--accent-ink); box-shadow: 0 0 0 2px var(--accent-soft); }
 @media print {
   .no-print, nav, aside, header, .toolbar { display: none !important; }
   body { background: #fff; color: #000; }

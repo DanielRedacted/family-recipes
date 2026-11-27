@@ -11,6 +11,7 @@
   import { modal } from '../lib/modal';
   import Section from './Section.svelte';
   import { nameOnRecipes, personHash } from '../lib/people';
+  import { renderInline } from '../lib/markdown';
 
   const tab = getContext<Tab>('tab'); // the home page can be open in more than one tab
   /** the writer's page: found by their id (they may have been renamed since), else by the name the note shows */
@@ -65,7 +66,7 @@
     <ul class="notes" aria-label="Kitchen whiteboard">
       {#each notes as m (m.id)}
         <li class="note">
-          <p class="text">{m.text}</p>
+          <p class="text">{@html renderInline(m.text)}</p>
           <div class="foot row">
             <span class="muted small"><a class="who" href={writer(m)}>{m.author}</a>{[when(m.created), lasts(m.expires)].filter(Boolean).map((t) => ' · ' + t).join('')}</span>
             <span class="spacer"></span>

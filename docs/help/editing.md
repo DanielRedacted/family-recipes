@@ -30,6 +30,8 @@ You can add a missing detail (yield, servings, times, source) without opening th
 
 Type two square brackets, **[[**, and the app suggests recipe names. You can also use the link button in the bar. The linked recipe then lists this one under **Mentioned in**. To follow a link while you're editing, ⌘-click it.
 
+To link a person, type **@** and start their name; to link an ingredient, type **#** and start its name. Pick one from the suggestions. In the recipe, “@Grandma” then reads as a link to their page and “#butter” as a link to the ingredient. Only names and ingredients the book already knows become links, so “#10 can” stays as it is. **[[** works for people and ingredients too when no recipe has that name.
+
 ## Who gets the credit
 
 When you save, the app asks **What changed?** Type a short note, such as "Less sugar", or leave it blank, and tap **Save**. The recipe keeps three kinds of credit, shown under **More**:

@@ -131,7 +131,7 @@ assert.equal(await page.locator('aside .row-item.folder:has-text("Pies")').getAt
 await page.click('aside .row-item.folder:has-text("Breads") >> nth=0 >> .chev');
 await page.waitForTimeout(300);
 assert.equal(await page.locator('aside .row-item.folder:has-text("Breads") >> nth=0').getAttribute('aria-expanded'), 'true', 'a folder opened by hand stays open');
-assert.deepEqual((await page.locator('.crumbs > *').allTextContents()).filter((t) => t.trim()), ['All recipes', '›', 'Soups & Chili', '›', 'Gumbo']);
+assert.deepEqual((await page.locator('.pane:not([inert]) .crumbs > *').allTextContents()).filter((t) => t.trim()), ['All recipes', '›', 'Soups & Chili', '›', 'Gumbo']);
 const [asideH, winH] = await page.evaluate(() => [document.querySelector('aside').getBoundingClientRect().height, innerHeight]);
 assert.equal(asideH, winH, 'nav column is one window tall');
 // folder cards show only the count, in the corner
@@ -221,7 +221,7 @@ assert.ok(await page.locator('.prose a:has-text("Pizza Sauce")').count(), 'the s
 // no table rows joined with " · " in the ingredient catalogue
 await page.goto(new URL('/#/ingredients', url).href);
 await page.waitForSelector('.ing, table, li');
-assert.equal(await page.locator('text= · ').count(), 0);
+assert.equal(await page.locator('.pane:not([inert]) >> text= · ').count(), 0);
 // the bundled tables are already in the editor's layout: opening, editing elsewhere and saving keeps them
 const crust = `${vault}/Pies/Pie Crust (Grandma).md`;
 const crustBefore = fs.readFileSync(crust, 'utf8');
@@ -283,9 +283,9 @@ assert.ok(fileX > folderX + 8, `file icon ${fileX} indented from folder icon ${f
 // units: one spelling in the files; Settings → General offers US and Metric; US tidies scaled amounts
 const units = async (u) => {
   await page.goto(new URL('/#/settings/general', url).href);
-  await page.waitForSelector('select[aria-label="Units"]');
-  assert.deepEqual(await page.locator('select[aria-label="Units"] option').allTextContents(), ['US', 'Metric']);
-  await page.selectOption('select[aria-label="Units"]', u);
+  await page.waitForSelector('.pane:not([inert]) select[aria-label="Units"]');
+  assert.deepEqual(await page.locator('.pane:not([inert]) select[aria-label="Units"] option').allTextContents(), ['US', 'Metric']);
+  await page.selectOption('.pane:not([inert]) select[aria-label="Units"]', u);
   await page.goto(new URL('/#/n/Candy/Caramel%20and%20Sauce.md', url).href);
   await page.waitForSelector('.prose li');
 };

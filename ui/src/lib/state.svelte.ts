@@ -5,6 +5,7 @@ import { parse as parseYaml } from 'yaml';
 import { loadMessages } from './board.svelte';
 import { checkForUpdate } from './update.svelte';
 import type { Made } from './made';
+import { applyAccent } from './accent';
 
 export interface FolderMeta { emoji?: string; color?: string }
 
@@ -40,10 +41,26 @@ export const manyBooks = () => (app.session.books?.length ?? 0) > 1;
 /** What this tab's cookbook is called: its folder's name, or "Recipes" while there is only one. */
 export const cookbookName = () => (manyBooks() && app.session.books?.find((b) => b.id === BOOK)?.name) || 'Recipes';
 
+/** What the group calls itself in sentences ("the family PIN"): from Settings, never a name of its own. */
+export const groupWord = () => ({ family: 'family', friends: 'friends', team: 'team', other: 'group' })[app.session.group?.kind ?? 'family'] ?? 'family';
+/** The kind of group as a heading or label ("Family", "Team"). */
+export const groupKindTitle = () => groupWord()[0].toUpperCase() + groupWord().slice(1);
+/** The group's name if the owner gave one, else its kind ("Family"). */
+export const groupTitle = () => app.session.group?.name || groupKindTitle();
+
 /** Reading preferences for this device (Settings → General), kept in this browser. */
 export const prefs = $state({
   units: ((): 'us' | 'metric' => { try { return localStorage.getItem('units') === 'metric' ? 'metric' : 'us'; } catch { return 'us'; } })(),
+  /** this device's own colour; null = everyone's (Settings → General → Colour) */
+  accent: ((): string | null => { try { return localStorage.getItem('accent'); } catch { return null; } })(),
 });
+/** Pick this device's colour (null: use everyone's) and show whichever applies. */
+export function setDeviceAccent(c: string | null) {
+  prefs.accent = c;
+  try { if (c) localStorage.setItem('accent', c); else localStorage.removeItem('accent'); } catch {}
+  showAccent();
+}
+export const showAccent = () => applyAccent(prefs.accent || app.session.accent || null);
 export function setUnits(u: 'us' | 'metric') {
   prefs.units = u;
   try { localStorage.setItem('units', u); } catch {}
@@ -93,7 +110,7 @@ export function toast(text: string, kind: 'info' | 'error' | 'ok' = 'info') {
   setTimeout(() => { app.toasts = app.toasts.filter((t) => t.id !== id); }, kind === 'error' ? 6000 : 3000);
 }
 
-// ---------- routing: #/n/<path> note, #/f/<folder> folder, #/people/<name>, #/settings, #/trash, #/import ----------
+// ---------- routing: #/n/<path> note, #/f/<folder> folder, #/people/<name>, #/settings, #/trash, #/import, #/charts ----------
 
 export interface Route { view: string; path: string; mode?: string; /** the hash this route was read from */ hash?: string }
 
@@ -107,7 +124,7 @@ export function parseRoute(hash = location.hash): Route {
   }
   if (view === 'f') return { view: 'folder', path, hash };
   if (view === 'trash') return { view: 'settings', path: 'trash', hash };
-  if (['settings', 'import', 'search', 'ingredients', 'calendar', 'people'].includes(view)) return { view, path, hash };
+  if (['settings', 'import', 'search', 'ingredients', 'calendar', 'people', 'charts'].includes(view)) return { view, path, hash };
   return { view: 'folder', path: '', hash };
 }
 
@@ -170,8 +187,22 @@ function push(t: Tab, hash: string, nav: number) {
   t.pos = t.stack.length - 1;
 }
 
+/** The kind of page a route shows (recipes and folders are one kind); in wide windows each kind keeps to its own tab. */
+export const kindOf = (view: string) => (['note', 'folder', 'search', ''].includes(view) ? 'recipes' : view);
+
 export function go(hash: string) {
   hash = norm(hash);
+  // another kind of page: in the tab already showing that kind, else a new one (phones have one page, no tabs).
+  // Its top page (Recipes, Settings, People…) only brings that tab forward, as it was; a page in it opens there.
+  const r = parseRoute(hash);
+  const to = kindOf(r.view);
+  if (wide() && to !== kindOf(activeTab().route.view)) {
+    const t = app.tabs.find((x) => kindOf(x.route.view) === to);
+    if (!t) return newTab(hash);
+    selectTab(t.id);
+    app.sidebar = false;
+    if (!r.path) return;
+  }
   if (location.hash !== hash) location.hash = hash;
   else { const t = activeTab(); t.route = parseRoute(hash); app.route = t.route; app.nav++; } // the same page again (Home tapped)
   app.sidebar = false;
@@ -343,6 +374,7 @@ export function retarget(from: string, to: string | null) {
 export async function loadSession() {
   try {
     app.session = await api<Session>('GET', '/api/session');
+    showAccent();
     // the cookbook this tab is in; one removed (or made Mac only) since this device chose it: the first
     if (!settleBook((app.session.books ?? []).map((b) => b.id))) openBook(BOOK);
   } catch { /* offline: the cookbook chosen before */ }
@@ -353,6 +385,8 @@ export async function loadSession() {
 let loading: Promise<void> | null = null;
 /** a load asked for while one was running: that one may have read the folder before the change */
 let queued: Promise<void> | null = null;
+/** `attachments/` and anything under it (pictures and the files recipes were made from). */
+export const inAttachments = (p: string) => p === 'attachments' || p.startsWith('attachments/');
 export function loadVault(): Promise<void> {
   if (loading) return (queued ??= loading.then(() => { queued = null; return loadVault(); }));
   loading = (async () => {
@@ -364,7 +398,8 @@ export function loadVault(): Promise<void> {
       const shown = v.files.filter((f) => !originals.has(f.path));
       app.files = shown;
       app.byPath = Object.fromEntries(v.files.map((f) => [f.path, f]));
-      app.folders = v.folders.filter((d) => d !== 'attachments/originals' || shown.some((f) => f.path.startsWith(d + '/')));
+      // pictures and originals are reached from their recipes, never browsed
+      app.folders = v.folders.filter((d) => !inAttachments(d));
       app.folderMetaRaw = v.folder_meta ?? '';
       try { const m = parseYaml(app.folderMetaRaw || '{}'); app.folderMeta = m && typeof m === 'object' ? m : {}; } catch { app.folderMeta = {}; }
       app.offline = false;

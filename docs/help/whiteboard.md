@@ -17,7 +17,7 @@ Each note shows who wrote it, when (the time if it was today, otherwise the date
 
 1. Go to the home page (tap **Home** in the bottom bar on a phone).
 2. Tap the speech-bubble button, **Write on the whiteboard**, at the top of the page.
-3. Type your note. Keep it short: up to 500 characters.
+3. Type your note. Keep it short: up to 500 characters. To link a recipe, write its name in double square brackets, like **[[Pie Crust]]**. To link a person or an ingredient, write **@** or **#** before the name, like **@Grandma** or **#butter**. Everyone can tap those to open the page.
 4. Under **Keep it**, choose:
    - **Today only**: the note disappears at midnight.
    - **Until** a date: it stays through the end of the day you pick.

@@ -3,10 +3,10 @@ export interface MenuItem { label: string; run: () => void; danger?: boolean; /*
 /** from: what opened it, for focus to go back to; kbd: opened from the keyboard, so focus goes into it */
 export const menu = $state({ x: 0, y: 0, items: [] as MenuItem[], from: null as HTMLElement | null, kbd: false });
 
-export function openMenu(e: MouseEvent, items: MenuItem[]) {
+/** from: what it belongs to, when that isn't the element the handler sits on */
+export function openMenu(e: MouseEvent, items: MenuItem[], from = e.currentTarget as HTMLElement | null) {
   e.preventDefault();
   e.stopPropagation();
-  const from = e.currentTarget as HTMLElement | null;
   const r = from?.getBoundingClientRect();
   const fromButton = e.type === 'click' && r;
   menu.x = Math.min(fromButton ? r.left : e.clientX, window.innerWidth - 220);

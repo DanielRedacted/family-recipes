@@ -15,6 +15,8 @@ A device stays signed in for up to 400 days, and signing in again renews it. **S
 
 ## The family PIN
 
+The PIN is named after your group: “Family PIN” unless the Mac's **Settings → General → Group** says Friends, Team or Other.
+
 Set it in **Settings → Phones & tablets → Family PIN** (or in the first-start setup). It can be any length.
 
 - **Set PIN** / **Change PIN**: every device has to sign in again, with the new PIN.

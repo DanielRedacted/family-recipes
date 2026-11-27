@@ -3,12 +3,13 @@
 // who never signed in (or whose account was removed) still has a page. Kept free of Svelte so
 // vitest can run it.
 import { authorsOf } from './credit';
+import { commentsOf, type Comment } from './comments';
 import type { Entry, Person } from './types';
 
 export interface Credits { wrote: Entry[]; added: Entry[]; edited: Entry[] }
 export interface Listed { name: string; person?: Person; recipes: number }
 
-const key = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
+export const key = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
 
 /** Every name a person's recipes may be credited under. */
 export const namesOf = (p: Person) => [p.full_name, p.name, ...(p.former ?? [])].filter((n) => n?.trim());
@@ -34,6 +35,18 @@ export function creditsOf(files: Entry[], names: string[]): Credits {
     else if (has(editorsOf(fm))) out.edited.push(f);
   }
   return out;
+}
+
+/** The notes `names` wrote on recipes (Comments.svelte), newest first. A note is its own credit: it never makes
+ *  its writer one of the recipe's authors or editors, nor counts as a recipe of theirs. */
+export function notesBy(files: Entry[], names: string[]): { entry: Entry; note: Comment }[] {
+  const mine = new Set(names.map(key));
+  const out: { entry: Entry; note: Comment }[] = [];
+  for (const f of files) {
+    if (f.kind !== 'note') continue;
+    for (const note of commentsOf(f.frontmatter)) if (mine.has(key(note.by))) out.push({ entry: f, note });
+  }
+  return out.sort((a, b) => b.note.date.localeCompare(a.note.date));
 }
 
 /** Everyone in the book: people who sign in (by name), then every other name a recipe credits (most recipes first). */
@@ -63,6 +76,14 @@ export function directory(files: Entry[], people: Person[]): { family: Listed[];
   const others = [...counts.values()].map((c) => ({ name: c.name, recipes: c.files.size }))
     .sort((a, b) => b.recipes - a.recipes || a.name.localeCompare(b.name));
   return { family, others };
+}
+
+/** Every name someone in the book goes by (lower case, spaces squeezed) → the name their page goes by. */
+export function peopleNames(files: Entry[], people: Person[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const l of directory(files, people).others) out.set(key(l.name), l.name);
+  for (const p of people) for (const n of namesOf(p)) out.set(key(n), nameOnRecipes(p));
+  return out;
 }
 
 /** The person whose page `name` is, if they sign in. */

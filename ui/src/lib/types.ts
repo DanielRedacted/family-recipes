@@ -56,4 +56,9 @@ export interface Session {
   setup?: boolean;
   /** the cookbooks this device may open (Settings → Cookbooks), in order; named after their folders */
   books?: { id: string; name: string }[];
+  /** the colour for every device (`#rrggbb`); null = the built-in purple */
+  accent?: string | null;
+  /** who uses the app (Settings → General → Group); the name is empty until the owner types one */
+  group?: { kind: GroupKind; name: string };
 }
+export type GroupKind = 'family' | 'friends' | 'team' | 'other';

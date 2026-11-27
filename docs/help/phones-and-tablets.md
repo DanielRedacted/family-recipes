@@ -42,7 +42,7 @@ The home-screen app keeps the last copy it saw. While it can't reach the Mac, th
 
 On a phone the folder column is tucked away, and a bar along the bottom has three buttons:
 
-- **Folders** slides out the folder column. Its bottom row has the carrot (**Ingredients**), the calendar and the **Settings** gear.
+- **Folders** slides out the folder column. Its bottom row has the carrot (**Ingredients**), the calendar, the people button, the ruler (**Kitchen charts**) and the **Settings** gear.
 - **Home** goes to the home page, with the whiteboard and dinner ideas.
 - **Search** finds recipes, folders and ingredients.
 

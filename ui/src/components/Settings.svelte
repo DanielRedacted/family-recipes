@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { app, toast, loadSession, loadVault, noteHash, dirOf, prefs, setUnits, canWrite } from '../lib/state.svelte';
+  import { app, toast, loadSession, loadVault, noteHash, dirOf, prefs, setUnits, canWrite, setDeviceAccent, groupWord, groupKindTitle } from '../lib/state.svelte';
+  import { SWATCHES } from '../lib/accent';
+  import type { GroupKind } from '../lib/types';
   import { api, inBook } from '../lib/api';
   import { shell, chooseCookbookFolder } from '../lib/ops';
   import { confirmIt } from '../lib/dialog.svelte';
@@ -130,6 +132,23 @@
   async function signOut() { await api('DELETE', '/api/session'); await loadSession(); }
 </script>
 
+{#snippet colours(label: string, current: string | null, pick: (c: string | null) => void, device: boolean)}
+  {@const known = SWATCHES.some((c) => c.value === current)}
+  <div class="swatches" role="group" aria-labelledby={label}>
+    {#if device}
+      <button type="button" class="btn same" class:on={!current} aria-pressed={!current} onclick={() => pick(null)}>Same as everyone</button>
+    {/if}
+    {#each SWATCHES as c, i (c.value)}
+      {@const on = current === c.value || (!device && i === 0 && !current)}
+      <button type="button" class="sw" class:on style="background:{c.value}" aria-pressed={on} aria-label={c.name} title={c.name}
+        onclick={() => pick(!device && i === 0 ? null : c.value)}></button>
+    {/each}
+    <label class="sw other" class:on={!!current && !known} title="Another colour" style={current && !known ? `background:${current}` : ''}>
+      <input type="color" aria-label="Another colour" value={current ?? SWATCHES[0].value} onchange={(e) => pick(e.currentTarget.value)} />
+    </label>
+  </div>
+{/snippet}
+
 <div class="mnav"><SettingsNav compact /></div>
 {#if sec === 'trash'}
   <Trash />
@@ -153,7 +172,30 @@
       </select>
     </label>
     <p class="muted small">US shows the recipe's own units, tidied when you scale; Metric converts to ml and g. Saved on this device.</p>
+    {#if admin}
+      <h3 id="colour-all">Colour for everyone</h3>
+      {@render colours('colour-all', app.session.accent ?? null, (c) => put({ accent: c ?? '' }), false)}
+    {/if}
+    <h3 id="colour-me">{admin ? 'Colour on this Mac' : 'Colour on this device'}</h3>
+    {@render colours('colour-me', prefs.accent, setDeviceAccent, true)}
+    <p class="muted small">{admin ? 'Every phone and tablet uses the colour for everyone unless someone picks another one on their device.' : 'Pick a colour just for this device, or keep the one chosen on the Mac.'}</p>
   </section>
+
+  {#if admin}
+    {@const group = app.session.group ?? { kind: 'family' as GroupKind, name: '' }}
+    <section class="card">
+      <h2>Group</h2>
+      <label class="row">Who uses Recipes
+        <select class="field w" value={group.kind} onchange={(e) => put({ group: { ...group, kind: e.currentTarget.value } })}>
+          <option value="family">Family</option><option value="friends">Friends</option><option value="team">Team</option><option value="other">Other</option>
+        </select>
+      </label>
+      <label class="row">Name
+        <input class="field w" maxlength="60" placeholder="Group name" value={group.name} onchange={(e) => put({ group: { ...group, name: e.currentTarget.value } })} />
+      </label>
+      <p class="muted small">The name shows on the sign-in screen of phones and tablets and on the People page. Without one they say “{groupKindTitle()}”.</p>
+    </section>
+  {/if}
 
   <section class="card">
     <h2>Recipe book</h2>
@@ -168,7 +210,7 @@
     <section class="card">
       <h2>This device</h2>
       {#if app.session.user}<p>Signed in as <strong>{app.session.user.name}</strong>.</p>{/if}
-      {#if !canWrite()}<p class="muted small">Read-only: editing from phones and tablets needs a family PIN, set in the Recipes app on the Mac.</p>{/if}
+      {#if !canWrite()}<p class="muted small">Read-only: editing from phones and tablets needs a {groupWord()} PIN, set in the Recipes app on the Mac.</p>{/if}
       <div class="row"><button class="btn" onclick={signOut}>Sign out</button></div>
       {#if location.protocol === 'http:'}
         <p class="muted small">To add Recipes to the home screen as an app that keeps working while the Mac is asleep, do the one-time setup.</p>
@@ -242,7 +284,7 @@
     <section class="card">
       <p class="muted small">Phones, tablets and other computers on the same Wi-Fi can open the recipes.</p>
       <Network status={s.network} lan={s.lan} keepAwake={s.keep_awake} onchange={put} />
-      <h3>Family PIN</h3>
+      <h3>{groupKindTitle()} PIN</h3>
       <p class="muted small">Asked once on each phone, tablet or other computer when someone signs in with their name. With it, everyone signed in can edit, import and delete. {s.pin_set ? 'A PIN is set.' : 'No PIN is set, so other devices can read recipes and use the whiteboard, but not edit.'}</p>
       <form class="row" onsubmit={(e) => { e.preventDefault(); savePin(); }}>
         <input class="field w" type="password" placeholder={s.pin_set ? 'New PIN' : 'Choose a PIN'} bind:value={pin} autocomplete="new-password" aria-label="PIN" />
@@ -336,6 +378,13 @@
   .cals label { gap: 8px; min-height: 36px; flex-wrap: nowrap; }
   .keyrow label { flex: 1; }
   .recent { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .swatches .same { min-height: 32px; }
+  .swatches .same.on { border-color: var(--accent-ink); box-shadow: 0 0 0 2px var(--accent-soft); }
+  /* the native colour well, hidden inside a rainbow swatch until a colour of its own is chosen */
+  .sw.other { position: relative; overflow: hidden; background: conic-gradient(#c23a4b, #c25a1c, #d9b310, #3d8a3a, #14837b, #2f6fd0, #7a52cc, #c2408f, #c23a4b); }
+  .sw.other input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+  .sw.other:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
   .mnav { display: none; }
   @media (max-width: 899px) { .page { padding: 8px 16px 96px; } .mnav { display: block; padding: 12px 16px 0; } }
 </style>

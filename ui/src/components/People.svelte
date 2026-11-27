@@ -7,11 +7,12 @@
   import Avatar from './Avatar.svelte';
   import Section from './Section.svelte';
   import RecipeCard from './RecipeCard.svelte';
-  import { app, loadPeople, type Tab } from '../lib/state.svelte';
+  import { app, loadPeople, groupTitle, noteHash, type Tab } from '../lib/state.svelte';
+  import { renderInline } from '../lib/markdown';
   import { api } from '../lib/api';
   import { modal } from '../lib/modal';
   import { suggestEmoji } from '../lib/icons';
-  import { creditsOf, directory, findPerson, namesOf, nameOnRecipes, personHash, type Listed } from '../lib/people';
+  import { creditsOf, directory, findPerson, namesOf, nameOnRecipes, notesBy, personHash, type Listed } from '../lib/people';
   import type { Entry } from '../lib/types';
 
   let { name }: { name: string } = $props();
@@ -24,6 +25,9 @@
   const credits = $derived(name ? creditsOf(app.files, person ? namesOf(person) : [name]) : null);
   const favorites = $derived((person?.favorites ?? []).map((p) => app.byPath[p]).filter((f): f is Entry => f?.kind === 'note').sort(byTitle));
   const total = $derived(credits ? credits.wrote.length + credits.added.length + credits.edited.length : 0);
+  /** the notes they left on recipes: their own credit, apart from the recipes they wrote, added or edited */
+  const notes = $derived(name ? notesBy(app.files, person ? namesOf(person) : [name]) : []);
+  const noteDay = (d: string) => { const t = new Date(d + 'T12:00'); return isNaN(+t) ? d : t.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); };
   const me = $derived(!!person && person.id === app.session.user?.id);
   const canPicture = $derived(!!person && (me || app.session.role === 'admin'));
   const since = (t?: number) => (t ? new Date(t * 1000).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : '');
@@ -89,7 +93,7 @@
     <h1 class="title"><Back />People</h1>
     <p class="muted lede">Everyone who has written, added or changed a recipe in the book.</p>
     {#if dir.family.length}
-      <Section id="people-family" title="Family" count={dir.family.length}>
+      <Section id="people-family" title={groupTitle()} count={dir.family.length}>
         <div class="people">{#each dir.family as l (l.person?.id)}{@render tile(l)}{/each}</div>
       </Section>
     {/if}
@@ -109,6 +113,8 @@
           <p class="muted">{person.name !== shown ? `Signs in as ${person.name}` : 'Signs in'}{#if person.created}, since {since(person.created)}{/if}</p>
         {:else if total}
           <p class="muted">Credited in the book's recipes</p>
+        {:else if notes.length}
+          <p class="muted">Left notes on the book's recipes</p>
         {/if}
         {#if canPicture}<button class="btn" onclick={() => { error = ''; picking = true; }}>{person?.picture ? 'Change picture…' : 'Add a picture…'}</button>{/if}
       </div>
@@ -119,11 +125,25 @@
       {#if credits.added.length}<Section id="person-added" title="Added to the book" count={credits.added.length}>{@render cards(credits.added)}</Section>{/if}
       {#if credits.edited.length}<Section id="person-edited" title="Edited" count={credits.edited.length}>{@render cards(credits.edited)}</Section>{/if}
     {/if}
+    {#if notes.length}
+      <Section id="person-notes" title="Notes" count={notes.length}>
+        <ul class="pnotes">
+          {#each notes as n (n.entry.path + n.note.id)}
+            <li class="pnote">
+              <a class="on" href={noteHash(n.entry.path) + '?note=' + encodeURIComponent(n.note.id)}>{n.entry.title}</a>
+              {#if n.note.quote}<p class="quote">“{n.note.quote}”</p>{/if}
+              <p class="text">{@html renderInline(n.note.text)}</p>
+              <p class="muted small">{noteDay(n.note.date)}</p>
+            </li>
+          {/each}
+        </ul>
+      </Section>
+    {/if}
     {#if favorites.length}<Section id="person-favorites" title="Favorites" count={favorites.length}>{@render cards(favorites)}</Section>{/if}
 
-    {#if app.loaded && !person && !total}
+    {#if app.loaded && !person && !total && !notes.length}
       <p class="muted">No recipe in the book credits “{name}”. <a href="#/people">See everyone</a></p>
-    {:else if app.loaded && !total && !favorites.length}
+    {:else if app.loaded && !total && !favorites.length && !notes.length}
       <p class="muted">{me ? 'Recipes you write, add or edit show here, and so do your favorites.' : `Nothing from ${person?.name ?? shown} yet.`}</p>
     {/if}
   {/if}
@@ -179,6 +199,15 @@
   .emo:hover { background: var(--sunken); }
   .emo.on { border-color: var(--accent); background: var(--accent-soft); }
   .end { justify-content: flex-end; }
+  /* a note they left: the recipe it's on, the words it's about, the note (as in the recipe's Notes list) */
+  .pnotes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .pnote { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 4px; align-content: start; }
+  .pnote .on { font: 600 16px/1.3 var(--serif); color: var(--text); text-decoration: none; }
+  .pnote .on:hover { color: var(--accent-ink); text-decoration: underline; }
+  .pnote p { margin: 0; }
+  .pnote .quote { font: italic 14px/1.4 var(--serif); color: var(--muted); overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .pnote .text { font: 16px/1.4 var(--serif); white-space: pre-wrap; overflow-wrap: anywhere; }
   @media (max-width: 899px) {
     .page { padding: 8px 16px 96px; }
     .hero { gap: 16px; }

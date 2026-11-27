@@ -5,6 +5,7 @@
   import { getContext } from 'svelte';
   import { app, type Tab } from '../lib/state.svelte';
   import Section from './Section.svelte';
+  import { renderInline } from '../lib/markdown';
   import { fetchEvents, eventsOn, timeOf, addDays, startOfDay, refreshAtNaturalTimes, type CalEvent } from '../lib/calendar';
 
   const tab = getContext<Tab>('tab');
@@ -33,7 +34,7 @@
       {#each events as e (e.title + e.start)}
         <li>
           <span class="when small">{timeOf(e, day)}</span>
-          <span class="what">{e.title}{#if e.location}<span class="muted small where">{e.location}</span>{/if}</span>
+          <span class="what">{@html renderInline(e.title)}{#if e.location}<span class="muted small where">{e.location}</span>{/if}</span>
         </li>
       {/each}
     </ul>

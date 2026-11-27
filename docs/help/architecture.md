@@ -77,7 +77,7 @@ The recipes and the app's own data are kept apart, so GitHub sync never sees peo
 | Path | What it is |
 |---|---|
 | `**/*.md` | the recipes and other notes; folder = category |
-| `attachments/` | images, and imported originals under `attachments/originals/` |
+| `attachments/` | images, and imported originals under `attachments/originals/`; not shown in the folder column (reached from their recipes, links and search) |
 | `.trash/` | deleted files, and earlier versions of overwritten files under `.trash/versions/` (at most one per 10 minutes) |
 | `.folders.yaml` | folder icons and colours, written by the app |
 | `.git/` | when GitHub sync is on |

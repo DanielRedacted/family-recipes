@@ -200,6 +200,19 @@ components:
     typography: "{typography.recipe-body}"
     rounded: "{rounded.lg}"
     padding: 16px
+  comment-mark:
+    backgroundColor: "{colors.primary-soft}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.xs}"
+  comment-mark-current:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
+  comment-card:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.recipe-body}"
+    rounded: "{rounded.md}"
+    padding: 12px
   calendar-event:
     backgroundColor: "{colors.card-blue}"
     textColor: "{colors.text}"
@@ -226,6 +239,11 @@ components:
     backgroundColor: "{colors.card-orange}"
     textColor: "{colors.text}"
     typography: "{typography.card-title}"
+  colour-swatch:
+    backgroundColor: "{colors.card-purple}"
+    rounded: "{rounded.pill}"
+    width: 32px
+    height: 32px
   sign-in:
     backgroundColor: "{colors.background}"
     textColor: "{colors.text}"
@@ -320,8 +338,10 @@ and the app should feel like that family recipe box: warm, quiet, personal, and 
 the stove. The people using it are family members of every age, on a Mac in the kitchen and on
 phones and tablets around the house, often with flour on their hands.
 
-- **Lavender paper, one purple accent.** Off-white pages with a faint lavender tint, a slightly darker "sunken"
-  tone for the navigation column and quiet panels, and purple for the few things that act or are selected.
+- **Lavender paper, one accent (purple unless changed).** Off-white pages with a faint lavender tint, a slightly darker "sunken"
+  tone for the navigation column and quiet panels, and the accent for the few things that act or are selected.
+  The accent is purple by default; Settings → General → Colour can set another one for everyone and each device
+  can pick its own (`ui/src/lib/accent.ts`). The tokens below are the purple ones.
 - **Serif for the recipe, sans for the app.** Recipe text, titles and cards use the system serif
   (New York on Apple devices) so a recipe reads like a printed card; controls, labels and lists use
   the system sans.
@@ -336,7 +356,13 @@ phones and tablets around the house, often with flour on their hands.
 The palette: a paper neutral range tinted very lightly lavender, a purple accent that complements it,
 and eight pastel card colours the family picks for folders and recipes.
 
-- **Purple (`primary` #7a52cc):** the one accent; white text on it is 5.4:1. Primary buttons, list bullets and numbers, focus
+- **Another accent colour:** `accent.ts` derives the four accent tokens and their dark versions from the one
+  picked colour, mixing in OKLab (ink 20% towards black, wash 85% towards white; dark: 40% towards white, wash
+  80% towards the dark background). It first moves the colour towards black (dark: white) until it is 4.5:1
+  on the page, and puts white or `text` ink on it, whichever reads better. The override is a `<style id="accent">` on
+  `html:root`, written before first paint by `theme.js`; the saved recipe book carries the light half. The icon, the
+  Mac title bar, the install manifest and the lavender neutrals stay purple.
+- **Purple (`primary` #7a52cc):** the default accent; white text on it is 5.4:1. Primary buttons, list bullets and numbers, focus
   rings, the selected outline, dashed underlines on recipe links.
 - **Purple ink (`primary-ink` #5e3ba8):** purple dark enough for text: links, group headings inside a
   recipe, the selected portion chip. 7.5:1 on the page background.
@@ -396,7 +422,10 @@ the system sans for the app around it, and the system monospace only for the Mar
   with an 8px top radius, so it runs into the page below. Everything that navigates a page (Back,
   breadcrumbs, the page's buttons) is in that page's toolbar row, inside the tab. Each tab keeps its
   page alive (scroll, scaler, cook mode, an unsaved edit) and its own Back steps. ⌘-click or middle-click
-  a link or a row, or "Open in new tab" in a ⋯ menu, opens a page in a new tab; ⌘T a new tab, Ctrl+Tab
+  a link or a row, or "Open in new tab" in a ⋯ menu or a link's right-click menu (Open, Open in new tab), opens a
+  page in a new tab. Each kind of page keeps to its own tab (recipes and folders, Ingredients, Calendar, People,
+  Settings, Import; `kindOf` in `state.svelte.ts`): a page of another kind opens in the tab showing that kind, or a
+  new one, and that kind's top page only brings its tab forward. ⌘T a new tab, Ctrl+Tab
   the next one; middle-click or × closes one (asking first about unsaved changes); drag to reorder. The
   navigation column is shared: switching tabs only moves its highlighted row, and its folders open and
   fold only when a page is opened. The tabs are kept per device. Phones have no strip and one page.
@@ -485,6 +514,20 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   with an accent-ink "More ⌄" at its end. More opens a line with the source, the dashed add chips and
   the tags (and the original file); notes that aren't recipes show all their chips above the text. Cook mode (`button-primary`) sits in the toolbar row beside ⋯,
   and the unit choice (US / Metric) is in Settings → General, per device.
+- **Notes on a recipe (`comment-mark`, `comment-card`).** `Comments.svelte`. The words a note is about
+  are highlighted in the reader with the `primary-soft` wash plus a 2px `primary` underline, so they
+  show without colour too. The current note's words turn solid `primary` with `on-primary` text, and
+  forced colours use the system's `Mark`. The notes sit under the recipe, after Made today: a muted sans
+  "Notes" heading with a count, ghost Hide/Show, and a small `button` Add note, above a list of
+  `comment-card`s. A card is surface with a 1px border, which turns `primary` (doubled) for the current
+  note. It holds the quote in muted italic serif (up to 3 lines; tapping it finds the words), the note in
+  serif 16px, and a muted line with the author link, date and "edited by". Edit and delete are ghost icon
+  buttons. With a window of 1440px or more, the notes move into a 240–300px column beside the 760px
+  recipe that stays in view. Selecting words shows a floating `button-primary` "Add note" just below
+  them (fixed, with a small shadow because it floats over the text), and it opens the native-dialog
+  form. Notes are never printed or saved in the recipe book. A person's page has a Notes section of the
+  same cards (the recipe's title in serif 600 as the link, then the quote, the note and the date), which
+  opens the recipe at that note (`#/n/<path>?note=<id>`).
 - **Recipe book (`recipe-book`).** Settings → General → Recipe book (`ui/src/lib/book.ts`): a centred
   title page ("Recipes" in serif 3rem, a muted count and date), a contents page in two columns (folder
   names in purple ink, recipe names in sans 14px), then a chapter per folder whose title is serif
@@ -530,9 +573,13 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
   on phones a cell shows the date and a count, and the chosen day's full list follows the grid. App
   history (cooked, added, changed) is plain 14px rows with a muted line icon; a guessed meal is
   muted with a dashed-outline "Assumed" chip and "Yes, cooked" / "Not cooked" buttons.
-- **Sign-in.** A full-screen page like the first-start setup (`sign-in`): the app icon, "Who's cooking?"
-  in display serif, the family PIN field when a PIN is set, a wrapping row of name buttons, then a field
+- **Sign-in.** A full-screen page like the first-start setup (`sign-in`): the app icon, the group's name
+  (sans 600 in accent ink, only when one is set), "Who's cooking?" in display serif, the PIN field (named
+  after the group: "Family PIN", "Team PIN") when a PIN is set, a wrapping row of name buttons, then a field
   and a `button-primary` to add a new name.
+- **Colour swatches (`colour-swatch`).** 32px circles with a 2px `border` ring; the chosen one takes a
+  `primary-ink` ring and a `primary-soft` halo. Used for card colours in the icon picker and for the app colour in
+  Settings, where a last rainbow swatch holds the native colour picker and "Same as everyone" is a plain button.
 - **Credits.** Saving an edit opens the standard modal with a text field ("What changed?") and a
   "Credit me as an author" checkbox. Under a recipe's More: an "Added by" property chip and a History
   list (muted date, name · comment, newest first). The byline lists several authors ("By A and B").
@@ -563,7 +610,7 @@ they haven't picked one. AI actions are plain text labels, with no sparkle.
 
 ## Do's and Don'ts
 
-- Do keep a single purple accent; use it to mean "acts" or "selected", never decoration.
+- Do keep a single accent (purple by default); use it to mean "acts" or "selected", never decoration.
 - Do set recipe text in the serif and interface text in the sans; don't mix them inside one control.
 - Do use `primary-ink` (not `primary`) for purple text on light backgrounds.
 - Primary buttons have white text on purple (`on-primary`, 5.4:1; `--on-accent` in the CSS). Don't put

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { creditsOf, directory, findPerson, initials, personHash } from './people';
+import { creditsOf, directory, findPerson, initials, namesOf, notesBy, personHash } from './people';
 import type { Entry, Person } from './types';
 
 const note = (path: string, frontmatter: Record<string, unknown>): Entry => ({ path, kind: 'note', title: path, frontmatter } as unknown as Entry);
@@ -35,5 +35,23 @@ describe('pages', () => {
     expect(findPerson([ann], 'Mamaw')).toBeUndefined();
     expect(decodeURIComponent(personHash('Julia DeLucci / Betty').slice('#/people/'.length))).toBe('Julia DeLucci / Betty');
     expect([initials('Kimberley Romo'), initials('Mamaw'), initials('Sportello, Boston'), initials('Élise de la Tour')]).toEqual(['KR', 'M', 'SB', 'ÉD']);
+  });
+});
+
+describe('notesBy', () => {
+  const noted = [
+    note('Cake.md', { comments: [
+      { id: 'a', quote: 'Bake', text: 'Check at 40', by: 'Dee Ray', date: '2026-11-01' },
+      { id: 'b', quote: '', text: 'Our favourite', by: 'ann smith', date: '2026-11-20' },
+    ] }),
+    note('Pie.md', { author: 'Bo Lee', comments: [{ id: 'c', quote: 'Chill', text: 'Overnight', by: 'Dee  Ray', date: '2026-11-15' }] }),
+  ];
+  it('finds a person’s notes under any of their names, newest first', () => {
+    expect(notesBy(noted, ['Dee Ray']).map((n) => [n.entry.path, n.note.id])).toEqual([['Pie.md', 'c'], ['Cake.md', 'a']]);
+    expect(notesBy(noted, namesOf(ann)).map((n) => n.note.id)).toEqual(['b']);
+  });
+  it('never counts a note as a recipe credit', () => {
+    expect(creditsOf(noted, ['Dee Ray'])).toEqual({ wrote: [], added: [], edited: [] });
+    expect(directory(noted, []).others).toEqual([{ name: 'Bo Lee', recipes: 1 }]);
   });
 });

@@ -23,7 +23,7 @@ Every request gets a role from `auth::identify`. Roles are ordered, so a higher 
 
 Separately from the role, the request carries **who** is asking (`Who`): the desktop window is the built-in "Admin" (or the person chosen as Editing as), a signed-in device is its person, anyone else is nobody. The whiteboard and the activity log use this.
 
-Reading needs no sign-in at the API level; the UI shows its sign-in screen first. A role check that fails answers `403` with "only the desktop app can do this" or "editing needs the family PIN: set one in the Recipes app on the Mac".
+Reading needs no sign-in at the API level; the UI shows its sign-in screen first. A role check that fails answers `403` with "only the desktop app can do this" or "editing needs the PIN: set one in the Recipes app on the Mac".
 
 ## Sessions
 
@@ -57,7 +57,7 @@ Request bodies are limited to 30 MB, responses are compressed (gzip, brotli), an
 | Method | Path | Purpose | Who |
 |---|---|---|---|
 | GET | `/api/ping` | Answers `ok` (used to probe for HTTPS) | anyone |
-| GET | `/api/session` | Role, person, whether a PIN is set, AI on, the Mac's calendar on (switched on with at least one calendar ticked), shell available, version, whether the first-start setup is pending, and `books` `[{id, name}]`: the cookbooks this device may open, in order (on a network listener, without the Mac-only ones) | anyone |
+| GET | `/api/session` | Role, person, whether a PIN is set, AI on, the Mac's calendar on (switched on with at least one calendar ticked), shell available, version, whether the first-start setup is pending, `accent` and `group` (shown before signing in), and `books` `[{id, name}]`: the cookbooks this device may open, in order (on a network listener, without the Mac-only ones) | anyone |
 | POST | `/api/session` | Sign in `{name, full_name, pin}`: adds the person if the name is new (then `full_name` is required), checks the PIN when one is set, records the device, sets the session cookie | anyone |
 | DELETE | `/api/session` | Sign out (clears the cookie) | anyone |
 | GET | `/auth?k=<token>` | Exchanges the launch token for the admin cookie and redirects to `/` | loopback only |
@@ -104,8 +104,8 @@ Import runs as a job: start it, poll its status, then save. Nothing is written u
 
 | Method | Path | Purpose | Who |
 |---|---|---|---|
-| GET | `/api/settings` | `cookbooks` `[{id, name, path, missing, mac_only, git}]` (`git`: that cookbook's sync status), PIN set, AI settings and whether a key is saved, sharing and its status, keep awake, open at login, GitHub status, Editing as, `calendar` `{enabled, calendars}` | Admin |
-| PUT | `/api/settings` | Change any of `ai`, `calendar`, `lan`, `keep_awake`, `setup_done`, `editing_as` (`""` for nobody), `updates` (`notify`, `download` or `install`); starts or stops sharing as needed; returns the settings | Admin |
+| GET | `/api/settings` | `cookbooks` `[{id, name, path, missing, mac_only, git}]` (`git`: that cookbook's sync status), PIN set, AI settings and whether a key is saved, sharing and its status, keep awake, open at login, GitHub status, Editing as, `calendar` `{enabled, calendars}`, `accent` (`#rrggbb` or null), `group` `{kind, name}` | Admin |
+| PUT | `/api/settings` | Change any of `ai`, `calendar`, `lan`, `keep_awake`, `setup_done`, `editing_as` (`""` for nobody), `updates` (`notify`, `download` or `install`), `accent` (`#rrggbb`, or `""` for the built-in purple; anything else is `400`), `group` `{kind: family|friends|team|other, name}` (name trimmed, at most 60 characters); starts or stops sharing as needed; returns the settings | Admin |
 | POST | `/api/cookbooks` | Open folder `{path}` as a new cookbook, at once; returns `{id}`. `400` when the folder is missing, is or is inside or holds another cookbook or the data folder, or has a name another cookbook has | Admin |
 | PUT | `/api/cookbooks/{id}` | `{mac_only?}`; `{path?}` serves the cookbook from that folder instead (moved, or set up for the first time) and turns its GitHub sync off | Admin |
 | DELETE | `/api/cookbooks/{id}` | Stop serving it (its folder is left as it is) and delete its GitHub token; the last one can't be removed | Admin |

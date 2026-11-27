@@ -3,7 +3,7 @@
   // family PIN when one is set. The device stays signed in; Settings → General signs it out.
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
-  import { app, loadSession } from '../lib/state.svelte';
+  import { app, loadSession, groupWord, groupKindTitle } from '../lib/state.svelte';
 
   let people = $state<{ id: string; name: string }[]>([]);
   let name = $state('');
@@ -18,7 +18,7 @@
 
   async function signIn(who: string, full_name = '') {
     error = '';
-    if (app.session.pin_set && !pin) { error = 'Enter the family PIN first.'; return; }
+    if (app.session.pin_set && !pin) { error = `Enter the ${groupWord()} PIN first.`; return; }
     busy = true;
     try {
       await api('POST', '/api/session', { name: who, full_name, pin });
@@ -30,10 +30,11 @@
 <div class="signin" role="dialog" aria-modal="true" aria-labelledby="signin-title">
   <div class="box">
     <img src="/icon.svg" alt="" width="48" height="48" />
+    {#if app.session.group?.name}<p class="group">{app.session.group.name}</p>{/if}
     <h1 id="signin-title">Who's cooking?</h1>
     <p class="muted">Pick your name or add yourself. This device remembers you.</p>
     {#if app.session.pin_set}
-      <label class="pin">Family PIN
+      <label class="pin">{groupKindTitle()} PIN
         <input class="field" type="password" inputmode="numeric" autocomplete="current-password" bind:value={pin} />
       </label>
     {/if}
@@ -56,6 +57,7 @@
   .signin { position: fixed; inset: 0; z-index: 60; overflow-y: auto; background: var(--bg); padding: calc(48px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 40px max(16px, env(safe-area-inset-left)); }
   .box { max-width: 420px; margin: 0 auto; display: grid; gap: 16px; justify-items: start; }
   h1 { margin: 0; font-family: var(--serif); }
+  .group { font-weight: 600; color: var(--accent-ink); margin-bottom: -8px; overflow-wrap: anywhere; }
   p { margin: 0; }
   .pin { display: grid; gap: 4px; width: 100%; font-weight: 500; }
   .names { display: flex; flex-wrap: wrap; gap: 8px; }

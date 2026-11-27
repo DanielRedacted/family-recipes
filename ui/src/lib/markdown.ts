@@ -3,11 +3,11 @@ import DOMPurify from 'dompurify';
 import { fileUrl } from './api';
 import { app, noteHash, resolveLink, dirOf, stemOf } from './state.svelte';
 import { groupLines, scaleLine, boldQty, inVersion, solidGramsPerMl, toCelsius, versionsOf, type Units, type Weigh } from './scale';
-import { foods } from './ingredients.svelte';
+import { foods, catalog, loadIngredients } from './ingredients.svelte';
 import { aliasesOf } from './search';
 import { authorsOf } from './credit';
-import { personHash } from './people';
-import type { Entry } from './types';
+import { personHash, peopleNames, key } from './people';
+import type { Entry, Person } from './types';
 
 const md = new MarkdownIt({ html: true, linkify: true, typographer: false });
 
@@ -46,8 +46,65 @@ md.renderer.rules.wikilink = (tokens, idx) => {
     return `<img src="${esc(fileUrl(f.path))}" alt="${esc(label)}">`;
   }
   const f = resolveLink(target);
-  if (!f) return `<a class="wikilink missing" title="No note named “${esc(target)}”">${esc(label)}</a>`;
-  return `<a class="wikilink" href="${esc(noteHash(f.path))}">${esc(label)}</a>`;
+  const href = f ? noteHash(f.path) : personOrIngredient(target);
+  if (!href) return `<a class="wikilink missing" title="No recipe, person or ingredient called “${esc(target)}”">${esc(label)}</a>`;
+  return `<a class="wikilink" href="${esc(href)}">${esc(label)}</a>`;
+};
+
+// ---------- @person and #ingredient: only a name someone or something in the book goes by becomes a link ----------
+let named: { files: Entry[]; people: Person[]; map: Map<string, string> } | null = null;
+const people = () => {
+  if (named?.files !== app.files || named.people !== app.people) named = { files: app.files, people: app.people, map: peopleNames(app.files, app.people) };
+  return named.map;
+};
+let stocked: { items: unknown; map: Map<string, string> } | null = null;
+const ingredients = () => {
+  if (!catalog.loaded) loadIngredients(); // a page that read before it arrived renders again then
+  if (stocked?.items !== catalog.items) {
+    const map = new Map<string, string>();
+    for (const i of catalog.items) for (const n of [i.name, ...i.forms]) if (!map.has(key(n))) map.set(key(n), i.name);
+    stocked = { items: catalog.items, map };
+  }
+  return stocked.map;
+};
+const ingredientHash = (name: string) => '#/ingredients/' + encodeURIComponent(name);
+function personOrIngredient(name: string): string | null {
+  const p = people().get(key(name));
+  if (p) return personHash(p);
+  const i = ingredients().get(key(name));
+  return i ? ingredientHash(i) : null;
+}
+
+const WORD = /[\p{L}\p{N}_]/u;
+/** The longest of `names` that `src` starts with and that ends at a word boundary: [length, page name]. */
+// ponytail: a linear scan per @ or #, fine for one household's names and ingredients; a prefix map if it ever shows
+function longest(src: string, names: Map<string, string>): [number, string] | null {
+  const low = src.toLowerCase().replace(/\s+/g, ' ');
+  let best: [number, string] | null = null;
+  for (const [k, v] of names) if (k.length > (best?.[0] ?? 0) && low.startsWith(k) && !WORD.test(low[k.length] ?? '')) best = [k.length, v];
+  return best;
+}
+
+md.inline.ruler.before('link', 'mention', (state, silent) => {
+  const c = state.src[state.pos];
+  if ((c !== '@' && c !== '#') || state.linkLevel > 0) return false; // never a link inside a link's text
+  if (state.pos > 0 && (WORD.test(state.src[state.pos - 1]) || /[@#&]/.test(state.src[state.pos - 1]))) return false; // a@b.com, C#, &#39;
+  const rest = state.src.slice(state.pos + 1);
+  const hit = longest(rest, c === '@' ? people() : ingredients());
+  if (!hit) return false;
+  // the length is in squeezed text: walk the original the same number of squeezed characters
+  let n = 0, seen = 0;
+  while (seen < hit[0] && n < rest.length) { if (/\s/.test(rest[n])) { while (/\s/.test(rest[n + 1] ?? '')) n++; } n++; seen++; }
+  if (!silent) {
+    const t = state.push('mention', '', 0);
+    t.meta = { href: c === '@' ? personHash(hit[1]) : ingredientHash(hit[1]), label: rest.slice(0, n) };
+  }
+  state.pos += 1 + n;
+  return true;
+});
+md.renderer.rules.mention = (tokens, idx) => {
+  const { href, label } = tokens[idx].meta as { href: string; label: string };
+  return `<a class="wikilink mention" href="${md.utils.escapeHtml(href)}">${md.utils.escapeHtml(label)}</a>`;
 };
 
 const defaultImage = md.renderer.rules.image!;

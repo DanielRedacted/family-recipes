@@ -1,10 +1,10 @@
 // File-manager actions shared by the tree, folder view and note toolbar.
 import { isMap, parseDocument } from 'yaml';
-import { api, fileUrl, inBook, saveFile } from './api';
+import { api, ApiError, fileUrl, inBook, saveFile } from './api';
 import { setProp } from './frontmatter';
 import { stamp, today } from './credit';
 import { ask, choose, confirmIt } from './dialog.svelte';
-import { app, dirOf, go, loadSession, loadVault, nameOf, noteHash, folderHash, toast, canWrite, newTab, retarget, wide, favorites, changeFavorites, type FolderMeta } from './state.svelte';
+import { app, dirOf, go, loadSession, loadVault, nameOf, noteHash, folderHash, toast, canWrite, newTab, retarget, wide, favorites, changeFavorites, groupWord, type FolderMeta } from './state.svelte';
 import { openMenu, type MenuItem } from './menu.svelte';
 import { importer, enqueueFiles } from './importer.svelte';
 import { picker } from './picker.svelte';
@@ -42,7 +42,7 @@ const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 
 export function requireWrite(): boolean {
   if (canWrite()) return true;
-  toast('Editing from this device needs a family PIN. Set one in the Recipes app on the Mac, then sign in again.', 'error');
+  toast(`Editing from this device needs a ${groupWord()} PIN. Set one in the Recipes app on the Mac, then sign in again.`, 'error');
   return false;
 }
 
@@ -255,6 +255,21 @@ export async function toggleBookmark(path: string) {
     await saveFile(path, setProp(e.raw ?? '', 'favorite', isBookmarked(path) ? undefined : true), e.etag);
     await loadVault();
   } catch (err: any) { toast(err.message, 'error'); }
+}
+
+/** Change a recipe's notes (lib/comments.ts) without opening it. Not a change to the recipe, so no credit. If
+ *  someone saved it meanwhile, the same change is made again on their version, so neither is lost. */
+export async function saveComments(path: string, edit: (raw: string) => string, again = true): Promise<void> {
+  const e = app.byPath[path];
+  if (!e || e.kind !== 'note') throw new Error('This recipe isn’t there any more.');
+  try {
+    await saveFile(path, edit(e.raw ?? ''), e.etag);
+  } catch (err) {
+    if (!(again && err instanceof ApiError && err.status === 409)) throw err;
+    await loadVault();
+    return saveComments(path, edit, false);
+  }
+  await loadVault();
 }
 
 // ---------- icons and colours ----------

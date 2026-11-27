@@ -97,8 +97,6 @@
   .emo { font-size: 22px; background: none; border: 1px solid transparent; border-radius: 8px; padding: 4px; cursor: pointer; }
   .emo:hover { background: var(--sunken); }
   .emo.on { border-color: var(--accent); background: var(--accent-soft); }
-  .sw { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; }
-  .sw.on { border-color: var(--accent-ink); box-shadow: 0 0 0 2px var(--accent-soft); }
   .end { justify-content: flex-end; }
   p { margin: 0; }
 </style>

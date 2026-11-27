@@ -8,6 +8,7 @@
   import Ingredients from './Ingredients.svelte';
   import Calendar from './Calendar.svelte';
   import People from './People.svelte';
+  import Charts from './Charts.svelte';
 
   /** One tab's page. Every tab's page stays alive (scroll, scaler, an unsaved edit); only the active one shows. */
   let { tab }: { tab: Tab } = $props();
@@ -26,6 +27,7 @@
   {:else if tab.route.view === 'import'}<Import />
   {:else if tab.route.view === 'ingredients'}<Ingredients query={tab.route.path} />
   {:else if tab.route.view === 'calendar'}<Calendar />
+  {:else if tab.route.view === 'charts'}<Charts />
   {:else if tab.route.view === 'people'}{#key tab.route.path}<People name={tab.route.path} />{/key}
   {:else}{#key tab.route.path}<Folder path={tab.route.path} />{/key}
   {/if}

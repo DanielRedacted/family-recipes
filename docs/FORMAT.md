@@ -64,6 +64,12 @@ Freezes well. See [[Pie Crust]].
 - `[[Name]]` links to another note by file name (or by title); a Markdown link to the file
   (`[mayonnaise](../Condiments/Mayonnaise.md)`) works too, also outside the app. The note it points
   to lists “Mentioned in” links back. In the editor, typing `[[` suggests recipe names.
+  When no recipe has the name, `[[Name]]` links to the person or the ingredient called that instead.
+- `@Name` links to a person's page and `#ingredient` to the ingredient (`@Grandma`, `#brown sugar`).
+  Only a name someone in the book goes by, or an ingredient the recipes use, becomes a link, taking the
+  longest one that fits; anything else stays as written (`#10 can`, an email address, `# Heading`). The
+  editor suggests names after `@` and ingredients after `#`. The same links work in whiteboard notes and in
+  the titles of calendar events.
 - An ingredient named like another recipe links to it in the reader even without a link in the file
   ("pie crust" → Pie Crust). Only multi-word recipe names and Condiments recipes count, so "baking
   soda" doesn't link to Soda.
@@ -82,7 +88,7 @@ Freezes well. See [[Pie Crust]].
 | `tags` | list, e.g. `[pie, holiday]`. Kind: `Dessert`, `Snack`, `Side`, `Bread`, `Dough`, `Drink`, `Sauce`; meal, on entrées only: `Breakfast`, `Lunch`, `Dinner`; main protein: `Chicken`, `Beef`, `Pork`, `Turkey`, `Seafood`, `Eggs`, `Beans`. They feed the home page's suggestion (Dinner) and Random filters |
 | `yield`, `servings` | e.g. `8 servings`, `2 loaves`, `2 dozen`; the leading number (a dozen counts as 12) drives the serving scaler. A yield with a second number (`3 small, 2 large or 1 jumbo pizza`) is shown as written and the scaler shows ×N |
 | `prep_time`, `cook_time`, `total_time`, `additional_time` | human text, e.g. `1 hr 20 min` |
-| `author` | who wrote the recipe, or a list when several people did; the reader shows “By …” under the title. Saving an edit in the app can add the editor's full name (the “Credit me as an author” box) |
+| `author` | who wrote the recipe, or a list when several people did (one line with `A / B`, `A & B` or `A and B` counts as several people; a comma doesn't, so “a restaurant, its city” stays one); the reader shows “By …” under the title. Saving an edit in the app can add the editor's full name (the “Credit me as an author” box) |
 | `added_by` | who imported the recipe into the app (their full name); set once, never replaced |
 | `changes` | the recipe's history, written by the app: a list of `by` (full name), `date` (`YYYY-MM-DD`) and `note` (a short comment). One entry per person per day; that day's further changes add to its note (`Less sugar; Changed prep time`). Edits made outside the app are not recorded |
 | `source` | the website a recipe was copied from (e.g. `https://www.food.com`); shown as a link chip |
@@ -92,6 +98,7 @@ Freezes well. See [[Pie Crust]].
 | `color` | card colour: `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `brown` or `grey` |
 | `favorite` | `true` bookmarks the recipe: it is listed under Bookmarks (home page and the top of the folder column) and marked with a bookmark icon |
 | `note` | a short remark kept out of the title, e.g. `not tried yet` |
+| `comments` | notes on the recipe, written by the app (Notes under the recipe): a list of `id`, `quote` (the highlighted words, spaces squeezed; empty for a note on the whole recipe), `nth` (only when those words appear earlier in the recipe as read, 0 = the first), `text`, `by` (full name), `date` (`YYYY-MM-DD`) and, after a change, `edited_by` and `edited`. A note credits only its writer (the Notes section of their People page), never `author` or `changes`; adding, changing or deleting one doesn't add to `changes`. The words are looked up in the recipe as shown, so a note on an amount isn't highlighted while the recipe is scaled or in metric. Never part of the recipe's text; not shown in the Properties panel |
 | `versions` | `true` when the file holds versions of one recipe, each under its own Ingredients heading (`## Ingredients` twice, or `## Cheesy Artichoke Cups Ingredients` and `## Artichoke Wonton Ingredients`): the reader shows one version at a time, with a chip per version above the recipe (cook mode and Nutrition follow it); what comes before the first version, such as the title, always shows. A version runs from its heading, or the bold line right above it, to the next version. Without it, the sets under several Ingredients headings are parts of one dish (cake and frosting) and are added up. Not shown in the Properties panel |
 | `aliases` | another name the recipe is known by (or a list); search and `[[links]]` find the recipe by it |
 | `nutrition` | map of values as written, e.g. `calories: 320 kcal`, kept from an import; shown only on the importer's Preview, the reader shows the estimate worked out from the ingredients (see *Nutrition* below). Keys: `serving_size`, `calories`, `carbohydrates`, `protein`, `fat`, `saturated_fat`, `unsaturated_fat`, `polyunsaturated_fat`, `monounsaturated_fat`, `trans_fat`, `cholesterol`, `sodium`, `potassium`, `fiber`, `sugar`, `vitamin_a`, `vitamin_c`, `calcium`, `iron` |
@@ -190,7 +197,7 @@ portions; it may be empty.
 - The formatted editor writes tables padded so the columns line up; opening a note only re-spaces
   them and doesn't count as a change.
 
-**Links:** `[[Recipe name]]` and links to files in the recipes folder (`[text](../Pies/Pie Crust.md)`)
+**Links:** `[[Recipe name]]`, `@person`, `#ingredient` and links to files in the recipes folder (`[text](../Pies/Pie Crust.md)`)
 open in the app; links to web pages (`[text](https://…)`) are shown with ↗ and open in the browser.
 In the reader a plain click follows a link; in the editor ⌘-click does.
 
