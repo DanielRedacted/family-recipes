@@ -203,7 +203,9 @@ pub fn issues(md: &str) -> Vec<Issue> {
         None => out.push(w("No ingredient list found. Put ingredients under a “## Ingredients” heading, one per line starting with “- ”.")),
         Some(r) => {
             let n = r.ingredient_count();
-            if n < 2 {
+            if n == 0 {
+                out.push(w("No ingredient list found. Put ingredients under a “## Ingredients” heading, one per line starting with “- ”."));
+            } else if n < 2 {
                 out.push(w("Only one ingredient was found — check that each ingredient is on its own line."));
             }
             let steps: Vec<_> = r.steps.iter().flat_map(|g| &g.items).collect();
